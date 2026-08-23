@@ -10,7 +10,7 @@ export const WELCOME_NOTICE_ACK_FIELD = 'welcomeNoticeVersion'
  */
 export const WELCOME_NOTICE_VERSION = '2026-08-13.1'
 
-/** The complete editable internal-testing notice in both supported GUI locales. */
+/** The complete editable internal-testing notice in every supported GUI locale. */
 export const WELCOME_NOTICE_COPY = {
   zh: {
     title: '内测声明',
@@ -21,5 +21,10 @@ export const WELCOME_NOTICE_COPY = {
     title: 'Internal Testing Notice',
     body: "DeepSeek Harness 0.1 remains in testing for Harness developers. Many areas need further improvement, and we welcome feedback from the developer community. DeepSeek Harness's core plugins and foundational APIs will continue to evolve rapidly over the coming months.\n\nWe look forward to exploring the limits of intelligence with developers around the world, building on open-source, open, reusable, and composable infrastructure. We welcome Harness developers everywhere to join the DSH plugin ecosystem.",
     continueLabel: 'Continue',
+  },
+  ru: {
+    title: 'Уведомление о внутреннем тестировании',
+    body: 'DeepSeek Harness 0.1 находится на стадии тестирования разработчиками Harness. Многое ещё предстоит улучшить, и мы ждём отзывов от сообщества разработчиков. Базовые плагины и фундаментальные API DeepSeek Harness будут быстро развиваться и в ближайшие месяцы.\n\nМы ждём разработчиков со всего мира, чтобы вместе исследовать пределы интеллекта на открытой, переиспользуемой и компонуемой инфраструктуре. Присоединяйтесь к экосистеме плагинов DSH.',
+    continueLabel: 'Продолжить',
   },
 } as const

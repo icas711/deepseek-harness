@@ -6,7 +6,7 @@
 import { memo, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type {
-  ModelRetryNode, TurnErrorNode, UserMessageNode,
+  ModelRetryNode, SessionId, TurnErrorNode, UserMessageNode,
 } from '@deepseek-ai/dsh-client-runtime/client'
 import { JsonBlock, MessageText, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ChatNodeViewProps, ChatViewSlotProps } from '../contract/slots.ts'
@@ -127,6 +127,74 @@ function TurnErrorItem({ node, t }: {
       </div>
       {node.code !== undefined && <code className={css.turnErrorCode}>{node.code}</code>}
     </div>
+  )
+}
+
+/** Persistent, turn-positioned feedback for a terminal failure, with the quota continuation when the refusal parked work. */
+function QuotaTurnErrorItem({ node, sessionId, useSession, resumeAfterQuota, t }: {
+  node: TurnErrorNode
+  sessionId: SessionId
+  useSession: ChatViewSlotProps['useSession']
+  resumeAfterQuota: ChatNodeViewProps<'turn-error'>['resumeAfterQuota']
+  t: ChatViewSlotProps['t']
+}) {
+  return (
+    <div className={css.turnErrorRow} role="status">
+      <StateDot state="error" className={css.turnErrorDot} />
+      <div className={css.turnErrorCopy}>
+        <span className={css.turnErrorTitle}>{t('message.turnError')}</span>
+        <span className={css.turnErrorMessage}>{node.message}</span>
+        <TurnErrorResumeButton
+          sessionId={sessionId}
+          turn={node.turn}
+          useSession={useSession}
+          resumeAfterQuota={resumeAfterQuota}
+          t={t}
+        />
+      </div>
+      {node.code !== undefined && <code className={css.turnErrorCode}>{node.code}</code>}
+    </div>
+  )
+}
+
+/** The quota-refusal continuation: release parked work once the limit reset. */
+function TurnErrorResumeButton({ sessionId, turn, useSession, resumeAfterQuota, t }: {
+  sessionId: SessionId
+  turn: number
+  useSession: ChatViewSlotProps['useSession']
+  resumeAfterQuota: ChatNodeViewProps<'turn-error'>['resumeAfterQuota']
+  t: ChatViewSlotProps['t']
+}) {
+  const [pending, setPending] = useState(false)
+  const [failure, setFailure] = useState<string | null>(null)
+  // The control exists only while its refusal is the conversation's last
+  // word: a later closed turn (the one the release itself opens, or any
+  // newer work) retires it, and an in-flight turn disables it.
+  const superseded = useSession(snapshot => {
+    for (const closed of snapshot.turnEnds.keys()) {
+      if (closed > turn) return true
+    }
+    return false
+  })
+  const running = useSession(snapshot => snapshot.running)
+  if (superseded) return null
+  return (
+    <button
+      type="button"
+      className={css.turnErrorResume}
+      disabled={pending || running}
+      onClick={() => {
+        setPending(true)
+        setFailure(null)
+        void resumeAfterQuota(sessionId).then(outcome => {
+          setPending(false)
+          if (!outcome.ok) setFailure(outcome.error)
+        })
+      }}
+    >
+      {pending ? t('message.turnError.resuming') : t('message.turnError.resume')}
+      {failure !== null && <span className={css.turnErrorResumeError} role="alert">{failure}</span>}
+    </button>
   )
 }
 
@@ -282,9 +350,23 @@ export const RetryNodeView = memo(function RetryNodeView({ node, t }: ChatNodeVi
   return <ModelRetryItem node={data.current} active={data.current.retryState === 'scheduled'} t={t} />
 })
 
-/** Terminal turn-error keyed Chat renderer. */
-export const TurnErrorNodeView = memo(function TurnErrorNodeView({ node, t }: ChatNodeViewProps<'turn-error'>) {
-  return <TurnErrorItem node={node.data} t={t} />
+/** Terminal turn-error keyed Chat renderer. A quota refusal carries the "continue after the limit reset" control. */
+export const TurnErrorNodeView = memo(function TurnErrorNodeView({
+  node, sessionId, useSession, resumeAfterQuota, t,
+}: ChatNodeViewProps<'turn-error'>) {
+  const data = node.data
+  if (data.code === 'QUOTA') {
+    return (
+      <QuotaTurnErrorItem
+        node={data}
+        sessionId={sessionId}
+        useSession={useSession}
+        resumeAfterQuota={resumeAfterQuota}
+        t={t}
+      />
+    )
+  }
+  return <TurnErrorItem node={data} t={t} />
 })
 
 /** Max-tokens turn-end notice keyed Chat renderer. */

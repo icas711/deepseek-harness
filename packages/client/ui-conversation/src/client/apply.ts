@@ -35,7 +35,7 @@ import { queueDockEntry } from './queue/QueueDock.tsx'
 import { ConversationRoot } from './skeleton/ConversationRoot.tsx'
 import { ConversationSession, ConversationSessionHeader } from './skeleton/ConversationSession.tsx'
 import { DetailsPanel } from './skeleton/DetailsPanel.tsx'
-import { en, NS, zh, type ConversationKey } from './locales.ts'
+import { en, NS, ru, zh, type ConversationKey } from './locales.ts'
 import { registerConversationNodes } from './conversation-nodes/register.ts'
 import { registerChatNodeRenderers } from './chat/register-node-renderers.ts'
 import { CONVERSATION_SETTINGS_NAMESPACE, type ConversationSettings } from '../submission-settings.ts'
@@ -75,7 +75,8 @@ const ABSENT_MENU_LAUNCHER = {
   subscribe: () => () => {},
 }
 
-const CHAT_NODE_INJECT: ChatNodeTurnDataInjected = {
+/** Build the chat node seat's inject face over the plugin's own ctx. */
+const chatNodeInject = (ctx: Context): ChatNodeTurnDataInjected => ({
   hooks: {
     turnData: ({ useSession }, nodeKey) => function useTurnData(key) {
       return useSession((snapshot) => {
@@ -86,7 +87,19 @@ const CHAT_NODE_INJECT: ChatNodeTurnDataInjected = {
       })
     },
   },
-}
+  resumeAfterQuota: async (sessionId) => {
+    const connection = ctx.get('connection')
+    if (connection === undefined) return { ok: false, error: 'connection unavailable' }
+    try {
+      const response = await connection.api.sessions.resumeAfterQuota({ sessionId })
+      return response.result.ok
+        ? { ok: true, resumed: response.result.value.resumed }
+        : { ok: false, error: response.result.error.message }
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  },
+})
 
 /** Resolve the session-scoped conversation face (scope-addressed send/cancel), failing loud. */
 function scopedConversation(sessions: ISessions, id: SessionId): IConversation {
@@ -121,7 +134,7 @@ export function apply(ctx: Context): void {
   registerConversationNodes(ctx)
   registerChatNodeRenderers(ctx)
 
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-conversation: dictionaries')
+  ctx.effect(() => ctx.locale.register(NS, { zh, en, ru }), 'ui-conversation: dictionaries')
 
   // Registration-time text (the view tab label) reads through the bound
   // translate as a thunk, so it follows the active locale without
@@ -380,7 +393,7 @@ export function apply(ctx: Context): void {
     label: () => t('view.chat'),
     locale: NS,
     children: {
-      'conversation.chat.node': { kind: 'keyed', scope: 'session', inject: CHAT_NODE_INJECT },
+      'conversation.chat.node': { kind: 'keyed', scope: 'session', inject: chatNodeInject(ctx) },
     },
     store: chatStore,
     inject: (sessionId: SessionId, actions: BoundActions<typeof chatStore>): ChatViewInjected => {

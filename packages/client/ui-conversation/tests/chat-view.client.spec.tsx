@@ -149,7 +149,7 @@ function emptyWorkspaces() {
   return bindSnapshotSelector(store)
 }
 
-function makeHarness(init?: Partial<ConversationSnapshot>) {
+function makeHarness(init?: Partial<ConversationSnapshot>, harnessResume?: ChatNodeViewProps<'turn-error'>['resumeAfterQuota']) {
   const { set, source } = makeSource(init)
   const openDetails = vi.fn<(t: SelectionTarget) => void>()
   const openFile = vi.fn<(path: string) => void>()
@@ -193,8 +193,12 @@ function makeHarness(init?: Partial<ConversationSnapshot>) {
         ? location.turn.data.get(dataKey)
         : undefined
     })
+    const resumeAfterQuota: ChatNodeViewProps<'turn-error'>['resumeAfterQuota'] =
+      harnessResume === undefined
+        ? () => Promise.resolve({ ok: false, error: 'unused' })
+        : harnessResume
     const nodeProps = <Kind extends ChatNode['kind']>(): ChatNodeViewProps<Kind> => (
-      { ...props, ...nodeOwner, useTurnData } as unknown as ChatNodeViewProps<Kind>
+      { ...props, ...nodeOwner, useTurnData, resumeAfterQuota } as unknown as ChatNodeViewProps<Kind>
     )
     switch (nodeOwner.node.kind) {
       case 'user':
@@ -588,6 +592,47 @@ describe('ChatView', () => {
       '本轮运行失败API key is invalidAUTH',
       '本轮运行失败plugin exploded',
     ])
+  })
+
+  it('offers the quota continuation on a QUOTA turn error and releases parked work through it', async () => {
+    // The live Z.ai refusal this control exists for.
+    const quotaError: TurnErrorNode = {
+      kind: 'turn-error', seq: 2, time: 2_000, turn: 1, step: 0,
+      message: 'Usage limit reached for 5 hour. Your limit will reset at 2026-08-16 03:12:02',
+      code: 'QUOTA',
+    }
+    const resume = vi.fn<(sessionId: SessionId) => Promise<{ ok: true; resumed: boolean } | { ok: false; error: string }>>()
+      .mockResolvedValue({ ok: true, resumed: true })
+    const h = makeHarness({
+      nodes: [user(1, 'the parked task'), quotaError],
+      turnEnds: new Map([[1, 2]]),
+    }, resume)
+    const view = render(<h.ChatView {...h.props} />)
+
+    const button = view.getByRole('button', { name: '继续' })
+    fireEvent.click(button)
+
+    await vi.waitFor(() => { expect(resume).toHaveBeenCalledWith(SID) })
+  })
+
+  it('retires the quota continuation once a later turn closed', () => {
+    const quotaError: TurnErrorNode = {
+      kind: 'turn-error', seq: 2, time: 2_000, turn: 1, step: 0,
+      message: 'Usage limit reached for 5 hour.',
+      code: 'QUOTA',
+    }
+    const h = makeHarness({
+      nodes: [user(1, 'the parked task'), quotaError, user(3, 'typed later'), assistant(4, 'answer', 2)],
+      turnEnds: new Map([[1, 2], [2, 5]]),
+    })
+    const view = render(<h.ChatView {...h.props} />)
+    expect(view.queryByRole('button', { name: '继续' })).toBeNull()
+  })
+
+  it('shows no quota continuation for other failure codes', () => {
+    const h = makeHarness({ nodes: [user(1, 'try'), turnError(2, 'AUTH')] })
+    const view = render(<h.ChatView {...h.props} />)
+    expect(view.queryByRole('button', { name: '继续' })).toBeNull()
   })
 
   it('renders the max-tokens notice with localized guidance, distinct from turn errors', () => {

@@ -138,6 +138,13 @@ describe('apply', () => {
           'row.instructions': 'Instructions',
           'menu.userOnly': 'user-only',
         },
+        ru: {
+          'row.running': 'Загрузка скилла',
+          'row.failed': 'Не удалось загрузить скилл',
+          'row.stopped': 'Загрузка скилла остановлена',
+          'row.instructions': 'Инструкции',
+          'menu.userOnly': 'только пользовательские',
+        },
       },
     }])
   })

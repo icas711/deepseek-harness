@@ -46,3 +46,25 @@ export const en = {
   failed: 'Mount failed',
   unloading: 'Unloading',
 } satisfies Record<PluginInventoryLocaleKey, string>
+
+/** Russian dictionary, checked complete against the zh key set. */
+export const ru = {
+  tab: 'Список плагинов',
+  loading: 'Чтение плагинов…',
+  error: 'Плагины временно недоступны.',
+  retry: 'Повторить',
+  search: 'Поиск плагинов',
+  catalog: 'Список плагинов',
+  empty: 'Нет доступных плагинов.',
+  emptySearch: 'Нет подходящих плагинов.',
+  enabledTag: 'Включён',
+  disabledTag: 'Отключён',
+  configuration: 'Конфигурация',
+  cordis: 'Статус Cordis',
+  unobserved: 'Не смонтирован',
+  pending: 'Ожидает зависимостей',
+  loadingPhase: 'Загрузка',
+  active: 'Смонтирован',
+  failed: 'Сбой монтирования',
+  unloading: 'Выгрузка',
+} satisfies Record<PluginInventoryLocaleKey, string>

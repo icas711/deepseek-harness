@@ -36,3 +36,20 @@ export const en = {
   'plan.decline': 'Refuse',
   'plan.discuss': 'Chat about it',
 } satisfies Record<QuestionKey, string>
+
+/** Russian dictionary, checked complete against the zh key set. */
+export const ru = {
+  'error.incomplete': 'Сначала завершите этот вопрос.',
+  'error.unanswered': 'Выберите вариант или введите свой ответ.',
+  'nav.prev': 'Предыдущий вопрос',
+  'nav.next': 'Следующий вопрос',
+  'nav.cancel': 'Отменить все вопросы',
+  'option.recommended': 'Рекомендуется',
+  'custom.placeholder': 'Введите свой ответ',
+  'action.skip': 'Пропустить вопрос',
+  'action.next': 'Далее',
+  'plan.header': 'Согласование плана',
+  'plan.approve': 'Одобрить',
+  'plan.decline': 'Отклонить',
+  'plan.discuss': 'Обсудить в чате',
+} satisfies Record<QuestionKey, string>

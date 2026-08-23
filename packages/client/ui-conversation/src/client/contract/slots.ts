@@ -350,6 +350,14 @@ export interface ChatNodeTurnDataInjected {
   hooks: {
     turnData: SlotHookFactory<'conversation.chat.node', UseChatNodeTurnData>
   }
+  /**
+   * Release quota-parked work for one session (the turn-error row's
+   * "continue after the limit reset" control). Folds both wire refusal
+   * shapes into one message.
+   * @param sessionId - the session whose parked work is released.
+   * @returns the host's `resumed` bit on success, or the refusal message.
+   */
+  resumeAfterQuota: (sessionId: SessionId) => Promise<{ ok: true; resumed: boolean } | { ok: false; error: string }>
 }
 
 /** Stable owner currency delivered to one keyed Chat business renderer. */

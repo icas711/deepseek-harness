@@ -62,3 +62,21 @@ export const en: Record<TrajectoryKey, string> = {
   'toolbar.search': 'Search trajectory',
   'toolbar.searchPlaceholder': 'Search',
 }
+
+/** Russian dictionary, checked complete against the zh key set. */
+export const ru: Record<TrajectoryKey, string> = {
+  'view.trajectory': 'Траектория',
+  'toolbar.aria': 'Панель инструментов траектории',
+  'toolbar.duration': 'Длительность',
+  'toolbar.useActualDuration': 'Фактическая длительность',
+  'toolbar.useEqualWidth': 'Одинаковая ширина операций',
+  'toolbar.actualTime': 'Фактическое время',
+  'toolbar.turns': 'Ходы',
+  'toolbar.expandTurns': 'Развернуть ходы',
+  'toolbar.collapseTurns': 'Свернуть ходы',
+  'toolbar.calls': 'Вызовы',
+  'toolbar.expandCalls': 'Развернуть вызовы',
+  'toolbar.collapseCalls': 'Свернуть вызовы',
+  'toolbar.search': 'Поиск по траектории',
+  'toolbar.searchPlaceholder': 'Поиск',
+}

@@ -141,6 +141,72 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
   deleting: '正在删除…',
 }
 
+/** Russian dictionary, checked complete against the zh key set. */
+export const ru: Record<AgentPresetSettingsKey, string> = {
+  title: 'Пресет агента',
+  description: 'Применяется к сессиям, которые вы создадите с этого момента. Уже запущенные сессии сохраняют свой исходный пресет.',
+  loading: 'Загрузка пресетов…',
+  error: 'Не удалось загрузить пресеты агента.',
+  userTrust: 'Пользовательский',
+  seatHint: 'Пресет агента для сессии, которая сейчас будет создана',
+  headerHint: 'Пресет агента, на котором работает эта сессия; зафиксирован при её запуске',
+  nav: 'Пресеты агентов',
+  sectionIntro:
+    'Пресет — это набор плагинов, который запускает агент сессии: его инструменты, промпт и возможности. '
+    + 'Скопируйте существующий пресет и сделайте его своим или попросите агента подготовить новый в режиме Creator.',
+  builtIn: 'Встроенный',
+  setDefault: 'Назначить по умолчанию',
+  view: 'Просмотр',
+  presetStandardName: 'Стандартный режим',
+  presetStandardDescription:
+    'Полноценный агент для программирования: редактирование файлов, shell, поиск по файлам и в интернете, скиллы, планирование, цели, субагенты и воркфлоу.',
+  presetCodeName: 'Режим Code',
+  presetCodeDescription:
+    'Все возможности стандартного режима: инструменты доступны через Code Mode SDK, чтобы модель могла объединять многошаговые операции в одну программу на TypeScript.',
+  presetMinimalName: 'Минимальный режим',
+  presetMinimalDescription:
+    'Агент для программирования с двумя инструментами: постоянный bash и str_replace_editor.',
+  presetCordisName: 'Режим Creator',
+  presetCordisDescription:
+    'Предназначен для создания собственных пресетов агента: все возможности стандартного режима плюс инспекция рантайма, эксперименты с плагинами и помощь в создании пресетов.',
+  duplicate: 'Дублировать',
+  duplicateUnavailable: 'В этом развертывании нет каталога пресетов, доступного для записи',
+  delete: 'Удалить',
+  presetId: 'Идентификатор',
+  presetIdPlaceholder: 'my-agent',
+  displayName: 'Название',
+  displayNamePlaceholder: 'Отображается в списке выбора; по умолчанию — идентификатор',
+  inUse: 'Используется',
+  builtInGroup: 'Встроенные',
+  customGroup: 'Пользовательские',
+  noDescription: 'Нет описания.',
+  brokenBadge: 'Ошибка загрузки',
+  brokenNoCopy: 'Пресет, который не удалось загрузить, нельзя дублировать',
+  copyOf: 'Скопировано из',
+  composition: 'Состав (agent.cordis.yml)',
+  cancel: 'Отмена',
+  close: 'Закрыть',
+  retry: 'Повторить',
+  copyTitle: 'Дублировать пресет',
+  copyIntro:
+    'Пресет целиком копируется на этой машине. Идентификатор становится именем каталога, и изменить его позже нельзя; '
+    + 'всё остальное редактируется в файлах самого пресета.',
+  create: 'Создать',
+  creating: 'Создание…',
+  creatorDraft: 'Создать свой пресет в режиме Creator',
+  openLocation: 'Открыть папку',
+  showLocation: 'Показать расположение',
+  revealedPathLabel: 'Файлы пресета:',
+  idRequired: 'Укажите идентификатор пресета.',
+  idInvalid: 'Используйте строчные буквы, цифры и дефисы; первый символ — буква или цифра.',
+  idTaken: 'Пресет с таким идентификатором уже существует.',
+  deleteTitle: 'Удалить этот пресет?',
+  deleteDescription:
+    'Каталог пресета будет удалён. Запущенные с ним сессии продолжат работать; новые сессии не смогут его выбрать.',
+  deleteConfirm: 'Удалить',
+  deleting: 'Удаление…',
+}
+
 /** Preset roster fields needed to resolve Web display copy. */
 export interface PresetDisplaySource {
   /** Stable preset id. */

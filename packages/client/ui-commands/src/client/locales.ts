@@ -24,3 +24,14 @@ export const en = {
   'overlay.aria': '/{command} options',
   'listbox.aria': '/{command} matches',
 } satisfies Record<CommandKey, string>
+
+/** Russian dictionary, checked complete against the zh key set. */
+export const ru = {
+  'search.placeholder': 'Поиск…',
+  'search.aria': 'Фильтрация опций',
+  'status.loading': 'Загрузка опций…',
+  'status.applying': 'Применение…',
+  'status.empty': 'Нет опций',
+  'overlay.aria': '/{command} — опции',
+  'listbox.aria': '/{command} — совпадения',
+} satisfies Record<CommandKey, string>

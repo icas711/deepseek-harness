@@ -24,3 +24,12 @@ export const en = {
   'loading': 'Loading…',
   'suggestions.aria': 'Trigger suggestions',
 } satisfies Record<MenuKey, string>
+
+/** Russian dictionary, checked complete against the zh key set. */
+export const ru = {
+  'command': 'Команды',
+  'skill': 'Скиллы',
+  'subagent': 'Субагенты',
+  'loading': 'Загрузка…',
+  'suggestions.aria': 'Подсказки триггеров',
+} satisfies Record<MenuKey, string>

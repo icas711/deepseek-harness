@@ -197,6 +197,8 @@ describe('LocaleRuntime', () => {
     expect(make().svc.getLocale().active).toBe('en')
     stubLanguages('zh-Hant-TW')
     expect(make().svc.getLocale().active).toBe('zh')
+    stubLanguages('ru-RU')
+    expect(make().svc.getLocale().active).toBe('ru')
     // An unshipped language walks the list to the first one this app ships.
     stubLanguages('fr-FR', 'en-US')
     expect(make().svc.getLocale().active).toBe('en')
@@ -230,11 +232,12 @@ describe('LocaleRuntime', () => {
     expect(svc.getLocale().active).toBe('zh')
   })
 
-  it('exposes the two shipped locales with self-described labels', () => {
+  it('exposes the three shipped locales with self-described labels', () => {
     const { svc } = make()
     expect(svc.getLocale().locales).toEqual([
       { id: 'zh', label: '中文' },
       { id: 'en', label: 'English' },
+      { id: 'ru', label: 'Русский' },
     ])
   })
 })
