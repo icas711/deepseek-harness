@@ -55,6 +55,7 @@ function agent(ctx: Context, cwd?: string): Agent {
     followup: () => {}, steer: () => {}, inject: () => {}, cancel() {},
     runMaintenance: task => task(new AbortController().signal),
     whenIdle: () => Promise.resolve(),
+    wake: () => {},
   }
 }
 
@@ -397,6 +398,7 @@ describe('terminal-bash plugin shape', () => {
       followup: () => {}, steer: () => {}, inject: () => {}, cancel() {},
       runMaintenance: task => task(new AbortController().signal),
       whenIdle: () => Promise.resolve(),
+      wake: () => {},
     }
     ctx.agents.register(owner)
     const providerFiber = await registerStubLocalBackend(ctx, () => stubLocalSession())
@@ -446,6 +448,7 @@ describe('terminal-bash plugin shape', () => {
       followup: () => {}, steer: () => {}, inject: () => {}, cancel() {},
       runMaintenance: task => task(new AbortController().signal),
       whenIdle: () => Promise.resolve(),
+      wake: () => {},
     }
     ctx.agents.register(owner)
     const gate = Promise.withResolvers<undefined>()

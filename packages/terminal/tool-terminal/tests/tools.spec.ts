@@ -25,6 +25,7 @@ function fakeAgent(ctx: Context, rawId: string): Agent {
     followup: () => {}, steer: () => {}, inject: () => {}, cancel() {},
     runMaintenance: job => job(new AbortController().signal),
     whenIdle: () => Promise.resolve(),
+    wake: () => {},
   }
   ctx.agents.register(agent)
   return agent

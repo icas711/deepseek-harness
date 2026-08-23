@@ -43,6 +43,7 @@ function agent(ctx: Context, cwd: string): Agent {
     cancel() {},
     runMaintenance: task => task(new AbortController().signal),
     whenIdle: () => Promise.resolve(),
+    wake: () => {},
   }
   ctx.agents.register(value)
   return value

@@ -53,6 +53,7 @@ function agentForCwd(cwd: string): Agent {
     cancel() {},
     runMaintenance: task => task(new AbortController().signal),
     whenIdle: () => Promise.resolve(),
+    wake: () => {},
   }
 }
 
@@ -71,6 +72,7 @@ function sessionAgent(session: Session, id = 'tool-skill-agent'): Agent {
     cancel() {},
     runMaintenance: task => task(new AbortController().signal),
     whenIdle: () => Promise.resolve(),
+    wake: () => {},
   }
 }
 
@@ -240,7 +242,7 @@ describe('dsh-tool-skill', () => {
     })
     ctx.on('agent/pre-step', async (_payload, next) => {
       const decision = await next()
-      if (decision.kind === 'reject') return decision
+      if (decision.kind !== 'enter') return decision
       return {
         ...decision,
         messages: [
@@ -394,7 +396,7 @@ describe('dsh-tool-skill', () => {
     })
     const replaced = await proposeStep(ctx, agent, [companion, initial])
     expect(replaced.kind).toBe('enter')
-    if (replaced.kind === 'reject') throw new Error('expected catalog replacement')
+    if (replaced.kind !== 'enter') throw new Error('expected catalog replacement')
     expect(replaced.messages).toHaveLength(2)
     expect(replaced.messages[0]).toBe(companion)
     expect(replaced.messages[1]?.id).not.toBe(initial.id)

@@ -179,7 +179,9 @@ export function apply(ctx: Context, config: Config = {}): void {
     next,
   ): Promise<PreStepDecision> => {
     const decision = await next()
-    if (decision.kind === 'reject') return decision
+    // A resume decision enters over the recorded log; skill content rides
+    // only fresh enters.
+    if (decision.kind !== 'enter') return decision
     const names = invokedSkillNames(messages)
     if (names.length === 0) return decision
     signal.throwIfAborted()
@@ -215,7 +217,9 @@ export function apply(ctx: Context, config: Config = {}): void {
     next,
   ): Promise<PreStepDecision> => {
     const decision = await next()
-    if (decision.kind === 'reject') return decision
+    // A resume decision enters over the recorded log; the skill catalog ride
+    // only fresh enters.
+    if (decision.kind !== 'enter') return decision
     signal.throwIfAborted()
     const toolVisible = ctx.tools.get(skillTool.name, agent) === skillTool
     const snapshot = toolVisible

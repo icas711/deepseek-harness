@@ -48,6 +48,7 @@ function agent(ctx: Context): Agent {
     followup: () => {}, steer: () => {}, inject: () => {}, cancel() {},
     runMaintenance: job => job(new AbortController().signal),
     whenIdle: () => Promise.resolve(),
+    wake: () => {},
   }
   ctx.agents.register(value)
   return value

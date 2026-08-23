@@ -45,6 +45,7 @@ function agent(ctx: Context): Agent {
     cancel() { status = 'idle' },
     runMaintenance: task => task(new AbortController().signal),
     whenIdle: () => Promise.resolve(),
+    wake: () => {},
   }
   ctx.agents.register(value)
   return value
