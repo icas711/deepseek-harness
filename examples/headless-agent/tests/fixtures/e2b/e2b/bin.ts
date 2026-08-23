@@ -30,6 +30,7 @@ const owner: Agent = {
   cancel() {},
   runMaintenance: task => task(new AbortController().signal),
   whenIdle: () => Promise.resolve(),
+  wake() {},
 }
 const unregisterOwner = ctx.agents.register(owner)
 let terminalId: Awaited<ReturnType<typeof ctx.terminals.spawn>>['sessionId'] | undefined

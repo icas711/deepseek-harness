@@ -258,6 +258,12 @@
     - id: ui-agent-preset
       name: '@deepseek-ai/dsh-client-ui-agent-preset'
 
+    # Telemetry status in General settings: the mounted backend's sharing
+    # disclosure, a refresh control, and a live mode selector where the
+    # deployment applies changes without a restart.
+    - id: ui-telemetry-status
+      name: '@deepseek-ai/dsh-client-ui-telemetry-status'
+
     # Plugin configuration: the host-plane sections a user owns, as expandable
     # cards. A namespace this deployment does not expose renders nothing.
     - id: ui-settings-plugins

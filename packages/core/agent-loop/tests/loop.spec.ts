@@ -132,6 +132,50 @@ describe('agent loop', () => {
     expect(adapter.requests).toHaveLength(1)
   })
 
+  it('wake() claims pending work from idle without adding input', async () => {
+    const adapter = new MockAdapter([textResponse('wake reply')])
+    const ctx = await harness(adapter)
+    const agent = ctx.agentLoop.create(SessionId('manual-wake-pending'), {
+      provider: 'mock',
+      model: 'mock',
+    })
+
+    agent.send(
+      createUserMessage({ content: [{ type: 'text', text: 'parked prompt' }], source: { kind: 'user' } }),
+      'next-turn',
+      false,
+    )
+    expect(agent.status).toBe('idle')
+    agent.wake()
+    await waitForIdle(ctx, agent)
+
+    expect(userTexts(agent)).toEqual(['parked prompt'])
+    expect(adapter.requests).toHaveLength(1)
+  })
+
+  it('wake() without pending work or while running opens no extra turn', async () => {
+    const adapter = new MockAdapter([textResponse('first reply')])
+    const ctx = await harness(adapter)
+    const agent = ctx.agentLoop.create(SessionId('manual-wake-noop'), {
+      provider: 'mock',
+      model: 'mock',
+    })
+    const turnCount = () =>
+      agent.session.events.filter(event => event.type === 'turn/start').length
+
+    agent.wake() // idle with an empty inbox: no turn boundary
+    expect(turnCount()).toBe(0)
+
+    const idle = waitForIdle(ctx, agent)
+    send(agent, 'the only turn')
+    agent.wake() // running: the live driver already owns the queue
+    await idle
+
+    expect(turnCount()).toBe(1)
+    expect(userTexts(agent)).toEqual(['the only turn'])
+    expect(adapter.requests).toHaveLength(1)
+  })
+
   it('suppresses the replay when a latched maintenance wake is removed', async () => {
     const adapter = new MockAdapter([])
     const ctx = await harness(adapter)

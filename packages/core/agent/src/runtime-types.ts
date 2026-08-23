@@ -49,10 +49,18 @@ export interface CancelOptions {
  */
 export type AgentStatus = 'idle' | 'running'
 
-/** Whether and with which messages the loop enters a proposed step. */
+/**
+ * Whether and with which messages the loop enters a proposed step.
+ *
+ * `enter` surfaces `messages` onto the session log; `resume` enters the step
+ * without surfacing anything — for input whose surface copy already exists
+ * (a quota-parked turn's re-claimed batch), so the model request runs over
+ * the log as recorded instead of duplicating it.
+ */
 export type PreStepDecision =
   | { kind: 'reject' }
   | { kind: 'enter'; messages: UserMessage[] }
+  | { kind: 'resume' }
 
 /** Action returned by a listener that owns model-request recovery. */
 export type RequestErrorAction = { kind: 'retry' } | undefined
@@ -91,6 +99,16 @@ export interface Agent {
    * @returns fulfillment after no active driver or maintenance task remains.
    */
   whenIdle(): Promise<void>
+
+  /**
+   * Wake the driver for already-pending inbox work without adding input. A
+   * no-op when a driver or maintenance task is active or the inbox holds
+   * nothing; from true idle it opens the turn that claims the pending work,
+   * exactly like waking input would. The pause-style `agent/pre-step`
+   * rejection that re-splices its claimed batch relies on this to release
+   * parked work when the blocking condition lifts.
+   */
+  wake(): void
 
   /**
    * Run one non-turn maintenance task from the true idle phase. The task starts
@@ -218,8 +236,10 @@ declare module '@deepseek-ai/cordis' {
 
     // ---- the machine's extension points ----
     /**
-     * Reject a proposed step or replace the messages that enter it. Calling
-     * `next()` preserves the current messages.
+     * Reject a proposed step, replace the messages that enter it, or resume
+     * over the recorded log. Calling `next()` preserves the current messages;
+     * `resume` enters the step with no new surface content (see
+     * {@link PreStepDecision}).
      * @param payload.agent - the agent proposing the step.
      * @param payload.messages - messages removed from the inbox for this step.
      * @param payload.turn - the turn that will own the step.

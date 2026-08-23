@@ -220,7 +220,9 @@ export function apply(ctx: Context, config: Config): void {
     next,
   ): Promise<PreStepDecision> => {
     const decision = await next()
-    if (decision.kind === 'reject' || signal.aborted || step !== 1) return decision
+    // A resume decision enters over the recorded log: its context stays as
+    // recorded instead of gaining a fresh snapshot.
+    if (decision.kind !== 'enter' || signal.aborted || step !== 1) return decision
     const bash = ctx.get('shell')
     if (bash === undefined) return decision
     const previous = latestInjectedState(agent)

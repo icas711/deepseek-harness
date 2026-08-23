@@ -24,13 +24,13 @@ The Settings Language row opened every first visit in Chinese: `LocaleRuntime` r
 
 - **`Intl.DateTimeFormat().resolvedOptions().locale` or a single `navigator.language` read**: both collapse the user's ordered preference list to one tag, so a `['de', 'en', 'zh']` reader gets zh instead of en. The list is the part of the browser statement worth reading.
 - **Persisting the detected locale on first boot**: it would make detection a one-time event and let a stale first visit outlive a changed browser language, and it destroys the distinction the resolution order rests on — a stored value would no longer mean "the user chose this".
-- **Full BCP 47 negotiation (`Intl.LocaleMatcher`-style lookup, region and script weighting)**: with exactly two shipped locales that differ in language, primary-subtag matching is the whole of the correct answer; a negotiation layer would be untestable surface with no behavior to justify it.
+- **Full BCP 47 negotiation (`Intl.LocaleMatcher`-style lookup, region and script weighting)**: with shipped locales that differ in language (zh/en/ru since [the Russian addition](2026-08-16-web-russian-locale.md)), primary-subtag matching is the whole of the correct answer; a negotiation layer would be untestable surface with no behavior to justify it.
 - **A cordis config key for the default locale**: the deployment does not vary here — the fallback is the product's answer for "no signal at all", not a knob. Repo policy reserves `Config` fields for deployment-varying choices with a current consumer.
 - **Keeping the e2e lane's zh scenarios on storage pinning (`dsh.locale=zh`)**: it would keep the suite green while removing the only place the browser-derived path runs in an assembled app; pinning the browser language instead exercises the new resolution end to end.
 
 ## Consequences
 
-- A first visit from an English browser lands in English, and the Language row still shows the same two self-described options, so the escape hatch is unchanged in either direction.
+- A first visit from an English browser lands in English, and the Language row still shows the same self-described options, so the escape hatch is unchanged in either direction.
 - `FALLBACK_LOCALE` narrows to its real job — the dictionary fallback and the no-signal answer — and stops standing in for "the user has not chosen".
 - Tests that construct a `LocaleRuntime` under jsdom now depend on the environment's `navigator`: specs asserting localized copy declare their browser with one suite-level `usePinnedBrowserLanguages('zh-CN')` (dsh-client-test-runtime), and any future spec asserting a default must do the same. This package's own specs stub the globals directly, because they need shapes the helper deliberately cannot express (absent `languages`, a list decoupled from `language`, no `window` at all).
 - Detection cost is one array walk per service construction and no implicit settings write; an explicit Host preference may cause one live convergence after plugin activation.

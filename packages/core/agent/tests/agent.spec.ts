@@ -34,6 +34,7 @@ function stubAgent(rawId: string, overrides: Partial<Agent> = {}): Agent {
     cancel() {},
     runMaintenance: task => task(new AbortController().signal),
     whenIdle: () => Promise.resolve(),
+    wake: () => {},
   }
   return Object.assign(agent, overrides)
 }

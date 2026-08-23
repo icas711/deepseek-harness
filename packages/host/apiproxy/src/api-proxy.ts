@@ -89,6 +89,12 @@ import type { ApprovalOutcome, ApprovalRequestId } from '@deepseek-ai/dsh-user-a
 // Side-effect type import: resolves the `approval/request` waterfall and
 // `ctx.get('approval')` without a value dependency on the seam (optional composition).
 import type {} from '@deepseek-ai/dsh-user-approval'
+// Side-effect type import: resolves `ctx.get('sessionTelemetry')` (optional
+// composition — the telemetry backend's Context merge only).
+import type {} from '@deepseek-ai/dsh-session-telemetry'
+// Side-effect type import: resolves `ctx.get('quotaPause')` (optional
+// composition — the quota-pause guard's Context merge only).
+import type {} from '@deepseek-ai/dsh-quota-pause'
 import { approvalResponsePayloadSchema } from './api/approvals.schema.ts'
 import { imageLimitsProjectionSchema, sessionListMetadataProjectionSchema } from './api/sessions.schema.ts'
 import { questionResponsePayloadSchema } from './api/questions.schema.ts'
@@ -125,10 +131,30 @@ const DEFAULT_MAX_MESSAGES = 50
  */
 const WEB_SETTINGS_NAMESPACES = [
   'agent-loop', 'shell', 'locale', 'permission', 'ui-conversation', 'ui-theme', 'web-search-deepseek',
+  'session-telemetry',
 ] as const
 
 /** Provider work budget: at most 100 calls and 2,000 inspected hits. */
 const SESSION_SEARCH_PROVIDER_CALL_LIMIT = 100
+
+/**
+ * The telemetry backend's settings namespace, mirrored as a plain string (the
+ * same convention as every namespace in {@link WEB_SETTINGS_NAMESPACES}: the
+ * brand lives with its owning plugin, the proxy addresses it by name).
+ */
+const TELEMETRY_SETTINGS_NS = 'session-telemetry'
+
+/** The serialized capture modes the telemetry settings section can resolve to. */
+const TELEMETRY_MODES: ReadonlySet<string> = new Set(['DISABLED', 'FEEDBACK_ONLY', 'FULL'])
+
+/** Invert the sharing vocabulary onto the serialized mode it mirrors. */
+function modeForSharing(sharing: 'disabled' | 'feedback-only' | 'full'): 'DISABLED' | 'FEEDBACK_ONLY' | 'FULL' {
+  switch (sharing) {
+    case 'full': return 'FULL'
+    case 'feedback-only': return 'FEEDBACK_ONLY'
+    case 'disabled': return 'DISABLED'
+  }
+}
 
 /** Bound cold-log stat fan-out and settle each started batch before cancellation returns. */
 const COLD_SUMMARY_BATCH_SIZE = 16
@@ -2631,6 +2657,23 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         agent.cancel({ kind: 'user' }, { keepInbox: true })
         return Promise.resolve(ok(request, { accepted: true as const }))
       },
+
+      async resumeAfterQuota(request) {
+        // The parked batch is durable, so the release must work for a cold
+        // session too: resolve through the same agent machinery a prompt
+        // uses, not the live registry alone.
+        const found = await agentFor(request.payload.sessionId)
+        if ('error' in found) return err(request, found.error)
+        const quotaPause = ctx.get('quotaPause')
+        if (quotaPause === undefined) {
+          return err(request, {
+            code: 'quota-resume-unavailable',
+            message: 'no quota-pause guard is composed in this deployment',
+            details: {},
+          })
+        }
+        return ok(request, { resumed: quotaPause.resume(found.agent) })
+      },
     },
 
     subagents: {
@@ -3007,6 +3050,33 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
 
       async openPath(request, signal) {
         return openPath(request, request.payload.path, signal)
+      },
+
+      telemetryStatus(request) {
+        const telemetry = ctx.get('sessionTelemetry')
+        if (telemetry === undefined) {
+          return Promise.resolve(err(request, {
+            code: 'telemetry-not-configured',
+            message: 'no session telemetry backend is composed in this deployment',
+            details: {},
+          }))
+        }
+        // The settings descriptor is the authoritative next mode while a
+        // provider is mounted; without one the live sharing policy is the
+        // whole truth (entry config, statically composed).
+        const settings = ctx.get('settings')
+        const descriptor = settings?.describe()
+          .find(candidate => candidate.ns === TELEMETRY_SETTINGS_NS)
+        const fromSettings = descriptor?.value as { mode?: unknown } | undefined
+        const configuredMode = fromSettings !== undefined && typeof fromSettings.mode === 'string'
+          && TELEMETRY_MODES.has(fromSettings.mode)
+          ? fromSettings.mode as 'DISABLED' | 'FEEDBACK_ONLY' | 'FULL'
+          : modeForSharing(telemetry.sharing)
+        return Promise.resolve(ok(request, {
+          sharing: telemetry.sharing,
+          configuredMode,
+          changeable: settings !== undefined,
+        }))
       },
     },
 

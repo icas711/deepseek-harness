@@ -121,6 +121,7 @@ export class FakeApiClient implements IApiClient {
     attachment: (payload: unknown) => this.record('session.attachment', payload, this.onAttachment(payload)),
     updateQueue: (payload: unknown) => this.record('session.updateQueue', payload, this.onUpdateQueue(payload)),
     cancel: (payload: unknown) => this.record('session.cancel', payload, this.onCancel(payload)),
+    resumeAfterQuota: (payload: unknown) => this.record('session.resumeAfterQuota', payload, Promise.resolve(ok({ resumed: false }))),
   }
 
   readonly subagents: IApiClient['subagents'] = {
@@ -146,6 +147,9 @@ export class FakeApiClient implements IApiClient {
     listDirectory: payload => this.record('host.listDirectory', payload, this.onListDirectory(payload)),
     createDirectory: payload => this.record('host.createDirectory', payload, this.onCreateDirectory(payload)),
     openPath: payload => this.record('host.openPath', payload, this.onOpenPath(payload)),
+    telemetryStatus: payload => this.record('host.telemetryStatus', payload, Promise.resolve(ok({
+      sharing: 'feedback-only', configuredMode: 'FEEDBACK_ONLY', changeable: true,
+    }))),
   }
 
   readonly workspace: IApiClient['workspace'] = {

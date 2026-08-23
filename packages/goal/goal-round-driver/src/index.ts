@@ -382,7 +382,10 @@ export function apply(ctx: Context): void {
         throw error
       }
       if (signal.aborted) {
+        // A resume decision carries no surfaced batch; the claim itself is
+        // what must go back when the round is torn down.
         if (decision.kind === 'enter') restoreOtherClaimed(agent, decision.messages, submitted.id)
+        else if (decision.kind === 'resume') restoreOtherClaimed(agent, messages, submitted.id)
         return decision
       }
       if (decision.kind === 'reject') {
@@ -406,7 +409,7 @@ export function apply(ctx: Context): void {
       }
       if (!valid) {
         state.attempt = undefined
-        restoreOtherClaimed(agent, decision.messages, submitted.id)
+        restoreOtherClaimed(agent, decision.kind === 'enter' ? decision.messages : messages, submitted.id)
         requestDrive(state)
         return { kind: 'reject' }
       }

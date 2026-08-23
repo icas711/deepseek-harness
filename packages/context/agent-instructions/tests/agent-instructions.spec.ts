@@ -196,6 +196,7 @@ function stubAgent(cwd?: string, seed: SessionEvent[] = []): Agent {
     cancel() {},
     runMaintenance: task => task(new AbortController().signal),
     whenIdle: () => Promise.resolve(),
+    wake: () => {},
   }
 }
 
@@ -1817,7 +1818,7 @@ describe('workspace context request injection', () => {
       await mountWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
       ctx.on('agent/pre-step', async (_payload, next) => {
         const decision = await next()
-        if (decision.kind === 'reject') return decision
+        if (decision.kind !== 'enter') return decision
         return {
           ...decision,
           messages: [

@@ -441,7 +441,7 @@ describe('same-session goal driving', () => {
       const goal = test.ctx.goals.get(agent)
       if (goal === undefined) throw new Error('missing claimed goal')
       test.ctx.goals.edit(agent, goal, { objective: 'revised after claim' })
-      return decision.kind === 'reject' ? decision : {
+      return decision.kind !== 'enter' ? decision : {
         kind: 'enter' as const,
         messages: [...decision.messages, queuedStepContext, queuedTurnContext],
       }

@@ -370,4 +370,13 @@ export interface SessionsApi {
    */
   cancel(request: RpcRequest<{ sessionId: SessionId }>): Promise<RpcResponse<{ accepted: true }>>
 
+  /**
+   * Release quota-parked work for one session: the input parked when its
+   * provider refused a request for an exhausted account quota resumes over
+   * the recorded log without re-surfacing. This is the host side of the
+   * conversation's "continue after the limit reset" control; a provider
+   * still over its limit refuses again and the work re-parks.
+   */
+  resumeAfterQuota(request: RpcRequest<{ sessionId: SessionId }>): Promise<RpcResponse<{ resumed: boolean }>>
+
 }

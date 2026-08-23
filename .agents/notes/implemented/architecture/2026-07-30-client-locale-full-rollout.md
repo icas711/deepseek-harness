@@ -12,7 +12,7 @@ After the typed locale standard seat landed (`locale:` on register → framework
 
 **Registration-time text rides a label thunk.** A list registration's `label` accepts `SlotLabel = string | (() => string)`; owners projecting ledger rows resolve through `resolveSlotLabel` (never reading `options.label` raw) and make the read point follow the locale revision (outlets subscribe to the revision themselves; off-ledger projections such as the ui-settings nav fold the revision into their cache key and subscribe to both sources). Thunks evaluate per read, so a language switch causes zero ledger churn — no re-registration, versions stay put, and every `locale/change` re-registration wiring is deleted.
 
-**Component copy rides the standard `t` seat; deep children take `t` as a plain prop** typed `XxxProps['t']`. The dictionary canon is unchanged: `zh satisfies Record<string, string>` is the key source and `en satisfies Record<XxxKey, string>` locks bilingual balance.
+**Component copy rides the standard `t` seat; deep children take `t` as a plain prop** typed `XxxProps['t']`. The dictionary canon is unchanged: `zh satisfies Record<string, string>` is the key source and `en`/`ru satisfies Record<XxxKey, string>` lock all-locale balance ([third shipped locale](../feature/2026-08-16-web-russian-locale.md)).
 
 **Zero-cordis atoms (ui-primitives) take copy as props**: `copyLabel`/`copiedLabel` on `HoverCard`, `labels` on `TerminalBlock`/`JsonTree`, `copyLabel`/`copiedLabel` on `CodeBlock`, `codeLabels` on `MarkdownText`, `truncatedLabel` on `JsonBlock`, `label` on `ConnectionBanner`, `closeLabel` on `Modal` — defaults are the previous hardcoded strings, so a consumer passing nothing renders byte-identical output. Localized plugins pass dictionary-driven labels from their own `t` seat; call sites passing object props memoize them on the `t` identity (`MarkdownText` caches its component table on the `codeLabels` identity).
 
@@ -41,5 +41,5 @@ The "apply layer subscribes to `locale/change` and re-registers for fresh labels
 
 - A language switch refreshes the whole UI instantly with zero re-registration; adopting a new package is three steps (dictionary + declare-merge + `locale: NS`), no hand-written glue.
 - Cost: list-label consumers must know `resolveSlotLabel` (a raw `options.label` read can now hold a function); the `SlotLabel` type catches most misuse statically.
-- ui-primitives' Chinese defaults still render Chinese under the English locale **until a consumer passes labels** — the unmigrated JsonTree consumer (ui-trajectory) showing its English defaults happens to match that package's all-English status quo.
+- ui-primitives' Chinese defaults still render Chinese under any non-zh locale **until a consumer passes labels** — the unmigrated JsonTree consumer (ui-trajectory) showing its English defaults happens to match that package's all-English status quo.
 - Pinning e2e to English means the zh default is covered mainly by package-level component specs and the settings language-switch scenario; browser e2e no longer asserts zh copy.

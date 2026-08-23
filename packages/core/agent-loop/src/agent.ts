@@ -50,6 +50,7 @@ type StepEndReason = Extract<TurnEndReason, { kind: 'completed' | 'max-tokens' }
 type PreparedStep =
   | { kind: 'reject' }
   | { kind: 'enter'; messages: UserMessage[]; assembly: PromptAssembly }
+  | { kind: 'resume'; assembly: PromptAssembly }
 
 /** Remove adapter-derived values before plugins propose the next request config. */
 function requestProposal(header: EpochHeader): LlmCallConfig {
@@ -199,6 +200,12 @@ export class ReactLoopAgent implements Agent {
     } while (activity !== this.activityDone)
   }
 
+  wake(): void {
+    // Pending work is the wake's own justification: without it a wake would
+    // open an empty no-op turn boundary.
+    if (this.phase.kind === 'idle' && this.inbox.hasPending) this.wakeDriver()
+  }
+
   /** Report one failure at its live boundary, then preserve it for driver containment. */
   private throwError(error: unknown): never {
     const turn = this.phase.kind === 'running' ? this.phase.turn : this.phase.lastTurn
@@ -239,7 +246,9 @@ export class ReactLoopAgent implements Agent {
       }),
     )
     signal.throwIfAborted()
-    return decision.kind === 'reject' ? decision : { ...decision, assembly }
+    if (decision.kind === 'reject') return decision
+    if (decision.kind === 'resume') return { kind: 'resume', assembly }
+    return { ...decision, assembly }
   }
 
   /** Open one turn before claiming its first proposed step. */
@@ -268,10 +277,12 @@ export class ReactLoopAgent implements Agent {
           turnEnds = { kind: 'blocked' }
           return false
         }
-        if (turnEnds && decision.messages.length === 0) break
+        if (turnEnds && decision.kind === 'enter' && decision.messages.length === 0) break
         // A removed waking message or an enter decision rewritten to empty
         // still owns the initial turn boundary, but it spends no model call.
-        if (phase.step === 0 && decision.messages.length === 0) {
+        // A resume decision runs the model over the recorded log, so an empty
+        // surface batch is its point rather than a no-op.
+        if (phase.step === 0 && decision.kind === 'enter' && decision.messages.length === 0) {
           turnEnds = { kind: 'completed' }
           return false
         }
@@ -279,7 +290,7 @@ export class ReactLoopAgent implements Agent {
         this.session.append('step/start', { turn, step })
         phase.step = step
         try {
-          for (const message of decision.messages) {
+          for (const message of decision.kind === 'enter' ? decision.messages : []) {
             this.session.append('user/message', message, { surfaceOp: 'append' })
           }
           // max-tokens is sticky: once any step hits the ceiling, later steps

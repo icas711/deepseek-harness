@@ -45,6 +45,7 @@ function stubAgentForSession(session: Session): StubAgent {
     cancel() {},
     runMaintenance: task => task(new AbortController().signal),
     whenIdle() { return Promise.resolve() },
+    wake() {},
   }
   return {
     agent,

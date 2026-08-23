@@ -72,6 +72,15 @@
     - id: llm-retry
       name: '@deepseek-ai/dsh-llm-retry'
 
+    # Quota-pause guard: when a provider refuses a request for an exhausted
+    # account quota (Z.ai's 5-hour usage limit is the live case), the refused
+    # turn's input is parked back into the agent inbox and later proposals
+    # wait instead of re-failing; the web conversation's "continue" control
+    # releases it after the limit reset. Parking is durable (an inbox splice),
+    # so a restarted host resumes parked rather than re-failing.
+    - id: quota-pause
+      name: '@deepseek-ai/dsh-quota-pause'
+
     # User-settings document (`$DSH_HOME/settings.yaml`, hot-reloaded): a
     # `llm-deepseek:` or `llm-pi-ai:` section there overrides the adapter entries
     # below without a restart, and is what the web Models page writes.
@@ -449,3 +458,11 @@
     # choice.
     - id: llm-deepseek
       name: '@deepseek-ai/dsh-llm-deepseek'
+
+    # The Z.ai (GLM) adapter, same discipline: no key or endpoint inlined. The
+    # `llm-zai:` settings section or the launch environment supplies ZAI_API_KEY
+    # / ZAI_BASE_URL, and the route stays dormant (present in the Models page,
+    # unusable for requests) until a key resolves. Thinking defaults stay the
+    # adapter's own.
+    - id: llm-zai
+      name: '@deepseek-ai/dsh-llm-zai'

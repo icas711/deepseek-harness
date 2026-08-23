@@ -328,9 +328,9 @@ export function apply(ctx: Context, config: Config): void {
     const pending = agent.inbox.nextStep.filter(isWorkspaceContext)
     const desired = await compose(agent, signal, messages, pending)
     signal.throwIfAborted()
-    // An empty first entry owns a no-step turn; keep context pending instead
-    // of turning it into a standalone request. Later entries may be tool continuations.
-    if (decision.kind === 'reject' || (step === 1 && decision.messages.length === 0)) {
+    // A resume decision enters over the recorded log: workspace context stays
+    // as recorded, and the reject/empty-entry arms keep their pending sync.
+    if (decision.kind !== 'enter' || (step === 1 && decision.messages.length === 0)) {
       syncInbox(agent, messages, desired)
       return decision
     }

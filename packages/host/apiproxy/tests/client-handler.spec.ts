@@ -61,6 +61,7 @@ function scriptedApi(overrides: {
       }),
       updateQueue: r => ok(r, { accepted: true as const }),
       cancel: r => ok(r, { accepted: true as const }),
+      resumeAfterQuota: r => ok(r, { resumed: false }),
       ...overrides.sessions,
     },
     subagents: {
@@ -78,6 +79,7 @@ function scriptedApi(overrides: {
       listDirectory: r => ok(r, { path: '/t', home: '/t', crumbs: [], entries: [], truncated: false }),
       createDirectory: r => ok(r, { path: '/t/new' }),
       openPath: r => ok(r, { opened: true as const }),
+      telemetryStatus: r => ok(r, { sharing: 'disabled', configuredMode: 'DISABLED', changeable: false }),
       ...overrides.host,
     },
     workspace: {
@@ -164,6 +166,36 @@ describe('unary round trip', () => {
     expect(seen?.rpcId).toBeTruthy()
     expect(response.rpcId).toBe(seen?.rpcId)
     expect(response.result).toEqual({ ok: true, value: { items: [{ sessionId: 's1', updatedAt: 7, running: false, blank: false }] } })
+  })
+
+  it('round-trips the telemetry disclosure through its value schema', async () => {
+    let seen: RpcRequest<{}> | undefined
+    const api = scriptedApi({
+      host: {
+        telemetryStatus: (r) => {
+          seen = r
+          return ok(r, { sharing: 'feedback-only', configuredMode: 'FEEDBACK_ONLY', changeable: true })
+        },
+      },
+    })
+    const response = await client(api).host.telemetryStatus({})
+    expect(seen?.payload).toEqual({})
+    expect(response.result).toEqual({
+      ok: true,
+      value: { sharing: 'feedback-only', configuredMode: 'FEEDBACK_ONLY', changeable: true },
+    })
+  })
+
+  it('rejects a telemetry disclosure value outside the closed vocabularies', async () => {
+    // The value schema is the client's own fence: an impl bug cannot leak an
+    // unknown sharing policy into business code. The impl stub is typed as
+    // correct on purpose — the invalid value rides a cast, exactly like a
+    // misbehaving impl would send it.
+    const telemetryStatus = ((r: RpcRequest<{}>) => ok(r, {
+      sharing: 'secret', configuredMode: 'DISABLED', changeable: false,
+    })) as unknown as ApiProxy['host']['telemetryStatus']
+    const api = scriptedApi({ host: { telemetryStatus } })
+    await expect(client(api).host.telemetryStatus({})).rejects.toThrow()
   })
 
   it('round-trips a trimmed session search query and its bounded result metadata', async () => {

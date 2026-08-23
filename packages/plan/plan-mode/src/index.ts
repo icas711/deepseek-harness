@@ -208,7 +208,9 @@ export class PlanModeController extends Service {
     ): Promise<PreStepDecision> => {
       const decision = await next()
       const pending = this.pendingIntents.get(agent.session)
-      if (decision.kind === 'reject' || signal.aborted || pending === undefined) return decision
+      // A resume decision enters over the recorded log; plan narration rides
+      // only fresh enters.
+      if (decision.kind !== 'enter' || signal.aborted || pending === undefined) return decision
       const narration = this.narration(agent.session, pending.active)
       try {
         this.onBoundary(agent.session)

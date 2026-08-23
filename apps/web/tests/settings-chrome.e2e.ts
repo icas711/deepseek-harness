@@ -478,6 +478,33 @@ describe('web e2e: settings modal and General preferences', () => {
     }
   }, 90_000)
 
+  it('opens a Russian browser in Russian without any stored preference', async () => {
+    // The third shipped locale rides the same browser-derived resolution: a
+    // fresh Host home and a ru-RU browser must present the Russian settings
+    // surface (trigger, dialog, General nav, Language row) with the Language
+    // selector naming the active locale in its own script.
+    const fresh = await launchWebScaffold({})
+    const ruPage = await browser.newPage({ viewport: { width: 1680, height: 1000 }, locale: 'ru-RU' })
+    const ruTripwire = watchConsole(ruPage)
+    onTestFailed(() => saveFailureShot(ruPage, 'web-e2e-settings-browser-language-ru'))
+    try {
+      await ruPage.goto(fresh.baseUrl, { waitUntil: 'load' })
+      await ruPage.waitForSelector('[class*="frame"]', { timeout: 30_000 })
+      expect(await ruPage.evaluate(() => localStorage.getItem('dsh.locale'))).toBeNull()
+      await ruPage.getByRole('button', { name: 'Настройки', exact: true }).click()
+      const dialog = ruPage.getByRole('dialog', { name: 'Настройки' })
+      await dialog.waitFor({ timeout: 10_000 })
+      expect(await dialog.getByRole('button', { name: 'Общие' }).getAttribute('aria-current')).toBe('true')
+      await expect.poll(() => dialog.getByText('Язык', { exact: true }).count(), { timeout: 5_000 }).toBe(1)
+      await dialog.getByRole('button', { name: 'Русский' }).waitFor({ timeout: 10_000 })
+      expect(ruTripwire.pageErrors).toEqual([])
+      expect(ruTripwire.warnings).toEqual([])
+    } finally {
+      await ruPage.close()
+      await fresh.close()
+    }
+  }, 90_000)
+
   it.skipIf(MODE === 'record')('keeps the fixture inventory closed', async () => {
     expect(tripwire.warnings).toEqual([])
     await assertFixtureInventory(SNAPSHOT_DIR, ['dialog.expected.md', 'plugins.expected.md'])

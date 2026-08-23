@@ -351,3 +351,13 @@ export const sessionCancelRequestSchema = z.object({
 export const sessionCancelValueSchema = z.object({
   accepted: z.literal(true),
 }) satisfies z.ZodType<Wire<ResponseValue<'session.cancel'>>>
+
+/** session.resumeAfterQuota request payload. */
+export const sessionResumeAfterQuotaRequestSchema = z.object({
+  sessionId: sessionIdSchema,
+}) satisfies z.ZodType<Wire<RequestPayload<'session.resumeAfterQuota'>>>
+
+/** session.resumeAfterQuota response value. */
+export const sessionResumeAfterQuotaValueSchema = z.object({
+  resumed: z.boolean(),
+}) satisfies z.ZodType<Wire<ResponseValue<'session.resumeAfterQuota'>>>

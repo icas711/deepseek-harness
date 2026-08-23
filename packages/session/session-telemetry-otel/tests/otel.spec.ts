@@ -6,42 +6,16 @@
  */
 
 import { afterAll, afterEach, beforeAll, describe, expect, expectTypeOf, it, vi } from 'vitest'
-import { createServer, type Server } from 'node:http'
-import { once } from 'node:events'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { gunzipSync } from 'node:zlib'
 import { Context } from '@deepseek-ai/cordis'
 import { getOrCreateAnonymousUserId } from '@deepseek-ai/dsh-anonymous-user-id'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import { recordFeedback } from '@deepseek-ai/dsh-command-feedback'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import OpenTelemetrySessionBackend, { Config, DEFAULT_TELEMETRY_MODE, SessionTelemetryMode } from '../src/index.ts'
-
-interface Capture {
-  headers: import('node:http').IncomingHttpHeaders
-  body: OtlpLogsRequest
-}
-
-/** Just the slice of ExportLogsServiceRequest JSON these assertions touch. */
-interface OtlpLogsRequest {
-  resourceLogs: {
-    resource: { attributes: { key: string; value: { stringValue?: string } }[] }
-    scopeLogs: {
-      scope: { name: string }
-      logRecords: {
-        timeUnixNano: string
-        severityNumber: number
-        severityText: string
-        attributes?: { key: string; value: Record<string, unknown> }[]
-        body?: unknown
-      }[]
-    }[]
-  }[]
-}
-
-const servers: Server[] = []
+import { closeCollectors, mockCollector, type Capture } from './collector.ts'
 
 // The backend resolves the harness home's anonymous user id at construction;
 // pin DSH_HOME to a temp dir so the suite never touches the ambient ~/.dsh.
@@ -59,41 +33,8 @@ afterAll(() => {
 })
 
 afterEach(async () => {
-  for (const server of servers.splice(0)) {
-    server.close()
-    server.closeAllConnections()
-  }
+  await closeCollectors()
 })
-
-async function mockCollector(
-  beforeRespond?: (requestIndex: number) => Promise<void> | void,
-): Promise<{ url: string; captures: Capture[] }> {
-  const captures: Capture[] = []
-  let requestIndex = 0
-  const server = createServer((request, response) => {
-    const chunks: Buffer[] = []
-    request.on('data', chunk => chunks.push(chunk as Buffer))
-    request.on('end', () => {
-      const index = requestIndex++
-      void (async () => {
-        await beforeRespond?.(index)
-        const raw = Buffer.concat(chunks)
-        const body = request.headers['content-encoding'] === 'gzip' ? gunzipSync(raw) : raw
-        captures.push({
-          headers: request.headers,
-          body: JSON.parse(body.toString()) as OtlpLogsRequest,
-        })
-        response.writeHead(200, { 'content-type': 'application/json' }).end('{}')
-      })()
-    })
-  })
-  servers.push(server)
-  server.listen(0, '127.0.0.1')
-  await once(server, 'listening')
-  const address = server.address()
-  if (address === null || typeof address === 'string') throw new Error('no port')
-  return { url: `http://127.0.0.1:${address.port}/v1/logs`, captures }
-}
 
 async function boot(url: string) {
   const ctx = new Context()

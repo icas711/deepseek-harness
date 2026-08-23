@@ -254,6 +254,38 @@ describe('agent/pre-step', () => {
     expect(reasons).toEqual([{ kind: 'blocked' }])
   })
 
+  it('resume enters the step over the recorded log without re-surfacing claimed input', async () => {
+    // The quota-pause shape: the claimed batch is already on the surface
+    // from the turn that failed, so the resumed turn must spend its model
+    // call without appending the batch a second time.
+    const adapter = new MockAdapter([textResponse('failed turn output'), textResponse('continued')])
+    const ctx = await harness(adapter)
+    const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
+
+    // Turn 1 records the input on the surface the ordinary way.
+    const parked = createUserMessage({ content: [{ type: 'text', text: 'parked task' }], source: { kind: 'user' } })
+    agent.followup(parked)
+    await agent.whenIdle()
+    expect(adapter.requests).toHaveLength(1)
+
+    // The pause re-splices the same message back; the resume decision then
+    // spends the claim without re-surfacing it.
+    agent.inbox.prepend('next-turn', parked)
+    ctx.on('agent/pre-step', (): Promise<PreStepDecision> => Promise.resolve({ kind: 'resume' }))
+    agent.wake()
+    await agent.whenIdle()
+
+    expect(adapter.requests).toHaveLength(2)
+    // History for the resumed request contains the recorded input exactly
+    // once — the re-claimed copy added no surface event.
+    expect(JSON.stringify(adapter.requests[1]?.messages).match(/parked task/g)).toHaveLength(1)
+    expect(events(agent).filter(e => e.type === 'user/message')).toHaveLength(1)
+    expect(events(agent).filter(e => e.type === 'step/start')).toHaveLength(2)
+    const last = events(agent).at(-1)
+    expect(last?.type === 'turn/end' && last.data.reason).toEqual({ kind: 'completed' })
+    expect(agent.inbox.hasPending).toBe(false)
+  })
+
   it('stages inject and steer during pre-step for the entered turn', async () => {
     const adapter = new MockAdapter([textResponse('ok')])
     const ctx = await harness(adapter)

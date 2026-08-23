@@ -172,7 +172,9 @@ export function apply(ctx: Context, config: Config): void {
     next,
   ): Promise<PreStepDecision> => {
     const decision = await next()
-    if (decision.kind === 'reject' || signal.aborted) return decision
+    // A resume decision enters over the recorded log: its context stays as
+    // recorded instead of gaining a fresh snapshot.
+    if (decision.kind !== 'enter' || signal.aborted) return decision
     const now = Date.now()
     if (refreshIntervalMs !== undefined && refreshIntervalMs > 0) {
       const lastInjection = latestInjectionTime(agent)

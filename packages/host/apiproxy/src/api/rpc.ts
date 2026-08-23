@@ -98,6 +98,10 @@ export interface RpcErrorDetailsMap {
   'subagent-not-resumable': { childSessionId: SessionId }
   'subagent-unauthorized': { childSessionId: SessionId }
   'subagent-delivery-unavailable': { childSessionId: SessionId }
+  /** No telemetry backend is composed, so there is no sharing policy to disclose. */
+  'telemetry-not-configured': {}
+  /** No quota-pause guard is composed, so parked work has no release path. */
+  'quota-resume-unavailable': {}
   'internal': {}
 }
 

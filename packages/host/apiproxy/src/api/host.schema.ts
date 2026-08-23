@@ -72,3 +72,13 @@ export const hostOpenPathRequestSchema = z.object({
 export const hostOpenPathValueSchema = z.object({
   opened: z.literal(true),
 }) satisfies z.ZodType<Wire<ResponseValue<'host.openPath'>>>
+
+/** host.telemetryStatus request payload (empty object literal). */
+export const hostTelemetryStatusRequestSchema = z.object({}) satisfies z.ZodType<Wire<RequestPayload<'host.telemetryStatus'>>>
+
+/** host.telemetryStatus response value. */
+export const hostTelemetryStatusValueSchema = z.object({
+  sharing: z.enum(['disabled', 'feedback-only', 'full']),
+  configuredMode: z.enum(['DISABLED', 'FEEDBACK_ONLY', 'FULL']),
+  changeable: z.boolean(),
+}) satisfies z.ZodType<Wire<ResponseValue<'host.telemetryStatus'>>>

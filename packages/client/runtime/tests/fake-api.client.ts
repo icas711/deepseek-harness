@@ -155,6 +155,7 @@ export class FakeApiClient implements IApiClient {
     attachment: (payload: unknown) => this.record('session.attachment', payload, this.onAttachment(payload)),
     updateQueue: (payload: unknown) => this.record('session.updateQueue', payload, this.onUpdateQueue(payload)),
     cancel: (payload: unknown) => this.record('session.cancel', payload, this.onCancel(payload)),
+    resumeAfterQuota: (payload: unknown) => this.record('session.resumeAfterQuota', payload, Promise.resolve(ok({ resumed: false }))),
   }
 
   onSubagentList: (payload: unknown) => Promise<RpcResponse<{ entries: never[]; parentAvailable: boolean }>>
@@ -180,7 +181,11 @@ export class FakeApiClient implements IApiClient {
     listDirectory: (payload: unknown) => this.record('host.listDirectory', payload, this.onListDirectory(payload)),
     createDirectory: (payload: unknown) => this.record('host.createDirectory', payload, this.onCreateDirectory(payload)),
     openPath: (payload: unknown) => this.record('host.openPath', payload, this.onOpenPath(payload)),
+    telemetryStatus: (payload: unknown) => this.record('host.telemetryStatus', payload, this.onTelemetryStatus(payload)),
   }
+
+  onTelemetryStatus: (payload: unknown) => ReturnType<IApiClient['host']['telemetryStatus']> =
+    () => Promise.resolve(ok({ sharing: 'feedback-only', configuredMode: 'FEEDBACK_ONLY', changeable: true }))
 
   // The archive-set field defaults at the binding below so list stubs keep
   // the pre-archive `{ items }` shape; a stub carrying the field wins.

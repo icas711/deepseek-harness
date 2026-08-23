@@ -60,6 +60,9 @@
       "path": "../../session/session-projection-cache"
     },
     {
+      "path": "../../session/session-telemetry"
+    },
+    {
       "path": "../../session-query/session-query"
     },
     {
@@ -85,6 +88,9 @@
     },
     {
       "path": "../../interaction/user-questions"
+    },
+    {
+      "path": "../../guard/quota-pause"
     },
     {
       "path": "../../workspace/workspace"

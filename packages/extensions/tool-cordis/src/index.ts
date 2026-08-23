@@ -380,7 +380,9 @@ export function apply(ctx: Context): void {
 
   ctx.on('agent/pre-step', async ({ agent, messages, signal }, next): Promise<PreStepDecision> => {
     const decision = await next()
-    if (decision.kind === 'reject') return decision
+    // A resume decision enters over the recorded log; reference contexts ride
+    // only fresh enters.
+    if (decision.kind !== 'enter') return decision
     const ids = referencedPluginIds(messages)
     if (ids.length === 0) return decision
     signal.throwIfAborted()

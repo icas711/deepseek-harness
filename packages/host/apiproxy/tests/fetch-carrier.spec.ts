@@ -108,6 +108,9 @@ function fakeApi(overrides: Partial<{ muxFrames: MuxFrame[]; hostFrames: HostFra
       async cancel(request) {
         return { rpcId: request.rpcId, result: { ok: true, value: { accepted: true as const } } }
       },
+      async resumeAfterQuota(request) {
+        return { rpcId: request.rpcId, result: { ok: true, value: { resumed: false } } }
+      },
     },
     subagents: {
       async list(request) {
@@ -158,6 +161,9 @@ function fakeApi(overrides: Partial<{ muxFrames: MuxFrame[]; hostFrames: HostFra
       },
       async openPath(request) {
         return { rpcId: request.rpcId, result: { ok: true, value: { opened: true as const } } }
+      },
+      async telemetryStatus(request) {
+        return { rpcId: request.rpcId, result: { ok: true, value: { sharing: 'disabled', configuredMode: 'DISABLED', changeable: false } } }
       },
     },
     workspace: {

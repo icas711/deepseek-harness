@@ -93,4 +93,20 @@ export interface HostApi {
     request: RpcRequest<{ path: string }>,
     signal: AbortSignal,
   ): Promise<RpcResponse<{ opened: true }>>
+
+  /**
+   * Read the session-telemetry disclosure: the mounted backend's sharing
+   * mode, the mode the settings section would select next, and whether this
+   * deployment can change it at runtime. Absent telemetry answers
+   * `telemetry-not-configured`; every composed backend answers its own
+   * policy, so the General settings row renders from this single call.
+   */
+  telemetryStatus(request: RpcRequest<{}>): Promise<RpcResponse<{
+    /** The sharing policy the mounted backend currently runs. */
+    sharing: 'disabled' | 'feedback-only' | 'full'
+    /** The mode the `session-telemetry` settings section resolves to right now. */
+    configuredMode: 'DISABLED' | 'FEEDBACK_ONLY' | 'FULL'
+    /** Whether a mode change applies without a restart (backend + settings provider mounted). */
+    changeable: boolean
+  }>>
 }
