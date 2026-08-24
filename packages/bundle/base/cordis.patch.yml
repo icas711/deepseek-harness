@@ -402,18 +402,27 @@
         thresholds: [3, 5, 8]
         argumentsPreviewChars: 500
 
-    # Every mode enables the stable model-facing web_search tool. DeepSeek search
-    # resolves the same DEEPSEEK_API_KEY credential the Models page manages for
-    # chat, at each search; its Messages endpoint is separate from the
-    # chat-completions endpoint, so it takes its own base-URL override. Fetch stays
-    # disabled and no fetch provider is mounted: that provider defers SSRF
-    # protection and the model would choose the request target. Search is a full
-    # auxiliary model request with server-side retrieval, so this shipped DeepSeek
-    # route gets 60s while the provider-neutral tool default remains 30s.
+    # Every mode enables the stable model-facing web_search tool. Two search routes
+    # are mounted: the Z.ai standalone Web Search API (resolves the same
+    # ZAI_API_KEY credential the Models page manages for chat, at each search) is
+    # the default selection; the DeepSeek route stays mounted for deployments that
+    # store a valid DEEPSEEK_API_KEY and can be selected through the web config,
+    # a settings layer, or $DSH_WEB_SEARCH_PROVIDER. DeepSeek search reuses the
+    # chat credential but speaks the Anthropic-compatible Messages endpoint, so it
+    # takes its own base-URL override. Fetch stays disabled and no fetch provider
+    # is mounted: that provider defers SSRF protection and the model would choose
+    # the request target. Search routes are full auxiliary requests with
+    # server-side retrieval, so they get 60s while the provider-neutral tool
+    # default remains 30s.
     - id: web
       name: '@deepseek-ai/dsh-web'
       config:
-        searchProvider: deepseek-official
+        searchProvider: zai
+
+    - id: web-search-zai
+      name: '@deepseek-ai/dsh-web-search-zai'
+      config:
+        apiKeyEnv: ZAI_API_KEY
 
     - id: web-search-deepseek
       name: '@deepseek-ai/dsh-web-search-deepseek'
