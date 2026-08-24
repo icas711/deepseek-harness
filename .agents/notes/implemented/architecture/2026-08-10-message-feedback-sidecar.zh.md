@@ -26,7 +26,7 @@ Status: implemented
 
 `maxNoteBytes` 是必填的部署选择，用于限制可选备注的 UTF-8 字节长度；Web Host bundle 将其显式设为 `8192`。该包通过 `TypertRemoteService` 与 `@Remote` 直接发布 Host `messageFeedback.list`、`messageFeedback.put` 与 `messageFeedback.delete` 约定。客户端 Remote 聚合挂载与 UI 由各自边界负责并保持延后；后续适配层只是该 Host 约定的薄消费者。
 
-服务不伪造删除级联。`session/disposed` 与 `host/session-removed` 表示脱离 live ownership，而非持久删除，Session persistence 当前也没有删除接口。因此在带外移除日志后，伴随记录可能继续存在；不同的 `{createdAt, cwd}` 可阻止此类遗留记录变成后来复用该 id 的 Session 反馈。
+服务不执行删除级联。`session/disposed` 与 `host/session-removed` 表示脱离 live ownership，而非持久删除；`session.delete` 网关方法移除会话日志时不会通知本服务。因此在持久删除 Session 之后，伴随记录仍会保留；不同的 `{createdAt, cwd}` 可阻止此类遗留记录变成后来复用该 id 的 Session 反馈，带外清理仍由所有方自行决定。
 
 ## 考虑过的替代方案
 

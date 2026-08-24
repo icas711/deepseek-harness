@@ -26,7 +26,7 @@ A per-Session mutation queue encloses lifecycle inspection, sidecar read, confli
 
 `maxNoteBytes` is a required deployment choice and bounds the UTF-8 byte length of an optional note; the Web Host bundle sets it explicitly to `8192`. The package publishes the Host `messageFeedback.list`, `messageFeedback.put`, and `messageFeedback.delete` contract directly through `TypertRemoteService` and `@Remote`. Client Remote aggregate mounting and UI remain separately owned and deferred; their later adapter stays a thin consumer of this Host contract.
 
-The service performs no fake deletion cascade. `session/disposed` and `host/session-removed` describe detach from live ownership, not durable Session deletion, and Session persistence currently has no deletion API. Sidecar rows can therefore remain after out-of-band log removal; a different `{createdAt, cwd}` prevents such an orphan from becoming feedback for a later Session that reuses the id.
+The service performs no deletion cascade. `session/disposed` and `host/session-removed` describe detach from live ownership, not durable Session deletion; the `session.delete` gateway method removes the session log without notifying this service. Sidecar rows therefore remain after a durable Session deletion; a different `{createdAt, cwd}` prevents such an orphan from becoming feedback for a later Session that reuses the id, and out-of-band cleanup stays the owner's choice.
 
 ## Alternatives considered
 

@@ -74,6 +74,10 @@ reason 为 `max-tokens` 的 `turn/end` 会在该轮位置投影出一个 `turn-m
 
 `ISessions.fork({sessionId, atSeq?, increaseTitle?})` 只在子会话摘要已能在本地寻址后才完成；该摘要携带源会话的谱系和 cwd，且 `blank: false`，由调用方决定是否打开。`increaseTitle: true` 会在 client 端根据源会话的持久化标题重命名子会话：尾部 `(N)` 或 `（N）` 递增并保留括号样式，其余标题追加 ` (1)`；源会话没有持久化标题时跳过改名，改名失败时拒绝 promise 但保留已创建的子会话。该选项不会进入 Host fork 请求。即使响应为 `workspace-attach-failed`，其中仍会标识 Host 已发布的子会话，因此 `SessionManager` 会先将这一部分成功对账，再让 `SessionForkError` 到达调用方，避免重试创建重复的子会话。
 
+## 会话删除
+
+`ISessions.delete(sessionId)` 在 Host 提交持久删除之后才完成，并在发起端和所有其他客户端上执行与 `host/session-removed` 帧相同的拆除。子代理来源的行经本地回显移除时按持久断开处理：祖先的后代索引会丢弃它，同 id 重新添加也无法重新挂接。删除当前选中的会话会在 promise 完成前清入 New Session 视图。遭到拒绝（未知 id、子代理归属、其他宿主界面持有活体 agent、传输失败）时以携带线上错误的 `SessionDeleteError` 拒绝，行保持不变。
+
 ## 会话模型选择
 
 每个常驻 `Session` 都拥有一个 `modelSelection` 快照，其中包含当前模型选择、按提供方分组的目录、逐提供方失败记录，以及 `idle`／`loading`／`ready`／`selecting`／`error` 状态。历史记录会建立或刷新当前模型选择，打开选择器会刷新目录；选择失败会保留上一次模型选择和可用分组。目录与选择操作共用单调递增的代次，因此较旧响应无法覆盖较新的模型选择。重连重建会恢复 Host 报告的模型选择，同时不替换未变化的选择子结构。

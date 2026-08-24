@@ -7,7 +7,8 @@ import {
 import { z } from 'zod'
 import {
   contentBlockSchema, sessionCancelRequestSchema, sessionCancelValueSchema, sessionCreateRequestSchema,
-  sessionCreateValueSchema, sessionEventSchema, sessionHistoryRequestSchema, sessionHistoryValueSchema,
+  sessionCreateValueSchema, sessionDeleteRequestSchema, sessionDeleteValueSchema, sessionEventSchema,
+  sessionHistoryRequestSchema, sessionHistoryValueSchema,
   sessionIdSchema, sessionListRequestSchema, sessionListValueSchema, sessionModelsRequestSchema,
   sessionModelsValueSchema, sessionPromptRequestSchema, sessionPromptValueSchema,
   sessionSearchRequestSchema, sessionSearchValueSchema, sessionSelectModelRequestSchema,
@@ -77,6 +78,7 @@ describe('rpcErrorSchema', () => {
     expect(rpcErrorSchema.parse({ code: 'command-error', message: 'm', details: {} }).code).toBe('command-error')
     expect(rpcErrorSchema.parse({ code: 'unknown-command', message: 'm', details: {} }).code).toBe('unknown-command')
     expect(rpcErrorSchema.parse({ code: 'title-invalid', message: 'm', details: { sessionId: 's' } }).code).toBe('title-invalid')
+    expect(rpcErrorSchema.parse({ code: 'session-ownership', message: 'm', details: { sessionId: 's' } }).code).toBe('session-ownership')
     // The credentials producer still emits this code, so the branch has to stay.
     expect(rpcErrorSchema.parse({ code: 'credential-rejected', message: 'm', details: { ref: 'r' } }).code).toBe('credential-rejected')
     expect(rpcErrorSchema.parse({ code: 'internal', message: 'm', details: {} }).code).toBe('internal')
@@ -287,6 +289,13 @@ describe('sessions domain schemas', () => {
     expect(sessionCancelValueSchema.parse({ accepted: true }).accepted).toBe(true)
     expect(sessionUpdateQueueValueSchema.parse({ accepted: true }).accepted).toBe(true)
     expect(contentBlockSchema.parse({ type: 'text', text: 'x', extra: 1 })).toMatchObject({ extra: 1 })
+  })
+
+  it('validates session deletion payload and receipt', () => {
+    expect(sessionDeleteRequestSchema.parse({ sessionId: 's1' }).sessionId).toBe('s1')
+    expect(() => sessionDeleteRequestSchema.parse({})).toThrow()
+    expect(sessionDeleteValueSchema.parse({ deleted: true })).toEqual({ deleted: true })
+    expect(() => sessionDeleteValueSchema.parse({ deleted: false })).toThrow()
   })
 })
 

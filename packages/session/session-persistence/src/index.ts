@@ -221,6 +221,16 @@ export abstract class SessionPersistence extends Service {
   Promise<{ meta: SessionHeader; events: SessionEvent[] }>
 
   /**
+   * Durably remove one session's stored log. Idempotent: a session with no
+   * stored artifact resolves. Rejects while the id names a live Session —
+   * dispose that Session first so its final write-behind drain cannot
+   * resurrect the deleted log. Serialization with the write path is the
+   * backend's own responsibility (see {@link PersistenceCoordinator.delete}).
+   * @param id - the persisted session to remove.
+   */
+  abstract delete(id: SessionId): Promise<void>
+
+  /**
    * Lightweight listing from metadata, without a full-log parse.
    * @param signal - optional cancellation for backend listing work.
    * @returns one header per materialized session.

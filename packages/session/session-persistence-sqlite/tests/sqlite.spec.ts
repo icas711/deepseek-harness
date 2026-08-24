@@ -55,6 +55,7 @@ runPersistenceContract('sqlite', async () => {
   const fiber = await ctx.plugin(SqliteSessionPersistence, { path: ':memory:' })
   return {
     persistence: ctx.sessionPersistence,
+    ctx,
     dispose: async () => { await fiber.dispose() },
   }
 })
@@ -253,6 +254,33 @@ describe('SqliteSessionPersistence: durability and crash semantics', () => {
     const { ctx, dispose } = await backend()
     expect(ctx.sessionPersistence.locate(meta('sqlite-location'))).toBeUndefined()
     await dispose()
+  })
+
+  it('delete drops the session row and cascades its event rows while siblings survive', async () => {
+    const path = await freshDbPath()
+    const gone = meta('sqlite-delete-gone', '/work')
+    const kept = meta('sqlite-delete-kept', '/work')
+    const ctx = new Context()
+    await ctx.plugin(SessionStore)
+    const fiber = await ctx.plugin(SqliteSessionPersistence, { path })
+    await ctx.sessionPersistence.create(gone)
+    await ctx.sessionPersistence.append(gone.id, oneTurnLog())
+    await ctx.sessionPersistence.create(kept)
+    await ctx.sessionPersistence.append(kept.id, oneTurnLog())
+
+    await ctx.sessionPersistence.delete(gone.id)
+
+    const probe = openDatabase(path, 'wal')
+    try {
+      expect(probe.prepare('SELECT id FROM sessions').all()).toEqual([{ id: kept.id }])
+      expect(probe.prepare('SELECT COUNT(*) AS n FROM events WHERE session_id = ?').get(gone.id))
+        .toEqual({ n: 0 })
+      expect(probe.prepare('SELECT COUNT(*) AS n FROM events WHERE session_id = ?').get(kept.id))
+        .toEqual({ n: oneTurnLog().length })
+    } finally {
+      probe.close()
+      await fiber.dispose()
+    }
   })
 
   it('an interrupted turn (rows after the last turn/end) is PRESERVED and closed during load', async () => {

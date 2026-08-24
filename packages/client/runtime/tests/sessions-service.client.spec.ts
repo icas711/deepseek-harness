@@ -9,7 +9,7 @@
 import { Context } from '@deepseek-ai/cordis'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
-import { SessionCreateError, SessionRuntime, scopeOf } from '../src/client/sessions/service.ts'
+import { SessionCreateError, SessionDeleteError, SessionRuntime, scopeOf } from '../src/client/sessions/service.ts'
 import { FakeApiClient, deferred, err, fakeRemote, ok } from './fake-api.client.ts'
 
 const sid = (s: string): SessionId => s as SessionId
@@ -591,6 +591,64 @@ describe('fork', () => {
     await expect(b.svc.fork({ sessionId: sid('source'), increaseTitle: true }))
       .rejects.toThrow('fork child rename failed: title-invalid: rejected')
     expect(b.svc.binding(sid('child'))).toBeDefined()
+  })
+})
+
+describe('delete', () => {
+  it('removes the row locally on the ok echo and names the wire payload', async () => {
+    const b = bench()
+    await feedList(b, [{ id: 's1', cwd: '/work' }, { id: 's2', cwd: '/work' }])
+    b.api.onDelete = () => Promise.resolve(ok({ deleted: true }))
+
+    await expect(b.svc.delete(sid('s1'))).resolves.toBeUndefined()
+    await Promise.resolve()
+
+    expect(b.api.callsOf('session.delete')).toEqual([{ sessionId: 's1' }])
+    expect(b.svc.list.getSnapshot().ids).toEqual(['s2'])
+    expect(b.svc.list.getSnapshot().byId[sid('s1')]).toBeUndefined()
+  })
+
+  it('clears a deleted current selection into the no-session projection', async () => {
+    const b = bench()
+    await feedList(b, [{ id: 's1', cwd: '/work' }])
+    b.api.onDelete = () => Promise.resolve(ok({ deleted: true }))
+    await b.svc.open(sid('s1'))
+    expect(b.svc.list.getSnapshot().current).toBe(sid('s1'))
+
+    await b.svc.delete(sid('s1'))
+
+    expect(b.svc.list.getSnapshot().current).toBeUndefined()
+    expect(b.svc.list.getSnapshot().ids).toEqual([])
+  })
+
+  it('treats the local echo as durable even for a subagent-origin row', async () => {
+    const b = bench()
+    await feedList(b, [{ id: 'child', parentId: 'root', origin: 'subagent' }])
+    b.api.onDelete = () => Promise.resolve(ok({ deleted: true }))
+
+    await b.svc.delete(sid('child'))
+    await Promise.resolve()
+
+    // The frame path would idle a detaching Activation in place; a delete the
+    // caller watched succeed is always a durable removal.
+    expect(b.svc.list.getSnapshot().ids).toEqual([])
+  })
+
+  it('throws SessionDeleteError with the host business error and keeps the row', async () => {
+    const b = bench()
+    await feedList(b, [{ id: 's1', cwd: '/work' }])
+    b.api.onDelete = () => Promise.resolve(err({
+      code: 'session-ownership', message: 'live under another host surface',
+      details: { sessionId: sid('s1') },
+    }))
+
+    const failure = await b.svc.delete(sid('s1')).catch((error: unknown) => error)
+    expect(failure).toBeInstanceOf(SessionDeleteError)
+    expect(failure).toMatchObject({
+      sessionId: 's1',
+      rpcError: { code: 'session-ownership', message: 'live under another host surface' },
+    })
+    expect(b.svc.list.getSnapshot().ids).toEqual(['s1'])
   })
 })
 

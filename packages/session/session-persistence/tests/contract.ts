@@ -11,12 +11,15 @@
 import { describe, expect, it } from 'vitest'
 import { SESSION_FORMAT_VERSION, Session, SessionId, TOOL_NOT_STARTED, TOOL_OUTCOME_UNKNOWN } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionHeader, SurfaceEventType, SurfaceIntent } from '@deepseek-ai/dsh-session'
+import type { Context } from '@deepseek-ai/cordis'
 import { CallId, MessageId, createMessage, freezeMessage } from '@deepseek-ai/dsh-llm'
 import type { SessionPersistence } from '../src/index.ts'
 
 /** A backend under test plus its teardown. */
 export interface ContractBackend {
   persistence: SessionPersistence
+  /** The backend's host context: live-Session fixtures for write-path tests. */
+  ctx: Context
   dispose: () => Promise<void>
 }
 
@@ -273,6 +276,52 @@ export function runPersistenceContract(name: string, make: () => Promise<Contrac
         expect((await persistence.listSnapshots()).map(snapshot => snapshot.header.id))
           .not.toContain(SessionId('empty'))
       } finally {
+        await dispose()
+      }
+    })
+
+    it('delete removes a stored session durably and resolves idempotently for an absent id', async () => {
+      const { persistence, dispose } = await make()
+      try {
+        const kept = meta('kept', '/work')
+        const gone = meta('gone', '/work')
+        await persistence.create(kept)
+        await persistence.append(kept.id, oneTurnLog())
+        await persistence.create(gone)
+        await persistence.append(gone.id, oneTurnLog())
+
+        await persistence.delete(gone.id)
+        expect((await persistence.list()).map(m => m.id)).toEqual([kept.id])
+        await expect(persistence.load(gone.id)).rejects.toThrow(/not found/)
+        // Idempotent for both the just-deleted id and one never stored.
+        await expect(persistence.delete(gone.id)).resolves.toBeUndefined()
+        await expect(persistence.delete(SessionId('never-existed'))).resolves.toBeUndefined()
+        // The id is free again: create no longer sees a persisted collision
+        // (zero-event sessions never list, so the recreated log needs one append).
+        await persistence.create(meta('gone', '/work'))
+        await persistence.append(gone.id, oneTurnLog())
+        expect((await persistence.list()).map(m => m.id).sort()).toEqual([kept.id, gone.id].sort())
+      } finally {
+        await dispose()
+      }
+    })
+
+    it('delete rejects while the session is live and completes after its detach', async () => {
+      const { persistence, ctx, dispose } = await make()
+      const session = ctx.sessions.prepare(SessionId('live-delete'))
+      const detach = ctx.sessions.enter(session)
+      ctx.sessions.announce(session)
+      try {
+        appendLog(session, oneTurnLog())
+        await ctx.sessions.flush(session)
+        expect((await persistence.list()).map(m => m.id)).toEqual([session.id])
+
+        await expect(persistence.delete(session.id)).rejects.toThrow(/while it is live/)
+        detach()
+        await expect(persistence.delete(session.id)).resolves.toBeUndefined()
+        expect((await persistence.list()).map(m => m.id)).toEqual([])
+      } finally {
+        detach()
         await dispose()
       }
     })

@@ -942,3 +942,50 @@ describe('registry-global session archive', () => {
     expect(upgraded.registry.archivedSessionIds).toEqual([])
   })
 })
+
+describe('session forgetting on durable deletion', () => {
+  it('drops the archive slot, every accounting record, and the header index durably', async () => {
+    const dir = await makeDir('forget-home')
+    const result = await harness({ sessions: [header('kept', dir, 100), header('gone', dir, 200)] })
+    const workspace = result.registry.list()[0]!
+    expect(workspace.sessionIds).toContain('gone')
+    await result.registry.archiveSession(SessionId('gone'))
+    const changesBeforeForget = result.changes.length
+
+    await result.registry.forgetSession(SessionId('gone'))
+    expect(workspace.sessionIds).not.toContain('gone')
+    expect(workspace.sessionIds).toContain('kept')
+    expect(result.registry.archivedSessionIds).toEqual([])
+    expect(storedRecord(result.pool, String(workspace.id)).sessionIds).toEqual([SessionId('kept')])
+    expect(storedState(result.pool).archivedSessionIds).toEqual([])
+    // One archive-set change and one accounting change reach the wire.
+    const emitted = result.changes.slice(changesBeforeForget)
+    expect(emitted.filter(change => change.table === '' && change.operation === 'put')).toHaveLength(1)
+    expect(emitted.filter(change => change.table === 'workspaces' && change.operation === 'put')).toHaveLength(1)
+  })
+
+  it('resolves idempotently for an untracked id without writing or emitting', async () => {
+    const dir = await makeDir('forget-ghost')
+    const result = await harness({ sessions: [header('kept', dir, 100)] })
+
+    await result.registry.forgetSession(SessionId('ghost'))
+    expect(result.changes).toEqual([])
+    expect(storedState(result.pool).archivedSessionIds).toEqual([])
+    expect(result.registry.list()[0]!.sessionIds).toContain('kept')
+  })
+
+  it('keeps the forgotten accounting across a restart that no longer lists the log', async () => {
+    const dir = await makeDir('forget-restart')
+    const pool = new MemoryMediaPool()
+    const first = await harness({ pool, sessions: [header('kept', dir, 100), header('gone', dir, 200)] })
+    const workspace = first.registry.list()[0]!
+    expect(workspace.sessionIds).toContain('gone')
+    await first.registry.forgetSession(SessionId('gone'))
+    await first.fiber.dispose()
+
+    // The caller deleted the log beside the forget: the restart lists no 'gone'.
+    const second = await harness({ pool, sessions: [header('kept', dir, 100)] })
+    expect(second.registry.list()[0]!.sessionIds).toEqual([SessionId('kept')])
+    expect(second.registry.archivedSessionIds).toEqual([])
+  })
+})

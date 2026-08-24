@@ -2358,6 +2358,34 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         }
         return ok(request, { sessionId: child.sessionId })
       },
+      delete: (request) => {
+        const missing = requireSession(request)
+        if (missing !== undefined) return missing
+        const { sessionId } = request.payload
+        // Stop an in-flight reply the way a disposed agent would: the timer
+        // dies without appending the closing events — the log is about to go.
+        const replay = replays.get(sessionId)
+        if (replay !== undefined) {
+          clearTimeout(replay.timer)
+          replays.delete(sessionId)
+        }
+        sessions.splice(sessions.findIndex(summary => summary.sessionId === sessionId), 1)
+        logs.delete(sessionId)
+        // Workspace accounting and the archive slot are forgotten together
+        // with the log (host forgetSession parity).
+        for (const workspace of workspaces) {
+          if (!workspace.sessionIds.includes(sessionId)) continue
+          workspace.sessionIds = workspace.sessionIds.filter(id => id !== sessionId)
+          workspace.updatedAt = new Date().toISOString()
+          emitHost({ type: 'host/workspace-changed', workspace: { ...workspace } })
+        }
+        if (archivedSessionIds.includes(sessionId)) {
+          archivedSessionIds.splice(archivedSessionIds.indexOf(sessionId), 1)
+          emitHost({ type: 'host/archived-sessions-changed', archivedSessionIds: [...archivedSessionIds] })
+        }
+        emitHost({ type: 'host/session-removed', sessionId })
+        return ok(request, { deleted: true })
+      },
       history: async (request) => {
         const log = logs.get(request.payload.sessionId) ?? []
         // Snapshot at request time, deliver after the transit delay (mirrors a real host under latency).
@@ -3093,6 +3121,7 @@ export class FixtureApiClient extends AbstractApiClient {
       case 'session.models': return this.api.sessions.models(request)
       case 'session.selectModel': return this.api.sessions.selectModel(request)
       case 'session.rename': return this.api.sessions.rename(request)
+      case 'session.delete': return this.api.sessions.delete(request)
       case 'session.fork': return this.api.sessions.fork(request)
       case 'session.prompt': return this.api.sessions.prompt(request)
       case 'session.attachment': return this.api.sessions.attachment(request)

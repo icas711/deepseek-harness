@@ -199,6 +199,10 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
     return this.coordinator.readFrom(id, fromSeq, signal)
   }
 
+  delete(id: SessionId): Promise<void> {
+    return this.coordinator.delete(id)
+  }
+
   // One method serves both public `list` and the backend hook; delegating it to
   // the coordinator would call this hook recursively.
 
@@ -446,6 +450,34 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
   /** List valid unique stored sessions' metadata (header line only — no full-log parse). */
   async list(signal?: AbortSignal): Promise<SessionHeader[]> {
     return (await this.listArtifacts(signal)).map(artifact => artifact.header)
+  }
+
+  /**
+   * Remove the session's whole on-disk directory (the log plus nothing else
+   * lives there). Idempotent: an id with no directory resolves. A non-directory
+   * at the expected path is not this backend's artifact and is skipped —
+   * listing never saw it either.
+   */
+  async deleteStored(id: SessionId): Promise<void> {
+    await this.ensureRootEncoding()
+    const targets: string[] = []
+    for (const project of await this.listProjectDirs()) {
+      const dir = join(project, encodeSegment(id))
+      let info: Awaited<ReturnType<typeof stat>>
+      try {
+        info = await stat(dir)
+      } catch (error: unknown) {
+        if (isENOENT(error)) continue
+        throw error
+      }
+      if (info.isDirectory()) targets.push(dir)
+    }
+    if (targets.length > 1) {
+      throw new Error(`duplicate JSONL session id "${id}" appears in multiple project directories`)
+    }
+    const target = targets[0]
+    if (target === undefined) return
+    await rm(target, { recursive: true, force: true })
   }
 
   /** List metadata plus a stat-derived identity for each append-only log. */

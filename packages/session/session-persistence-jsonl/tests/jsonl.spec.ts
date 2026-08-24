@@ -107,6 +107,7 @@ runPersistenceContract('jsonl-none', async () => {
   const fiber = await ctx.plugin(JsonlSessionPersistence, { root: dir, compression: 'none' })
   return {
     persistence: ctx.sessionPersistence,
+    ctx,
     dispose: async () => {
       await fiber.dispose()
       await rm(dir, { recursive: true, force: true })
@@ -1191,6 +1192,38 @@ describe('JsonlSessionPersistence: edge cases', () => {
     // The log materialized under the ORIGINAL cwd, not the mutated one.
     expect((await stat(rawLogPath(root, '/orig', SessionId('create-snap')))).isFile()).toBe(true)
     await expect(stat(rawLogPath(root, '/mutated', SessionId('create-snap')))).rejects.toThrow()
+  })
+
+  it('delete removes the session directory from disk and leaves sibling logs intact', async () => {
+    await ctx.sessionPersistence.create(meta('kept-on-disk', '/projA'))
+    await ctx.sessionPersistence.append(SessionId('kept-on-disk'), oneTurnLog())
+    await ctx.sessionPersistence.create(meta('gone-on-disk', '/projA'))
+    await ctx.sessionPersistence.append(SessionId('gone-on-disk'), oneTurnLog())
+    const goneDir = sessionDir(root, '/projA', SessionId('gone-on-disk'))
+    expect((await stat(goneDir)).isDirectory()).toBe(true)
+
+    await ctx.sessionPersistence.delete(SessionId('gone-on-disk'))
+
+    await expect(stat(goneDir)).rejects.toThrow(/ENOENT/)
+    // The sibling log and the project directory itself survive.
+    expect((await stat(rawLogPath(root, '/projA', SessionId('kept-on-disk')))).isFile()).toBe(true)
+    expect((await stat(projectDir(root, '/projA'))).isDirectory()).toBe(true)
+  })
+
+  it('delete skips name-colliding non-directories and refuses an id spread over two projects', async () => {
+    // A regular file named like the encoded segment is not a session log.
+    const stray = join(projectDir(root, '/projA'), encodeSegment('stray-file'))
+    await mkdir(projectDir(root, '/projA'), { recursive: true })
+    await writeFile(stray, 'not a session')
+    await expect(ctx.sessionPersistence.delete(SessionId('stray-file'))).resolves.toBeUndefined()
+    expect((await stat(stray)).isFile()).toBe(true)
+
+    // The same encoded segment present as a directory under two projects is
+    // ambiguous durable state; the backend refuses rather than guess.
+    for (const cwd of ['/projA', '/projB']) {
+      await mkdir(join(projectDir(root, cwd), encodeSegment('spread')), { recursive: true })
+    }
+    await expect(ctx.sessionPersistence.delete(SessionId('spread'))).rejects.toThrow(/multiple project directories/)
   })
 
   it('list discovers sessions across multiple project directories', async () => {

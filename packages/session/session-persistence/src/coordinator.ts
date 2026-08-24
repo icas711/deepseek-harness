@@ -193,6 +193,15 @@ export interface PersistenceBackend<TornMarker = unknown> {
   commitRepair(meta: SessionHeader, tornMarker: TornMarker | undefined, closers: readonly SessionEvent[]): Promise<void>
 
   /**
+   * Durably remove one session's stored artifact. Idempotent: an id with no
+   * stored artifact resolves. Called only from the coordinator's
+   * {@link PersistenceCoordinator.delete} after that id's write path has
+   * quiesced, so no buffered write can race the removal.
+   * @param id - persisted session id to remove.
+   */
+  deleteStored(id: SessionId): Promise<void>
+
+  /**
    * List all stored (materialized) sessions' metadata.
    * @param signal - optional cancellation for backend listing work.
    */
@@ -677,6 +686,32 @@ export class PersistenceCoordinator<TornMarker = unknown> {
       throw new TypeError('session event batch is not losslessly JSON-serializable because it contains non-JSON-serializable data')
     }
     return this.serialize(id, () => this.appendCore(id, batch))
+  }
+
+  /**
+   * Durably remove one session's stored log (see the service contract). The
+   * in-flight retirement is awaited OUTSIDE the per-id chain: a retirement's
+   * own serialized tail may still be queued, and awaiting it from inside a
+   * serialized section would deadlock against that queue. A failed final
+   * drain does not block deletion — the artifact removal discards those
+   * events anyway, matching the observe-only posture of {@link retire}.
+   * @param id - the session whose stored log to remove.
+   */
+  async delete(id: SessionId): Promise<void> {
+    if (this.ctx.sessions.get(id) !== undefined) {
+      throw new Error(`cannot delete session "${id}" while it is live`)
+    }
+    await this.waitForRetirement(id).catch(() => {
+      // Observe-only: a failed final drain loses events this delete discards.
+    })
+    await this.serialize(id, () => this.deleteCore(id))
+  }
+
+  private async deleteCore(id: SessionId): Promise<void> {
+    this.preparations.assertWritable(id)
+    this.states.delete(id)
+    this.preparations.invalidate(id)
+    await this.backend.deleteStored(id)
   }
 
   private async appendCore(id: SessionId, events: readonly SessionEvent[]): Promise<void> {

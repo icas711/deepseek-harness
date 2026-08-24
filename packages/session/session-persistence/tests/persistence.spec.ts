@@ -118,6 +118,10 @@ class MemoryPersistence extends SessionPersistence implements PersistenceBackend
     return this.coordinator.readFrom(id, fromSeq, signal)
   }
 
+  delete(id: SessionId): Promise<void> {
+    return this.coordinator.delete(id)
+  }
+
   // --- PersistenceBackend hooks (the Map storage primitives) ---
 
   // A Map-backed store has no torn tails, so `tornMarker` is never set.
@@ -166,6 +170,10 @@ class MemoryPersistence extends SessionPersistence implements PersistenceBackend
     return [...this.store.values()].map(e => structuredClone(e.meta))
   }
 
+  async deleteStored(id: SessionId): Promise<void> {
+    this.store.delete(id)
+  }
+
   async listSnapshots(signal?: AbortSignal): Promise<SessionPersistenceSnapshot[]> {
     signal?.throwIfAborted()
     return [...this.store.values()].map(entry => ({
@@ -183,6 +191,7 @@ class ControlledBackend implements PersistenceBackend<never> {
   appendAttempts = 0
   loadAttempts = 0
   repairAttempts = 0
+  readonly deleteStoredCalls: SessionId[] = []
   beforeAppend?: (attempt: number) => Promise<void>
   beforeLoadStored?: (attempt: number, signal?: AbortSignal) => Promise<void>
   /** When set, the declared seek hook delegates here so readFrom exercises it; unset throws (tests set it first). */
@@ -232,6 +241,11 @@ class ControlledBackend implements PersistenceBackend<never> {
     return [...this.store.values()].map(entry => structuredClone(entry.meta))
   }
 
+  async deleteStored(id: SessionId): Promise<void> {
+    this.deleteStoredCalls.push(id)
+    this.store.delete(id)
+  }
+
   async close(): Promise<void> {
     this.lifecycle.push('close')
   }
@@ -244,6 +258,7 @@ runPersistenceContract('memory', async () => {
   const fiber = await ctx.plugin(MemoryPersistence)
   return {
     persistence: ctx.sessionPersistence,
+    ctx,
     dispose: async () => { await fiber.dispose() },
   }
 })
@@ -1751,6 +1766,85 @@ describe('PersistenceCoordinator retirement', () => {
     } finally {
       appendGate.resolve(true)
       await fiber.dispose()
+      await ctx.fiber.dispose()
+    }
+  })
+})
+
+describe('PersistenceCoordinator durable deletion', () => {
+  it('waits out a pending retirement drain before removing the stored log', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SessionStore)
+    const backend = new ControlledBackend()
+    let coordinator!: PersistenceCoordinator<never>
+    const backendFiber = await ctx.plugin(Object.assign((inner: Context) => {
+      coordinator = new PersistenceCoordinator(inner, backend)
+    }, { inject: ['sessions'] }))
+    const appendGate = Promise.withResolvers<boolean>()
+    backend.beforeAppend = async () => { await appendGate.promise }
+
+    try {
+      const id = SessionId('delete-waits-retirement')
+      let session!: Session
+      const sessionFiber = await ctx.plugin(Object.assign((inner: Context) => {
+        session = inner.sessions.create(id)
+      }, { inject: ['sessions'] }))
+      session.append('turn/start', { turn: 1 })
+      session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+      await sessionFiber.dispose()
+      await vi.waitFor(() => { expect(backend.appendAttempts).toBe(1) })
+
+      let deleted = false
+      const deleting = coordinator.delete(id).then(() => { deleted = true })
+      await new Promise((resolve) => { setTimeout(resolve, 0) })
+      // The gated final drain owns the chain: deletion must stay pending and
+      // must not remove the log out from under it.
+      expect(deleted).toBe(false)
+      expect(backend.deleteStoredCalls).toEqual([])
+
+      appendGate.resolve(true)
+      await expect(deleting).resolves.toBeUndefined()
+      expect(backend.deleteStoredCalls).toEqual([id])
+    } finally {
+      appendGate.resolve(true)
+      await backendFiber.dispose()
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it('proceeds when the awaited final drain itself fails', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SessionStore)
+    const backend = new ControlledBackend()
+    let coordinator!: PersistenceCoordinator<never>
+    const backendFiber = await ctx.plugin(Object.assign((inner: Context) => {
+      coordinator = new PersistenceCoordinator(inner, backend)
+    }, { inject: ['sessions'] }))
+    const internals = coordinator as unknown as CoordinatorInternals
+    const appendGate = Promise.withResolvers<boolean>()
+    backend.beforeAppend = async () => { await appendGate.promise }
+
+    try {
+      const id = SessionId('delete-survives-drain-failure')
+      let session!: Session
+      const sessionFiber = await ctx.plugin(Object.assign((inner: Context) => {
+        session = inner.sessions.create(id)
+      }, { inject: ['sessions'] }))
+      session.append('turn/start', { turn: 1 })
+      session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+      await sessionFiber.dispose()
+      await vi.waitFor(() => { expect(internals.retirements.has(id)).toBe(true) })
+
+      const deleting = coordinator.delete(id)
+      await Promise.resolve()
+      // The drain rejects (its events are being discarded anyway); deletion
+      // still removes the stored log.
+      appendGate.reject(new Error('final drain lost'))
+      await expect(deleting).resolves.toBeUndefined()
+      expect(backend.deleteStoredCalls).toEqual([id])
+    } finally {
+      appendGate.resolve(true)
+      await backendFiber.dispose()
       await ctx.fiber.dispose()
     }
   })

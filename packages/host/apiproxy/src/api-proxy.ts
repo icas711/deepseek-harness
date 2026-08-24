@@ -8,7 +8,7 @@ import { mkdir, stat } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import { installModelSelection } from '@deepseek-ai/dsh-agent'
-import type { Agent, ModelSelection, ModelSelectionRef, AgentOptions, AgentStatus } from '@deepseek-ai/dsh-agent'
+import type { Agent, ModelSelection, ModelSelectionRef, AgentOptions, AgentStatus, AgentHandle } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-agent-presets/types'
 import { AttachmentError } from '@deepseek-ai/dsh-attachment'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
@@ -1151,11 +1151,30 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
   const presetSwitches = new Map<SessionId, Promise<unknown>>()
   /** Client-chosen identity creation/resume, deduplicated across concurrent retries. */
   const sessionCreations = new Map<SessionId, Promise<Agent>>()
+  /**
+   * The disposal capability for every agent this proxy created or resumed.
+   * Holding the handle is what makes `session.delete` able to tear a live
+   * agent down: the registry exposes no by-id disposal, by design. An agent
+   * live without an entry here is owned by another surface (a subagent
+   * parent, another host entry point) and deletion refuses it.
+   */
+  const agentHandles = new Map<SessionId, AgentHandle>()
   /** Serializes path ownership and explicit title checks with Workspace mutations. */
   let workspaceCreationChain = Promise.resolve()
   const pendingQuestions = new Map<RpcId, PendingQuestion>()
   const pendingApprovals = new Map<RpcId, PendingApproval>()
   const muxQueues = new Set<FrameQueue<RpcRequest<MuxFrame>>>()
+  /**
+   * Open host-stream queues. The `events.host` stream owns the listener side;
+   * this registry lets a unary handler publish the same frames (a durable
+   * session deletion has no lifecycle event to listen to).
+   */
+  const hostQueues = new Set<FrameQueue<RpcRequest<HostFrame>>>()
+
+  /** Publish one host-stream frame to every connected client. */
+  function pushHostFrame(payload: HostFrame): void {
+    for (const queue of hostQueues) queue.push(frame(payload))
+  }
   const imageAdmissionChains = new WeakMap<Agent, Promise<void>>()
 
   /** Serialize image admission with model selection for one agent. */
@@ -1680,11 +1699,13 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
           // session's history was produced under that composition, and
           // rebuilding it differently would replay tool calls the model can no
           // longer make.
-          return (await ctx.agents.resume({
+          const resumed = await ctx.agents.resume({
             resumeSessionId: sessionId,
             agentOptions: agentOptions(),
             setup: (await composeAgent(storedPreset)).setup,
-          })).agent
+          })
+          agentHandles.set(sessionId, resumed)
+          return resumed.agent
         }
 
         try {
@@ -1693,7 +1714,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
           throw new Error(`failed to ensure project directory "${cwd}": ${String(error)}`, { cause: error })
         }
         const composition = await composeAgent(presetId)
-        return (await ctx.agents.create({
+        const created = await ctx.agents.create({
           sessionId,
           agentOptions: agentOptions(),
           meta: {
@@ -1701,7 +1722,9 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
             ...composition.agentPreset === undefined ? {} : { agentPreset: composition.agentPreset },
           },
           setup: composition.setup,
-        })).agent
+        })
+        agentHandles.set(sessionId, created)
+        return created.agent
       })().catch((error: unknown) => {
         // Another Host entry path may have published the same identity while
         // this operation crossed an asynchronous persistence/filesystem step.
@@ -2386,6 +2409,82 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         }
       },
 
+      async delete(request) {
+        const { sessionId } = request.payload
+        const persistence = ctx.get('sessionPersistence')
+        if (persistence === undefined) {
+          return err(request, {
+            code: 'internal',
+            message: 'session deletion is unavailable: this deployment mounts no session-persistence service',
+            details: {},
+          })
+        }
+        const attached = ctx.sessions.get(sessionId)
+        if (attached !== undefined) {
+          // A live session is deleted by disposing the agent this proxy owns.
+          // Subagent children keep their lifecycle under subagent routing, and
+          // an agent some other surface owns is not this wire's to tear down.
+          if (hasSubagentOwner(attached, ctx.agents.get(sessionId))) {
+            return err(request, subagentOwnershipError(sessionId))
+          }
+          const handle = agentHandles.get(sessionId)
+          if (handle === undefined) {
+            return err(request, {
+              code: 'session-ownership',
+              message: `session "${sessionId}" is live under another host surface; close it there before deleting`,
+              details: { sessionId },
+            })
+          }
+          agentHandles.delete(sessionId)
+          try {
+            // Disposal cancels any running turn with disposed cause, awaits
+            // quiescence, and fires session/disposed — which both flushes the
+            // final write-behind batch (persistence.delete waits out that
+            // retirement before removing the log) and pushes the client's
+            // host/session-removed frame.
+            await handle.dispose()
+          } catch (error: unknown) {
+            return err(request, {
+              code: 'internal',
+              message: `failed to stop session "${sessionId}" before deletion: ${String(error)}`,
+              details: {},
+            })
+          }
+        } else {
+          let meta: SessionHeader
+          try {
+            meta = (await inspectServable(sessionId)).meta
+          } catch (error: unknown) {
+            if (error instanceof SessionNotFound) {
+              return err(request, { code: 'session-not-found', message: error.message, details: { sessionId } })
+            }
+            return err(request, {
+              code: 'internal',
+              message: `session "${sessionId}" could not be read for deletion: ${String(error)}`,
+              details: {},
+            })
+          }
+          if (hasSubagentOwner({ header: meta }, undefined)) {
+            return err(request, subagentOwnershipError(sessionId))
+          }
+        }
+        try {
+          await persistence.delete(sessionId)
+          await ctx.workspaceRegistry.forgetSession(sessionId)
+        } catch (error: unknown) {
+          return err(request, {
+            code: 'internal',
+            message: `failed to delete session "${sessionId}": ${String(error)}`,
+            details: {},
+          })
+        }
+        // Commit point reached: a cold deletion has no lifecycle event to
+        // carry the removal (the live path's frame already rode
+        // session/disposed), so the client list frame is published here.
+        if (attached === undefined) pushHostFrame({ type: 'host/session-removed', sessionId })
+        return ok(request, { deleted: true as const })
+      },
+
       async fork(request) {
         const { sessionId, atSeq } = request.payload
         let source: SessionReadState
@@ -2446,7 +2545,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         // plane, composing nothing would leave the child with no tools at all.
         const forkComposition = await composeAgent(resolveSessionPreset(source))
         try {
-          await ctx.agents.create({
+          const forked = await ctx.agents.create({
             sessionId: childId,
             seed: events.slice(0, cut),
             meta: {
@@ -2460,6 +2559,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
             agentOptions: agentOptions(),
             setup: forkComposition.setup,
           })
+          agentHandles.set(childId, forked)
         } catch (error: unknown) {
           return err(request, {
             code: 'internal',
@@ -3603,6 +3703,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
 
       host(_request, signal) {
         const queue = new FrameQueue<RpcRequest<HostFrame>>()
+        hostQueues.add(queue)
         const committedWorkspaces = ctx.workspaceRegistry.list()
         const committedWorkspaceIds = new Set(
           committedWorkspaces.map(workspace => String(workspace.id)),
@@ -3702,7 +3803,10 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
             }),
           )),
         ]
-        return queue.iterate(signal, () => { for (const dispose of disposers) dispose() })
+        return queue.iterate(signal, () => {
+          hostQueues.delete(queue)
+          for (const dispose of disposers) dispose()
+        })
       },
     },
 

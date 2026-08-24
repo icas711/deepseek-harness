@@ -268,6 +268,33 @@ export class WorkspaceRegistry extends Service {
   }
 
   /**
+   * Forget one session everywhere the registry tracks it: the header index
+   * (so workspace projections drop it immediately), every workspace record
+   * that accounts it, and the registry-global archive set. The session's own
+   * log is NOT touched — the caller deletes it through session persistence
+   * beside this call. Idempotent: an untracked id resolves without writing.
+   * @param sessionId - the session to forget.
+   * @returns resolution after durability.
+   */
+  forgetSession(sessionId: SessionId): Promise<void> {
+    return this.enqueueOperation(async () => {
+      this.headers.delete(sessionId)
+      this.sessionPaths.delete(sessionId)
+      this.invalidSessionPaths.delete(sessionId)
+      const state = this.requireState()
+      if (state.archivedSessionIds.includes(sessionId)) {
+        await this.setState({
+          ...state,
+          archivedSessionIds: state.archivedSessionIds.filter(id => id !== sessionId),
+        })
+      }
+      for (const entity of this.entities.values()) {
+        await entity.detachSession(sessionId)
+      }
+    })
+  }
+
+  /**
    * Resolve by canonical directory path without creating or mutating a
    * workspace. A missing path rejects during `realpath`; an existing unowned
    * directory returns `undefined`.

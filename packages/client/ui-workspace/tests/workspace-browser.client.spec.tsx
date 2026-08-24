@@ -76,6 +76,7 @@ function mount(overrides: Partial<WorkspaceBrowserProps> = {}) {
     renameWorkspace: vi.fn(async () => {}),
     deleteWorkspace: vi.fn(async () => {}),
     archiveSession: vi.fn(async () => {}),
+    deleteSession: vi.fn(async () => {}),
     insertWorkspaceBefore: vi.fn(async () => {}),
     insertSessionBefore: vi.fn(async () => {}),
     createWorkspace: vi.fn(async () => workspace('created', [])),
@@ -355,6 +356,59 @@ describe('WorkspaceBrowser', () => {
     } finally {
       warn.mockRestore()
     }
+  })
+
+  it('confirms session deletion with the irreversible warning and blocks duplicate submission', async () => {
+    let resolveDelete!: () => void
+    const deleteSession = vi.fn(() => new Promise<void>((resolve) => { resolveDelete = resolve }))
+    const b = mount({
+      useSessions: hook(sessionState([summary('kept-s', 2), summary('gone-s', 1)])),
+      useWorkspaces: hook(workspaceState([workspace('alpha', ['kept-s', 'gone-s'])])),
+      deleteSession,
+    })
+    fireEvent.click(screen.getByText('alpha'))
+    fireEvent.click(screen.getByRole('button', { name: '会话“gone-s”的操作' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '删除会话' }))
+    const dialog = screen.getByRole('dialog', { name: '删除会话' })
+    expect(dialog.textContent).toContain('将永久删除“gone-s”')
+    expect(dialog.textContent).toContain('此操作无法撤销')
+
+    const confirm = screen.getByRole<HTMLButtonElement>('button', { name: '删除会话' })
+    fireEvent.click(confirm)
+    fireEvent.click(confirm)
+    expect(deleteSession).toHaveBeenCalledOnce()
+    expect(deleteSession).toHaveBeenCalledWith(sid('gone-s'))
+    expect(confirm.disabled).toBe(true)
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: '取消' }).disabled).toBe(true)
+    expect(screen.getByRole('status').textContent).toBe('正在删除会话…')
+    await act(async () => { resolveDelete() })
+    // The RPC result is the durable commit and the runtime already removed
+    // the row locally, so resolution alone closes the dialog — no projection
+    // wait as with Workspace deletion, whose removal arrives only as a frame.
+    expect(screen.queryByRole('dialog', { name: '删除会话' })).toBeNull()
+    rerender(b, { useSessions: hook(sessionState([summary('kept-s', 2)])) })
+    expect(screen.queryByText('gone-s')).toBeNull()
+  })
+
+  it('keeps the session delete dialog open on failure and allows retry or cancellation', async () => {
+    const deleteSession = vi.fn()
+      .mockRejectedValueOnce(new Error('storage unavailable'))
+      .mockRejectedValueOnce('denied')
+    mount({
+      useSessions: hook(sessionState([summary('alpha-s', 1)])),
+      useWorkspaces: hook(workspaceState([workspace('alpha', ['alpha-s'])])),
+      deleteSession,
+    })
+    fireEvent.click(screen.getByText('alpha'))
+    fireEvent.click(screen.getByRole('button', { name: '会话“alpha-s”的操作' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '删除会话' }))
+    fireEvent.click(screen.getByRole('button', { name: '删除会话' }))
+    await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe('storage unavailable') })
+    expect(screen.getByRole('dialog', { name: '删除会话' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '删除会话' }))
+    await waitFor(() => { expect(screen.getByRole('alert').textContent).toBe('denied') })
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+    expect(screen.queryByRole('dialog', { name: '删除会话' })).toBeNull()
   })
 
   it('renders a fork child as a top-level row without a session twist', () => {

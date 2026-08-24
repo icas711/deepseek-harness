@@ -98,6 +98,12 @@ export interface RpcErrorDetailsMap {
   'subagent-not-resumable': { childSessionId: SessionId }
   'subagent-unauthorized': { childSessionId: SessionId }
   'subagent-delivery-unavailable': { childSessionId: SessionId }
+  /**
+   * A live session.delete named a session whose agent this proxy does not own
+   * (another host surface attached it first); only the owning surface may
+   * dispose it for deletion.
+   */
+  'session-ownership': { sessionId: SessionId }
   /** No telemetry backend is composed, so there is no sharing policy to disclose. */
   'telemetry-not-configured': {}
   /** No quota-pause guard is composed, so parked work has no release path. */

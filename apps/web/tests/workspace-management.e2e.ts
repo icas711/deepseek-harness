@@ -5,18 +5,20 @@
 // trip over the real wire (workspace.rename RPC + durable registry), the
 // duplicate-name pre-check, the
 // flat "In one list" view with its persisted group-by preference, the session
-// hover card and row action menu, and the session archive round trip (row
+// hover card and row action menu, the session archive round trip (row
 // menu → workspace.archiveSession RPC → durable global set → row hidden
-// across reload). Zero model calls: workspace.create/rename/archiveSession
-// are host RPCs with no model involvement, and the one session row the
-// flat/hover/menu/archive scenarios need comes from a seeded fixture (the
+// across reload), and the session delete round trip (row menu → session.delete
+// RPC → confirm dialog → durable log removal → row gone across reload). Zero
+// model calls: workspace.create/rename/archiveSession and session.delete
+// are host RPCs with no model involvement, and the session rows the
+// flat/hover/menu/archive/delete scenarios need come from a seeded fixture (the
 // seeded-history seed reused verbatim — no new recording).
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join, sep } from 'node:path'
 import type { Browser, Locator, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed, onTestFinished } from 'vitest'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import {
   acknowledgeReloadConnectionLoss, assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
@@ -592,6 +594,65 @@ describe('web e2e: workspace management (create / rename / flat view / hover aff
     // The archived row must not resurface (the Ungrouped bucket itself may
     // reappear if selection restore lands on another stray — not this test's
     // concern).
+    expect(await page.getByText(rowTitle, { exact: true }).count()).toBe(0)
+    expect(tripwire.pageErrors).toEqual([])
+  }, 90_000)
+
+  it('deletes a seeded session through the confirm dialog, removing its log durably', async () => {
+    onTestFailed(() => saveFailureShot(page, 'web-e2e-ws-session-delete'))
+    // The archive test consumed the first seed; seed a second cold session for
+    // this scenario and reload so the rebuilt list baseline carries its row.
+    const DELETE_ID = 'workspace-management-web-e2e-delete'
+    await seedSession(scaffold, await readFile(SEED, 'utf8'), DELETE_ID)
+    let warningStart = tripwire.warnings.length
+    await page.reload({ waitUntil: 'load' })
+    await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
+    acknowledgeReloadConnectionLoss(tripwire, warningStart)
+    await expect.poll(() => page.getByText('Workspaces', { exact: true }).count(), { timeout: 15_000 }).toBe(1)
+    // Converge the Ungrouped bucket open (the archive test's reload may have
+    // left it collapsed) and anchor on the one visible stray row.
+    const ungroupedRow = page.getByText('Ungrouped', { exact: true }).locator('..').locator('..')
+    const ungroupedSection = ungroupedRow.locator('..')
+    await expect.poll(async () => {
+      if (await ungroupedRow.getAttribute('aria-expanded') !== 'true') {
+        await page.getByText('Ungrouped', { exact: true }).click()
+        await page.waitForTimeout(50)
+      }
+      return await ungroupedRow.getAttribute('aria-expanded')
+    }, { timeout: 5_000 }).toBe('true')
+    const sessionRows = ungroupedSection.locator('[role="treeitem"]')
+      .filter({ has: page.locator('button[aria-label^="Session actions for "]') })
+    await expect.poll(() => sessionRows.count(), { timeout: 10_000 }).toBe(1)
+    const sessionRow = sessionRows.first()
+    const rowTitle = await sessionRow.locator('[class*="title"]').innerText()
+    // Row menu: Delete session opens the confirmation dialog naming the row.
+    await clickHoverAction(sessionRow, `Session actions for ${rowTitle}`)
+    await page.getByRole('menuitem', { name: 'Delete session' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Delete session' })
+    // A failure between opening and confirming would otherwise leave the
+    // modal mask up, blocking every later scenario's pointer events.
+    onTestFinished(async () => {
+      if (await dialog.isVisible().catch(() => false)) await page.keyboard.press('Escape')
+    })
+    await dialog.waitFor({ timeout: 10_000 })
+    await dialog.getByText(rowTitle).waitFor({ timeout: 10_000 })
+    // Confirming commits: the dialog closes and the row leaves the sidebar.
+    await dialog.getByRole('button', { name: 'Delete session' }).click()
+    await dialog.waitFor({ state: 'hidden', timeout: 10_000 })
+    await expect.poll(() => page.getByText(rowTitle, { exact: true }).count(), { timeout: 10_000 }).toBe(0)
+    // Durable on the host: the log left persistence and the registry forgot
+    // the session, while the archived first seed keeps its archive slot.
+    await expect.poll(
+      async () => (await scaffold.ctx.sessionPersistence.list()).map(header => header.id),
+      { timeout: 10_000 },
+    ).not.toContain(SessionId(DELETE_ID))
+    expect([...scaffold.ctx.workspaceRegistry.archivedSessionIds]).toEqual([SessionId(SEED_ID)])
+    // Reload: the deleted row must not resurface from any baseline.
+    warningStart = tripwire.warnings.length
+    await page.reload({ waitUntil: 'load' })
+    await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
+    acknowledgeReloadConnectionLoss(tripwire, warningStart)
+    await expect.poll(() => page.getByText('Workspaces', { exact: true }).count(), { timeout: 15_000 }).toBe(1)
     expect(await page.getByText(rowTitle, { exact: true }).count()).toBe(0)
     expect(tripwire.pageErrors).toEqual([])
   }, 90_000)

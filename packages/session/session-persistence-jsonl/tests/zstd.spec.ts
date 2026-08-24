@@ -119,6 +119,7 @@ runPersistenceContract('jsonl-zstd', async () => {
   const fiber = await ctx.plugin(JsonlSessionPersistence, { root })
   return {
     persistence: ctx.sessionPersistence,
+    ctx,
     dispose: async () => {
       await fiber.dispose()
       await rm(root, { recursive: true, force: true })

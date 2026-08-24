@@ -313,6 +313,18 @@ export interface SessionsApi {
   Promise<RpcResponse<{ title: string; seq: number }>>
 
   /**
+   * Durably deletes one session: its stored log is removed from session
+   * persistence, its workspace accounting and archive-set membership are
+   * forgotten, and clients receive `host/session-removed`. A live session is
+   * deleted by disposing the agent this gateway owns (an in-flight turn is
+   * cancelled with disposed cause); a session owned by subagent routing
+   * rejects with `agent-busy`, one owned by another host surface with
+   * `session-ownership`, and an unknown id with `session-not-found`. The
+   * workspace directory and every other session are untouched.
+   */
+  delete(request: RpcRequest<{ sessionId: SessionId }>): Promise<RpcResponse<{ deleted: true }>>
+
+  /**
    * Sends a message. content is core's ContentBlock[] verbatim; mode maps 1:1 — queue→send, steer→steer.
    * A prompt whose content is exactly one text block starting with '/' is a slash command: the host
    * executes it through the command registry (mode-agnostic) and it is never sent to the model. A
