@@ -132,4 +132,4 @@ getCookieByKey('x_csrf_token');
 ## Смежные скилы
 
 - `insales-ajax` — программная отправка (`ajaxAPI.shop.message` / `review` / `comment`) без разметочных компонентов.
-- `insales-eventbus` — шина событий.
+- `insales-render` — шина событий EventBus.

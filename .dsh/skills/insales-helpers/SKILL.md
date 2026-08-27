@@ -87,4 +87,4 @@ $.post('/client_account/feedback.json', feedback).done(function (done) { console
 
 - `insales-forms` — готовые разметочные формы с капчами (обычный путь).
 - `insales-ajax` — `ajaxAPI.shop.message/review/comment` как альтернатива ручному `$.post`.
-- `insales-templates` — `Shop.money.format` внутри lodash-шаблонов.
+- `insales-render` — `Shop.money.format` внутри lodash-шаблонов.

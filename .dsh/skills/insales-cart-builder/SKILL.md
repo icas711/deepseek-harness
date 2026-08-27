@@ -1,6 +1,6 @@
 ---
 name: insales-cart-builder
-description: Сводный сценарий InSales — создание или капитальная переделка корзины на common.v2.js; связывает разметку формы (insales-cart), AJAX-запросы (insales-ajax), lodash-шаблонизатор (insales-templates) и карточку товара (insales-product) в пошаговый план
+description: Сводный сценарий InSales — создание или капитальная переделка корзины на common.v2.js; связывает разметку формы (insales-cart), AJAX-запросы (insales-ajax), lodash-шаблонизатор (insales-render) и карточку товара (insales-product) в пошаговый план
 whenToUse: Когда на сайте InSales нужно сделать корзину с нуля или глубоко переработать существующую — страница корзины, динамический виджет корзины в шапке, миникорзина без перезагрузки; используйте как точку входа, загружая перечисленные скилы по шагам
 ---
 
@@ -28,7 +28,7 @@ whenToUse: Когда на сайте InSales нужно сделать корз
 
 ## Шаг 2. Динамический виджет корзины (миникорзина в шапке)
 
-Загрузить **`insales-templates`**. Паттерн: подписка на обновление → рендер lodash-шаблоном → реинициализация:
+Загрузить **`insales-render`** (раздел «Lodash-шаблоны и UI»). Паттерн: подписка на обновление → рендер lodash-шаблоном → реинициализация:
 
 ```js
 EventBus.subscribe("update_items:insales:cart", function(cart) {
@@ -41,7 +41,7 @@ EventBus.subscribe("update_items:insales:cart", function(cart) {
 - данные корзины в шаблоне: `order_lines[]` (`id`, `product_id`, `title`, `quantity`, `sale_price`, `first_image.medium_url`), `total_price`;
 - деньги — `Shop.money.format(...)` (скил `insales-helpers`);
 - **обязательно** вызывать `InSalesUI.initAjaxInstance` после каждого ререндера — иначе data-атрибуты позиций перестают работать;
-- полный исходник шаблона — `insales-templates/references/dynamic-basket.md`.
+- полный исходник шаблона — `insales-render/references/dynamic-basket.md`.
 
 ## Шаг 3. Кнопки добавления в карточках товара
 
@@ -49,7 +49,7 @@ EventBus.subscribe("update_items:insales:cart", function(cart) {
 
 ## Шаг 4. Собственная логика без data-атрибутов (если нужна)
 
-Загрузить **`insales-ajax`**: `ajaxAPI.cart.add/get/remove/update` (Deferred, без публикации EventBus-событий — в отличие от класса `Cart`). События корзины и позиций (`add_items:insales:cart`, `change_quantity:insales:item` и т.д.) — в `insales-cart`; шина — `insales-eventbus` (обработчик сработает даже на событие, случившееся до подписки).
+Загрузить **`insales-ajax`**: `ajaxAPI.cart.add/get/remove/update` (Deferred, без публикации EventBus-событий — в отличие от класса `Cart`). События корзины и позиций (`add_items:insales:cart`, `change_quantity:insales:item` и т.д.) — в `insales-cart`; шина — `insales-render` (раздел «EventBus»; обработчик сработает даже на событие, случившееся до подписки).
 
 ## Шаг 5. Оформление заказа
 
@@ -71,8 +71,8 @@ EventBus.subscribe("update_items:insales:cart", function(cart) {
 |---|---|
 | Подключение, карточка товара, кнопки, 1-клик | `insales-product` |
 | Форма корзины, класс `Cart`, события корзины/позиций | `insales-cart` |
-| Lodash-шаблоны, `InSalesUI`, динамическая корзина | `insales-templates` |
+| Lodash-шаблоны, `InSalesUI`, динамическая корзина | `insales-render` |
 | Прямые AJAX-запросы, checkout | `insales-ajax` |
-| События, отладка (`EventBus.logger.add('cart')`) | `insales-eventbus` |
+| События, отладка (`EventBus.logger.add('cart')`) | `insales-render` |
 | `Shop.money.format` и прочие утилиты | `insales-helpers` |
 | Виджеты 4 поколения (обёртка для блоков корзины) | `insales-widgets` |

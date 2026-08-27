@@ -201,4 +201,4 @@ EventBus.subscribe('init-products:ui-ajax-products', function (data) {
 
 - `insales-product` — стандартная карточка товара, `data-product-variants`, атрибуты цен.
 - `insales-ajax` — программный `ajaxAPI.product.get/getList` (без шаблонных компонентов).
-- `insales-favorites`, `insales-compare` — триггеры и `update()`.
+- `insales-ui-lists` — избранное и сравнение: триггеры и `update()`.

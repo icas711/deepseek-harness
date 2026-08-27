@@ -115,7 +115,7 @@ $widget.each(function(index, el) {
 });
 ```
 
-События common.v2.js доступны напрямую (каталог — скил `insales-eventbus`); в `data.action` приходит jQuery-объект затронутого компонента. Зависимости — только платформенные (список в `libraries` info.json ниже): свой node_modules подключить нельзя.
+События common.v2.js доступны напрямую (каталог — скил `insales-render`); в `data.action` приходит jQuery-объект затронутого компонента. Зависимости — только платформенные (список в `libraries` info.json ниже): свой node_modules подключить нельзя.
 
 ## messages.json
 
@@ -277,5 +277,4 @@ Liquid-чтение сломалось, snippet.js может читать
 ## Смежные скилы
 
 - `insales-product`, `insales-cart` и др. — содержимое виджетов, использующее common.v2.js (`libraries: ["commonjs_v2"]`).
-- `insales-eventbus` — события, доступные в snippet.js.
-- `insales-templates` — lodash-шаблоны для рендера данных внутри виджета.
+- `insales-render` — EventBus (события, доступные в snippet.js) и lodash-шаблоны для рендера данных внутри виджета.
