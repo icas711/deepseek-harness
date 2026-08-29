@@ -1,5 +1,6 @@
 /** Registers the conversation components, shared store, and service callbacks. */
 import type { Context } from '@deepseek-ai/cordis'
+import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import { resolveSlotLabel, type BoundActions } from '@deepseek-ai/dsh-client-ui-slots'
 import {
   resolveWorkspacePath, type ISessions, type SessionId,
@@ -35,7 +36,7 @@ import { queueDockEntry } from './queue/QueueDock.tsx'
 import { ConversationRoot } from './skeleton/ConversationRoot.tsx'
 import { ConversationSession, ConversationSessionHeader } from './skeleton/ConversationSession.tsx'
 import { DetailsPanel } from './skeleton/DetailsPanel.tsx'
-import { en, NS, ru, zh, type ConversationKey } from './locales.ts'
+import { NS, ru, type ConversationKey } from './locales.ts'
 import { registerConversationNodes } from './conversation-nodes/register.ts'
 import { registerChatNodeRenderers } from './chat/register-node-renderers.ts'
 import { CONVERSATION_SETTINGS_NAMESPACE, type ConversationSettings } from '../submission-settings.ts'
@@ -88,7 +89,7 @@ const chatNodeInject = (ctx: Context): ChatNodeTurnDataInjected => ({
     },
   },
   resumeAfterQuota: async (sessionId) => {
-    const connection = ctx.get('connection')
+    const connection = ctx.get('connection') as ConnectionHandle | undefined
     if (connection === undefined) return { ok: false, error: 'connection unavailable' }
     try {
       const response = await connection.api.sessions.resumeAfterQuota({ sessionId })
@@ -134,7 +135,7 @@ export function apply(ctx: Context): void {
   registerConversationNodes(ctx)
   registerChatNodeRenderers(ctx)
 
-  ctx.effect(() => ctx.locale.register(NS, { zh, en, ru }), 'ui-conversation: dictionaries')
+  ctx.effect(() => ctx.locale.register(NS, ru), 'ui-conversation: dictionaries')
 
   // Registration-time text (the view tab label) reads through the bound
   // translate as a thunk, so it follows the active locale without

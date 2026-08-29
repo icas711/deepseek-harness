@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-08-24-web-search-zai-provider.zh.md)
-
 ## Problem
 
 The base bundle's default `web_search` route was `web-search-deepseek`, which resolves `DEEPSEEK_API_KEY`. A deployment whose chat runs through the Z.ai adapter (`llm-zai`, `ZAI_API_KEY`) has no valid DeepSeek key, so every model-facing search failed with `WEB_PROVIDER_ERROR` carrying the provider's "invalid api key" reply. Chat and search read different credential domains, and search had no provider that reads the chat-side key.
@@ -16,9 +14,9 @@ Z.ai serves two distinct search-capable surfaces, and the choice between them is
 
 The standalone API is chosen because it is the honest mapping for a search-only seam call: structured `search_result[]` maps to `sources[]` (`url` ← `link`, `snippet` ← `content`, `publishedAt` ← `publish_date`) with no auxiliary LLM request, no generated `content` to discard, and no per-search model token spend. The chat-side server tool would route a search through a full model request — billing model tokens per query and returning an answer the seam's `content` field would invite consumers to depend on — which is a chat capability, not a search provider.
 
-Credential resolution reuses the `llm-zai` convention: `apiKeyEnv` defaults to the `ZAI_API_KEY` credential reference, resolved per search through `ctx.credentials` with the launch environment as fallback, and a literal `apiKey` wins. The endpoint default is `https://api.z.ai/api/paas/v4` with `$ZAI_SEARCH_BASE_URL` as the environment override; `$ZAI_BASE_URL` is deliberately not reused because deployments point it at the coding-plan endpoint (`api.z.ai/api/coding/paas/v4`), which does not serve `/web_search`.
+Credential resolution: `apiKeyEnv` defaults to the `ZAI_API_KEY` credential reference, resolved per search through `ctx.credentials` with the launch environment as fallback, and a literal `apiKey` wins. The endpoint default is `https://api.z.ai/api/paas/v4` with `$ZAI_SEARCH_BASE_URL` as the environment override; `$ZAI_BASE_URL` is deliberately not reused because deployments point it at the coding-plan endpoint (`api.z.ai/api/coding/paas/v4`), which does not serve `/web_search`.
 
-The base bundle mounts `web-search-zai` and selects it as the default `searchProvider`; `web-search-deepseek` stays mounted, so a deployment with a valid DeepSeek key can switch routes through the web config, a settings layer, or `$DSH_WEB_SEARCH_PROVIDER` without changing composition. The deployment's chat and default search now read one credential domain.
+The base bundle mounts `web-search-zai` and selects it as the default `searchProvider`; `web-search-deepseek` stays mounted, so a deployment with a valid DeepSeek key can switch routes through the web config, a settings layer, or `$DSH_WEB_SEARCH_PROVIDER` without changing composition. The deployment's default search reads the Z.ai credential domain.
 
 `search_engine` is required by the API (HTTP 400 code 1214 when empty) and defaults to `search-prime`; `count` (range 1–50) is derived from the request's `maxResults` and clamped, with the seam still enforcing the bound on the way back.
 

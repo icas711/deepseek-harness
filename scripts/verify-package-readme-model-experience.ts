@@ -350,14 +350,18 @@ for (const packageJson of packageJsons) {
   const content = section.filter(line => line.raw.trim().length > 0)
   const sentenceContract = SENTENCE_MODEL_EXPERIENCE[pkg]
   if (sentenceContract !== undefined) {
-    const pattern = sentenceContract.kind === 'none' ? /^None, as .+\.$/ : /^Indirectly, through .+\.$/
+    // The fork is Russian-only: a README written in Russian carries the
+    // canonical sentence in Russian, an English one in English.
+    const pattern = sentenceContract.kind === 'none'
+      ? /^(?:None, as |Отсутствует: ).+\.$/
+      : /^(?:Indirectly, through |Косвенно, через ).+\.$/
     const rawContent = rawSection.filter(line => line.trim().length > 0)
     const sentence = content[0]
     const kvCacheHeading = content[1]
     const kvCacheEffect = content[2]
     if (content.length !== 3 || rawContent.length !== 3 || !pattern.test(sentence?.raw ?? '')) {
       const prefix = sentenceContract.kind === 'none' ? 'None, as ' : 'Indirectly, through '
-      failures.push({ path: readme, message: `must contain exactly one sentence beginning ${JSON.stringify(prefix)} and ending with a period, followed by ${KV_CACHE_EFFECT_HEADING} and one non-empty paragraph` })
+      failures.push({ path: readme, message: `must contain exactly one sentence beginning ${JSON.stringify(prefix)} (or its Russian canonical form) and ending with a period, followed by ${KV_CACHE_EFFECT_HEADING} and one non-empty paragraph` })
       continue
     }
     if (kvCacheHeading?.raw !== KV_CACHE_EFFECT_HEADING

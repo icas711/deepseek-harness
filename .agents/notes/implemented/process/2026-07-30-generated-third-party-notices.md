@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-07-30-generated-third-party-notices.zh.md)
-
 ## Problem
 
 Open-sourcing this repository requires disclosing the third-party software it depends on, with each project's license. The disclosure has to be complete, has to stay true as dependencies change, and has to say something a reader can act on — which of these packages end up on a user's machine, and which only build and test the repository.
@@ -48,7 +46,7 @@ The Claude distribution tests prove that only the exact direct SDK identity bypa
 
 **Treat the Claude SDK terms as permissive or add a reusable non-permissive allowlist.** Either shape would misstate the upstream declaration and let an unrelated runtime inherit authorization it was never granted. The narrow exception keys only the official direct SDK identity, while its optional payload identities are accepted solely as data declared by that SDK and remain visibly non-permissive.
 
-**Emit the notices as a bilingual pair.** Every other root document is paired, but the file is a table of upstream package names, SPDX identifiers, and URLs; the translatable surface is a handful of section blurbs. `scripts/translation-pairing.ts` scopes discovery to `README*`, `.agents/notes/**`, `docs/**`, and `python/**`, so a root non-README file is outside the bilingual corpus by construction, and the README pair carries the bilingual entry points into it.
+**Emit the notices as a single generated root document.** The file is a table of upstream package names, SPDX identifiers, and URLs; the translatable surface is a handful of section blurbs. The repository is single-locale ([russian-only single locale](../simplification/2026-08-28-russian-only-single-locale.md)), and a root non-README file was outside the former bilingual corpus by construction, so the file stays unpaired at the repository root.
 
 ## Consequences
 

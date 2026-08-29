@@ -612,7 +612,7 @@ describe('delete', () => {
     const b = bench()
     await feedList(b, [{ id: 's1', cwd: '/work' }])
     b.api.onDelete = () => Promise.resolve(ok({ deleted: true }))
-    await b.svc.open(sid('s1'))
+    b.svc.open(sid('s1'))
     expect(b.svc.list.getSnapshot().current).toBe(sid('s1'))
 
     await b.svc.delete(sid('s1'))

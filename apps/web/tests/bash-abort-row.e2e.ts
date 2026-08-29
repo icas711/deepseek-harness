@@ -11,7 +11,7 @@ import {
   assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
   launchWebScaffold, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { newEnglishPage, saveFailureShot } from './support.ts'
+import { newPage, saveFailureShot } from './support.ts'
 
 const FIXTURE = fileURLToPath(new URL('../../../examples/acp-agent/tests/snapshots/cancel-tool-calls/session.jsonl', import.meta.url))
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/bash-abort-row', import.meta.url))
@@ -32,7 +32,7 @@ describe.skipIf(MODE === 'record')('web e2e: cancelled Bash row disclosure', () 
     scaffold = await launchWebScaffold({})
     await seedSession(scaffold, fixture, SEED_ID)
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })

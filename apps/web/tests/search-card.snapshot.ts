@@ -48,7 +48,7 @@ describe('assembled search card', () => {
   it('renders the grep card, its truncation summary, and its capped head/tail slice from the built bundles', async () => {
     mountAssembledApp()
 
-    const tree = await screen.findByRole('tree', { name: 'Sessions' }, { timeout: 10_000 })
+    const tree = await screen.findByRole('tree', { name: 'Сессии' }, { timeout: 10_000 })
     fireEvent.click(await within(tree).findByText('Fixture 历史会话'))
     // Wait for chat content to reach the fixture's later turns (the bash sample
     // is turn 66, the grep card turn 67).

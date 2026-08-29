@@ -6,12 +6,12 @@ import type {
   PluginInventorySettingsTabInjected,
   PluginInventorySettingsTabProps,
 } from '../src/client/PluginInventorySettingsTab.tsx'
-import { en, type PluginInventoryLocaleKey } from '../src/client/locales.ts'
+import { ru, type PluginInventoryLocaleKey } from '../src/client/locales.ts'
 
 afterEach(cleanup)
 
 type Snapshot = Awaited<ReturnType<PluginInventorySettingsTabInjected['list']>>
-const t = ((key: PluginInventoryLocaleKey): string => en[key]) as PluginInventorySettingsTabProps['t']
+const t = ((key: PluginInventoryLocaleKey): string => ru[key]) as PluginInventorySettingsTabProps['t']
 
 function props(list: PluginInventorySettingsTabInjected['list']): PluginInventorySettingsTabProps {
   return {
@@ -37,50 +37,50 @@ describe('PluginInventorySettingsTab', () => {
     const deferred = Promise.withResolvers<Snapshot>()
     const list = vi.fn(() => deferred.promise)
     const view = render(<PluginInventorySettingsTab {...props(list)} />)
-    expect(screen.getByText(en.loading)).toBeTruthy()
+    expect(screen.getByText(ru.loading)).toBeTruthy()
 
     await act(async () => { deferred.resolve(SNAPSHOT) })
     expect(list).toHaveBeenCalledOnce()
-    expect(screen.getByRole('searchbox', { name: en.search })).toBeTruthy()
-    expect(screen.getByRole('heading', { name: en.catalog })).toBeTruthy()
+    expect(screen.getByRole('searchbox', { name: ru.search })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: ru.catalog })).toBeTruthy()
     expect(view.container.querySelector('[data-plugin-count]')?.textContent).toBe('7')
     expect(screen.getAllByRole('listitem')).toHaveLength(7)
-    expect(screen.getAllByText(en.enabledTag)).toHaveLength(6)
-    expect(screen.getByText(en.disabledTag)).toBeTruthy()
+    expect(screen.getAllByText(ru.enabledTag)).toHaveLength(6)
+    expect(screen.getByText(ru.disabledTag)).toBeTruthy()
     for (const value of [
-      'Mounted',
-      'Waiting for dependencies',
-      'Loading',
-      'Mount failed',
-      'Unloading',
-      'Not mounted',
+      'Смонтирован',
+      'Ожидает зависимостей',
+      'Загрузка',
+      'Сбой монтирования',
+      'Выгрузка',
+      'Не смонтирован',
     ]) {
       expect(screen.getByRole('img', { name: value })).toBeTruthy()
     }
-    const active = screen.getByRole('button', { name: 'hmr, Mounted, Enabled' })
+    const active = screen.getByRole('button', { name: 'hmr, Смонтирован, Включён' })
     expect(active.getAttribute('aria-expanded')).toBe('false')
     fireEvent.click(active)
     expect(active.getAttribute('aria-expanded')).toBe('true')
     expect(view.container.querySelector('[data-loader-entry]')?.textContent).toBe('8a1b2c3d')
-    expect(screen.getByText(en.configuration)).toBeTruthy()
-    expect(screen.getByText(en.cordis)).toBeTruthy()
+    expect(screen.getByText(ru.configuration)).toBeTruthy()
+    expect(screen.getByText(ru.cordis)).toBeTruthy()
     fireEvent.click(active)
     expect(view.container.querySelector('[data-loader-entry]')).toBeNull()
 
     fireEvent.click(active)
-    fireEvent.change(screen.getByRole('searchbox', { name: en.search }), {
+    fireEvent.change(screen.getByRole('searchbox', { name: ru.search }), {
       target: { value: 'disabled-entry' },
     })
     expect(view.container.querySelector('[data-loader-entry]')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'directory-picker-native, Disabled' }))
-    expect(screen.getAllByText(en.disabledTag)).toHaveLength(2)
-    expect(screen.queryByText(en.cordis)).toBeNull()
-    expect(screen.queryByText(en.unobserved)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'directory-picker-native, Отключён' }))
+    expect(screen.getAllByText(ru.disabledTag)).toHaveLength(2)
+    expect(screen.queryByText(ru.cordis)).toBeNull()
+    expect(screen.queryByText(ru.unobserved)).toBeNull()
   })
 
   it('filters by module name or Loader entry id', async () => {
     render(<PluginInventorySettingsTab {...props(async () => SNAPSHOT)} />)
-    const search = await screen.findByRole('searchbox', { name: en.search })
+    const search = await screen.findByRole('searchbox', { name: ru.search })
 
     fireEvent.change(search, { target: { value: 'disabled-entry' } })
     expect(screen.getAllByRole('listitem')).toHaveLength(1)
@@ -92,7 +92,7 @@ describe('PluginInventorySettingsTab', () => {
 
     fireEvent.change(search, { target: { value: 'not-a-plugin' } })
     expect(screen.queryAllByRole('listitem')).toHaveLength(0)
-    expect(screen.getByText(en.emptySearch)).toBeTruthy()
+    expect(screen.getByText(ru.emptySearch)).toBeTruthy()
   })
 
   it('shows a generic failure and retries into the empty state', async () => {
@@ -101,17 +101,17 @@ describe('PluginInventorySettingsTab', () => {
       .mockResolvedValueOnce({ entries: [] })
     render(<PluginInventorySettingsTab {...props(list)} />)
 
-    expect((await screen.findByRole('alert')).textContent).toBe(en.error)
+    expect((await screen.findByRole('alert')).textContent).toBe(ru.error)
     expect(screen.queryByText('private transport detail')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: en.retry }))
+    fireEvent.click(screen.getByRole('button', { name: ru.retry }))
     await waitFor(() => { expect(list).toHaveBeenCalledTimes(2) })
-    expect(await screen.findByText(en.empty)).toBeTruthy()
+    expect(await screen.findByText(ru.empty)).toBeTruthy()
   })
 
   it('contains a synchronous Remote failure and ignores a result after unmount', async () => {
     const syncFailure = vi.fn(() => { throw new Error('namespace unavailable') }) as PluginInventorySettingsTabInjected['list']
     const failed = render(<PluginInventorySettingsTab {...props(syncFailure)} />)
-    expect((await screen.findByRole('alert')).textContent).toBe(en.error)
+    expect((await screen.findByRole('alert')).textContent).toBe(ru.error)
     failed.unmount()
 
     const deferred = Promise.withResolvers<Snapshot>()

@@ -1,42 +1,42 @@
 - banner:
-  - navigation "Session hierarchy":
+  - navigation "Иерархия сессий":
     - button "Use web_search to search exactly" [disabled]
   - img
-  - text: Standard mode
+  - text: Стандартный режим
   - button "Session log":
     - text: Session log
     - img
   - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
+    - tab "Беседа" [selected]
+    - tab "Траектория"
 - text: Use web_search to search exactly "DeepSeek Harness snapshot search". Then reply exactly SEARCH_DONE and stop. {{clock}}
-- button "Copy":
+- button "Копировать":
   - img
-- button "Context injection @deepseek-ai/dsh-system-prompt":
-  - img
-  - img
-  - text: Context injection @deepseek-ai/dsh-system-prompt
-- button "Search DeepSeek Harness snapshot search":
+- button "Внедрение контекста @deepseek-ai/dsh-system-prompt":
   - img
   - img
-  - text: Search DeepSeek Harness snapshot search
+  - text: Внедрение контекста @deepseek-ai/dsh-system-prompt
+- text: Сбой
+- 'button "Search Error: Z.ai search has no API key for \"ZAI_API_KEY\"; store it through the credentials service, or set \"apiKey\" in the web-search-zai config"':
+  - img
+  - text: "Search Error: Z.ai search has no API key for \"ZAI_API_KEY\"; store it through the credentials service, or set \"apiKey\" in the web-search-zai config"
 - paragraph: SEARCH_DONE
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: {{clock}} Ran for {{duration}} TTFT {{duration}} {{throughput}} tok/s
-- textbox "Message the agent"
-- button "Commands":
+- text: {{clock}} Выполнялось {{duration}} TTFT {{duration}} {{throughput}} tok/s
+- textbox "Написать агенту"
+- button "Команды":
   - img
-- 'button "Access mode, current: Workspace Write"': Workspace Write
-- button "Select model, current DeepSeek-V4-Flash":
+- 'button "Режим доступа, текущий: Workspace Write"': Workspace Write
+- button "Выбор модели, текущая DeepSeek-V4-Flash":
   - text: DeepSeek-V4-Flash
   - img
-- button "0% of context used"
-- button "Send message" [disabled]
-- text: 1 turns · 2 steps LLM {{duration}} · Tool call {{duration}} TTFT avg {{duration}} · {{throughput}} tok/s Cache hit 0% Input 22 tok · Output 7 tok
+- button "Использовано 0% контекста"
+- button "Отправить сообщение" [disabled]
+- text: 1 ход(ов) · 2 шаг(ов) LLM {{duration}} · Вызов инструмента {{duration}} Средний TTFT {{duration}} · {{throughput}} tok/s Попадания в кэш 0% Вход 22 tok · Выход 7 tok

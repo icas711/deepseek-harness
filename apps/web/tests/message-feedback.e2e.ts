@@ -11,7 +11,7 @@ import {
   acknowledgeReloadConnectionLoss, launchWebScaffold,
   seedSession, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { newEnglishPage, saveFailureShot } from './support.ts'
+import { newPage, saveFailureShot } from './support.ts'
 
 // Borrowed read-only: this scenario needs any settled assistant message to
 // address, not a new recording (message-actions / sidebar-scrollbar pattern).
@@ -30,7 +30,7 @@ describe('web e2e: durable per-message feedback', () => {
     scaffold = await launchWebScaffold({})
     await seedSession(scaffold, await readFile(SEED, 'utf8'), SEED_ID)
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -64,21 +64,21 @@ describe('web e2e: durable per-message feedback', () => {
     // transcript reveals on hover/focus like copy and branch. Wait for the
     // settled closing text first: the strip mounts with that turn's tail.
     await page.getByText('DONE', { exact: true }).waitFor({ timeout: 30_000 })
-    const like = page.getByRole('button', { name: 'Good response' }).first()
+    const like = page.getByRole('button', { name: 'Хороший ответ' }).first()
     await like.waitFor({ timeout: 30_000 })
     await like.scrollIntoViewIfNeeded()
     await like.hover()
     await like.click()
     // A recorded rating relabels the button to what the next click would do,
     // so the pressed control is addressed by the retract label from here on.
-    const rated = page.getByRole('button', { name: 'Remove rating' }).first()
+    const rated = page.getByRole('button', { name: 'Снять оценку' }).first()
     await expect.poll(() => rated.getAttribute('aria-pressed'), { timeout: 10_000 }).toBe('true')
 
     // A rated message offers the note editor; an unrated one does not.
-    await page.getByRole('button', { name: 'Add a note' }).first().click()
-    const editor = page.getByRole('textbox', { name: 'Feedback note' })
+    await page.getByRole('button', { name: 'Добавить комментарий' }).first().click()
+    const editor = page.getByRole('textbox', { name: 'Комментарий к оценке' })
     await editor.fill(NOTE)
-    await page.getByRole('button', { name: 'Save', exact: true }).click()
+    await page.getByRole('button', { name: 'Сохранить', exact: true }).click()
     await expect.poll(() => editor.count(), { timeout: 10_000 }).toBe(0)
     await page.getByText(NOTE, { exact: true }).waitFor({ timeout: 10_000 })
 
@@ -93,12 +93,12 @@ describe('web e2e: durable per-message feedback', () => {
     // The controller defers its list read to the first hover or focus, so a
     // cold reload shows the unrated label until the strip is touched. Hovering
     // the unrated control is what triggers the authoritative re-read.
-    const cold = page.getByRole('button', { name: 'Good response' }).first()
+    const cold = page.getByRole('button', { name: 'Хороший ответ' }).first()
     await cold.waitFor({ timeout: 30_000 })
     await cold.scrollIntoViewIfNeeded()
     await cold.hover()
 
-    const restored = page.getByRole('button', { name: 'Remove rating' }).first()
+    const restored = page.getByRole('button', { name: 'Снять оценку' }).first()
     await restored.waitFor({ timeout: 30_000 })
     await restored.scrollIntoViewIfNeeded()
     await restored.hover()
@@ -108,7 +108,7 @@ describe('web e2e: durable per-message feedback', () => {
     // Re-clicking the active rating retracts it, and the note goes with it.
     await restored.click()
     await expect.poll(
-      () => page.getByRole('button', { name: 'Good response' }).first().getAttribute('aria-pressed'),
+      () => page.getByRole('button', { name: 'Хороший ответ' }).first().getAttribute('aria-pressed'),
       { timeout: 10_000 },
     ).toBe('false')
     await expect.poll(() => page.getByText(NOTE, { exact: true }).count(), { timeout: 10_000 }).toBe(0)

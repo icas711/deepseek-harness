@@ -51,7 +51,7 @@ examples/    Runnable cordis.yml leaves over packages/examples bundles (see exam
 .agents/     Agent workflows and Agent Notes (`notes/`)
 docs/        architecture, generated catalogs, postmortems, cookbook (see docs/AGENTS.md)
 scripts/     repo gates and generators
-website/     VitePress projection of selected bilingual docs/ sources
+website/     VitePress projection of selected docs/ sources
 ```
 
 Package groups: [packages/README.md](packages/README.md).
@@ -138,7 +138,11 @@ Everything compiles under `strict: true` with `noImplicitAny`; every remaining `
 
 Comments and docs state complete contracts and context, not reasoning transcripts. Use direct, concrete terms. Do not use metaphors. Before writing `contract`, `boundary`, or `shape`, ask whether a more exact term names the subject: write `response fields`, `JSON validation`, or `ESM exports` instead of `response shape`, `validation boundary`, or `module shape`. Keep `contract` for preconditions, postconditions, invariants, compatibility promises, and other obligations that callers, callees, implementers, providers, producers, or consumers rely on. Keep a literal process, wire, security, transaction, or lifecycle boundary. Do not narrate control flow or tests, preserve review history, or restate code. Keep behavior, failure, timing, ownership, and safe-use facts; link the rationale. Use [dsh-prose-standard](.agents/skills/dsh-prose-standard/SKILL.md) for decisions. Wire mechanically checkable invariants into an executed top-level gate and prove each changed acceptance path rejects an invalid case. Use narrow, justified exceptions instead of disabling a rule globally.
 
-Docs accompany every code change: update affected README and JSDoc contracts together. Routine bilingual work follows [docs/AGENTS.md](docs/AGENTS.md); only explicit user invocation may run `dsh-translate-docs`. Current-state prose, one physical line per paragraph, one home per fact, and word budgets live there.
+Docs accompany every code change: update affected README and JSDoc contracts together. Current-state prose, one physical line per paragraph, one home per fact, and word budgets live there.
+
+## Языковая политика форка: только русский
+
+Форк развивается для русскоязычных пользователей и одноязычен. Интерфейс — только русский: словарь `ru` в `dsh-client-locale` — единственный, переключателя языка и настройки `locale` нет. Документация одноязычная: пары `.zh.md`, записи `.i18n.yaml`, подсистема перевода `docs/i18n/` и гейты парности удалены; базовые английские страницы `docs/` остаются рабочим корпусом, а новая и изменяемая документация — Agent Notes, страницы `docs/`, дополнения README — пишется только на русском. Мёртвые ссылки на несуществующие переводы удаляются точечно.
 
 ## Editing these instructions
 

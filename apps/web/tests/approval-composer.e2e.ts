@@ -25,7 +25,7 @@ import {
   assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
   launchWebScaffold, recordFixture, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
+import { connectFreshWorkspace, newPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/approval-composer', import.meta.url))
 const FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
@@ -57,7 +57,7 @@ describe('web e2e: approval takeover keeps its actions reachable', () => {
     scaffold = await launchWebScaffold(MODE === 'record' ? {} : { replayFixture: FIXTURE, paceMs: 15 })
     scaffold.ctx.on('session/event', (_session, event: SessionEvent) => { sessionEvents.push(event) })
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -90,10 +90,10 @@ describe('web e2e: approval takeover keeps its actions reachable', () => {
 
     // Read-only: the mode whose denial the model escalates from. Switched
     // through the shipped access-mode chip, not a test-only override.
-    await page.locator('[aria-label^="Access mode"]').click()
+    await page.locator('[aria-label^="Режим доступа"]').click()
     await page.getByRole('menuitem', { name: 'Read Only' }).click()
     await expect.poll(
-      () => page.locator('[aria-label="Access mode, current: Read Only"]').count(),
+      () => page.locator('[aria-label="Режим доступа, текущий: Read Only"]').count(),
       { timeout: 15_000 },
     ).toBe(1)
 
@@ -152,7 +152,7 @@ describe('web e2e: approval takeover keeps its actions reachable', () => {
       await page.setViewportSize(original)
     }
 
-    await panel.getByRole('button', { name: 'Allow once' }).click()
+    await panel.getByRole('button', { name: 'Разрешить один раз' }).click()
 
     const sessionId = await settled
     if (MODE === 'record') {

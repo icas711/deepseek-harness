@@ -26,7 +26,7 @@ async function bench() {
   await ctx.plugin(SlotRegistry).await()
   const slots = ctx.get('slots') as SlotRegistry
   const declaration = declare(slots)
-  ctx.provide('locale', new LocaleRuntime(ctx))
+  ctx.provide('locale', new LocaleRuntime())
   const fiber = ctx.plugin({ inject: [...inject], apply })
   await fiber.await()
   return { ctx, slots, declaration, fiber }

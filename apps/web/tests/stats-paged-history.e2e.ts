@@ -3,8 +3,8 @@
 // seeded cold through the REAL persistence API must render whole-log turn/step
 // counts from the sessionStats projection on first open, and loading the
 // older page must NOT change them. This pins the bug the projection fixed:
-// the pre-projection window fold recounted per loaded page, so 加载更早 grew
-// the counter. Zero model calls; the seed is generated, not recorded, because
+// the pre-projection window fold recounted per loaded page, so Загрузить ещё
+// grew the counter. Zero model calls; the seed is generated, not recorded, because
 // no line of it is model output.
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
@@ -14,7 +14,7 @@ import {
   assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
   launchWebScaffold, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { newEnglishPage, saveFailureShot } from './support.ts'
+import { newPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/stats-paged-history', import.meta.url))
 const UI_EXPECTED = fileURLToPath(new URL('./snapshots/stats-paged-history/ui.expected.md', import.meta.url))
@@ -23,7 +23,7 @@ const SEED_ID = 'stats-paged-history-web-e2e'
 
 /** Turn count: 2 surface messages per turn, so 28 turns overflow one 50-message page. */
 const TURNS = 28
-const FULL_COUNTS = `${TURNS} turns · ${TURNS} steps`
+const FULL_COUNTS = `${TURNS} ход(ов) · ${TURNS} шаг(ов)`
 
 /**
  * Generate the seed: TURNS closed single-step turns of one short user prompt
@@ -81,7 +81,7 @@ describe('web e2e: whole-session stats survive history paging', () => {
     scaffold = await launchWebScaffold({})
     await seedSession(scaffold, buildSeed(TURNS), SEED_ID)
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -110,9 +110,9 @@ describe('web e2e: whole-session stats survive history paging', () => {
     const strip = page.getByText(FULL_COUNTS, { exact: false }).locator('..')
     const stripBeforePaging = await strip.textContent()
 
-    // 加载更早: prepending the older page must not move ANY strip figure —
+    // Загрузить ещё: prepending the older page must not move ANY strip figure —
     // counts, wall times, or token groups.
-    await page.getByRole('button', { name: 'Load earlier' }).click()
+    await page.getByRole('button', { name: 'Загрузить ещё' }).click()
     await expect.poll(() => page.getByText('m1', { exact: true }).count(), { timeout: 10_000 }).toBe(1)
     expect(await strip.textContent()).toBe(stripBeforePaging)
     // With the whole log loaded, the window mounts one turn-tail footer per

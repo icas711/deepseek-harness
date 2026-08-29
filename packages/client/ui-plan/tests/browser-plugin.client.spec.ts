@@ -30,7 +30,7 @@ async function bench() {
   const commandsRemote = { execute }
   ctx.provide('remote', { commands: commandsRemote })
   ctx.provide('remote.commands', commandsRemote)
-  ctx.provide('locale', new LocaleRuntime(ctx))
+  ctx.provide('locale', new LocaleRuntime())
   return { ctx, slots, execute }
 }
 
@@ -48,7 +48,7 @@ describe('ui-plan browser apply', () => {
     await ctx.plugin(SlotRegistry).await()
     ctx.provide('remote', { commands: {} })
     ctx.provide('remote.commands', {})
-    ctx.provide('locale', new LocaleRuntime(ctx))
+    ctx.provide('locale', new LocaleRuntime())
     const fiber = ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
     expect(ctx.slots.entries('conversation.input.plan')).toHaveLength(0)

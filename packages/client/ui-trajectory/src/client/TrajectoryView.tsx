@@ -469,6 +469,7 @@ export function TrajectoryView({
         mode={timelineMode}
         range={timelineRange}
         hasEarlierRecords={hasOlderHistory}
+        t={t}
         onLoadEarlier={loadEarlierHistory}
         selectedIndex={selectedTimelineIndex}
         searchMatchIndexes={searchMatchIndexes}
@@ -478,6 +479,7 @@ export function TrajectoryView({
       />
       <div className={css.ledger}>
         <TrajectoryTable
+          t={t}
           requestNumbers={requestNumbers}
           turns={timelineTurns}
           streamingCells={streamingCells}

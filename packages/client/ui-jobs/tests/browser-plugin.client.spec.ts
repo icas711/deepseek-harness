@@ -8,12 +8,11 @@ import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it } from 'vitest'
 import InvariantRegistry from '@deepseek-ai/dsh-invariants'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
-import { stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply as applyLocale, inject as localeInject } from '@deepseek-ai/dsh-client-locale/client'
 import { apply, inject } from '../src/client/index.ts'
 import { apply as applyNode } from '../src/index.ts'
 import * as JobInvariant from '../src/invariant.ts'
-import { en, NS, zh } from '../src/client/locales.ts'
+import { NS, ru } from '../src/client/locales.ts'
 
 /** Slot ledger reader: entry ids currently registered in the header list. */
 function headerEntryIds(ctx: Context): (string | undefined)[] {
@@ -33,11 +32,6 @@ async function bench(): Promise<{ ctx: Context; fiber: ReturnType<Context['plugi
     },
   } as never, () => null)
   ctx.provide('sessions', {})
-  // The locale plugin binds a settings scope, which reads the connection handle
-  // and the forwarded-event port.
-  ctx.provide('connection', { api: { settings: {} }, isLoopback: false } as never)
-  ctx.provide('remote', { $on: () => () => {} } as never)
-  ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
   await ctx.plugin({ inject: localeInject, apply: applyLocale }).await()
   const fiber = ctx.plugin({ inject: [...inject], apply })
   await fiber.await()
@@ -56,20 +50,14 @@ describe('ui-job browser half', () => {
     expect(headerEntryIds(ctx)).not.toContain('job-list')
   })
 
-  it('registers both dictionaries under its own namespace and releases them with the fiber', async () => {
+  it('registers the dictionary under its own namespace and releases it with the fiber', async () => {
     const { ctx, fiber } = await bench()
     const translate = ctx.locale.bind(NS)
-    expect(translate('list.aria')).toBe(zh['list.aria'])
-    ctx.locale.setLocale('en')
-    expect(translate('list.aria')).toBe(en['list.aria'])
+    expect(translate('list.aria')).toBe(ru['list.aria'])
 
     // Withdrawn dictionaries leave the key unresolved rather than translated.
     await fiber.dispose()
-    expect(translate('list.aria')).not.toBe(en['list.aria'])
-  })
-
-  it('keeps the English dictionary key-identical to the Chinese source of truth', () => {
-    expect(Object.keys(en).sort()).toEqual(Object.keys(zh).sort())
+    expect(translate('list.aria')).not.toBe(ru['list.aria'])
   })
 })
 

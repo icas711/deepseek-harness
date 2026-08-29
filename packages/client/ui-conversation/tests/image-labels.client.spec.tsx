@@ -7,15 +7,14 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { AttachmentId } from '@deepseek-ai/dsh-attachment'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
-import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
+import { ru as commonRu } from '@deepseek-ai/dsh-client-locale/src/locales/ru.ts'
 import { AssistantMarkdown } from '../src/client/chat/AssistantMarkdown.tsx'
 import { attachmentErrorText, imageSizeText } from '../src/client/image-labels.ts'
-import { en, zh } from '../src/client/locales.ts'
+import { ru } from '../src/client/locales.ts'
 
 afterEach(cleanup)
 
-const t = makeTranslate(zh, commonZh)
-const enT = makeTranslate(en, commonZh)
+const t = makeTranslate(ru, commonRu)
 
 const attachment = {
   attachmentId: AttachmentId(`sha256:${'a'.repeat(64)}`),
@@ -41,27 +40,26 @@ describe('attachment rejection copy', () => {
   })
 
   it('maps user-solvable reasons to limit-naming copy', () => {
-    expect(attachmentErrorText(t, 'MODEL_DOES_NOT_SUPPORT_IMAGES')).toBe('当前模型不支持图片，请切换支持图片的模型')
-    expect(attachmentErrorText(t, 'SUBAGENT_IMAGE_UNSUPPORTED')).toBe('子智能体会话暂不支持图片')
-    expect(attachmentErrorText(t, 'IMAGE_TOO_MANY_PIXELS')).toBe('图片分辨率过大，请压缩后重试')
-    expect(attachmentErrorText(t, 'INVALID_IMAGE')).toBe('仅支持 PNG、JPG、WebP、GIF 格式的图片')
-    expect(attachmentErrorText(t, 'IMAGE_TYPE_MISMATCH')).toBe('仅支持 PNG、JPG、WebP、GIF 格式的图片')
-    expect(attachmentErrorText(t, 'TOO_MANY_IMAGES', limits)).toBe('一条消息最多添加 20 张图片')
-    expect(attachmentErrorText(t, 'IMAGE_TOO_LARGE', limits)).toBe('单张图片不能超过 5MB')
-    expect(attachmentErrorText(t, 'IMAGES_TOO_LARGE', limits)).toBe('图片总大小超过 100MB，请移除部分图片')
-    expect(attachmentErrorText(enT, 'TOO_MANY_IMAGES', limits)).toBe('A message can include up to 20 images')
+    expect(attachmentErrorText(t, 'MODEL_DOES_NOT_SUPPORT_IMAGES')).toBe('Текущая модель не поддерживает изображения; переключитесь на модель с поддержкой')
+    expect(attachmentErrorText(t, 'SUBAGENT_IMAGE_UNSUPPORTED')).toBe('Сессии субагентов пока не поддерживают изображения')
+    expect(attachmentErrorText(t, 'IMAGE_TOO_MANY_PIXELS')).toBe('Разрешение изображения слишком велико; сожмите его и попробуйте снова')
+    expect(attachmentErrorText(t, 'INVALID_IMAGE')).toBe('Поддерживаются только изображения PNG, JPG, WebP и GIF')
+    expect(attachmentErrorText(t, 'IMAGE_TYPE_MISMATCH')).toBe('Поддерживаются только изображения PNG, JPG, WebP и GIF')
+    expect(attachmentErrorText(t, 'TOO_MANY_IMAGES', limits)).toBe('В одном сообщении — не больше 20 изображений')
+    expect(attachmentErrorText(t, 'IMAGE_TOO_LARGE', limits)).toBe('Каждое изображение должно быть меньше 5MB')
+    expect(attachmentErrorText(t, 'IMAGES_TOO_LARGE', limits)).toBe('Суммарный размер изображений превышает 100MB; уберите часть и попробуйте снова')
   })
 
   it('folds unknown reasons and limit reasons without projected limits into the send-failed line', () => {
-    expect(attachmentErrorText(t, 'INVALID_IMAGE_BASE64')).toBe('图片发送失败（INVALID_IMAGE_BASE64），请重新添加图片后再试')
-    expect(attachmentErrorText(t, 'TOO_MANY_IMAGES')).toBe('图片发送失败（TOO_MANY_IMAGES），请重新添加图片后再试')
-    expect(attachmentErrorText(t, 'IMAGE_TOO_LARGE')).toBe('图片发送失败（IMAGE_TOO_LARGE），请重新添加图片后再试')
-    expect(attachmentErrorText(t, 'IMAGES_TOO_LARGE')).toBe('图片发送失败（IMAGES_TOO_LARGE），请重新添加图片后再试')
+    expect(attachmentErrorText(t, 'INVALID_IMAGE_BASE64')).toBe('Не удалось отправить изображения (INVALID_IMAGE_BASE64); добавьте их снова и повторите')
+    expect(attachmentErrorText(t, 'TOO_MANY_IMAGES')).toBe('Не удалось отправить изображения (TOO_MANY_IMAGES); добавьте их снова и повторите')
+    expect(attachmentErrorText(t, 'IMAGE_TOO_LARGE')).toBe('Не удалось отправить изображения (IMAGE_TOO_LARGE); добавьте их снова и повторите')
+    expect(attachmentErrorText(t, 'IMAGES_TOO_LARGE')).toBe('Не удалось отправить изображения (IMAGES_TOO_LARGE); добавьте их снова и повторите')
   })
 })
 
 describe('assistant images through the label bridge', () => {
-  it('resolves zh dictionary strings and opens the lightbox on a single click', async () => {
+  it('resolves ru dictionary strings and opens the lightbox on a single click', async () => {
     const view = render(
       <AssistantMarkdown
         t={t}
@@ -70,29 +68,13 @@ describe('assistant images through the label bridge', () => {
         loadImage={() => Promise.resolve('blob:history')}
       />,
     )
-    const frame = await view.findByRole('button', { name: 'history.png，点击查看原图' })
-    expect(frame.getAttribute('title')).toBe('查看原图')
+    const frame = await view.findByRole('button', { name: 'history.png, нажмите, чтобы открыть оригинал' })
+    expect(frame.getAttribute('title')).toBe('Открыть оригинал')
     await view.findByAltText('history.png')
     fireEvent.click(frame)
-    expect(view.getByRole('dialog', { name: '原图预览' })).toBeTruthy()
-    fireEvent.click(view.getByRole('button', { name: '关闭原图预览' }))
-    expect(view.queryByRole('dialog', { name: '原图预览' })).toBeNull()
-  })
-
-  it('resolves the active English dictionary', async () => {
-    const view = render(
-      <AssistantMarkdown
-        t={enT}
-        blocks={[{ kind: 'image', attachment }]}
-        streaming={false}
-        loadImage={() => Promise.resolve('blob:history')}
-      />,
-    )
-    const frame = await view.findByRole('button', { name: 'history.png, click to view original' })
-    await view.findByAltText('history.png')
-    fireEvent.click(frame)
-    expect(view.getByRole('dialog', { name: 'Original image preview' })).toBeTruthy()
-    expect(view.getByRole('button', { name: 'Close original image preview' })).toBeTruthy()
+    expect(view.getByRole('dialog', { name: 'Просмотр оригинала изображения' })).toBeTruthy()
+    fireEvent.click(view.getByRole('button', { name: 'Закрыть просмотр оригинала' }))
+    expect(view.queryByRole('dialog', { name: 'Просмотр оригинала изображения' })).toBeNull()
   })
 
   it('merges consecutive image blocks into one tiled gallery, split by text', async () => {

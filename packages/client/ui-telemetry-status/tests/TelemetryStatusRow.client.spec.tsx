@@ -12,11 +12,11 @@ import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import { TelemetryStatusRow } from '../src/client/TelemetryStatusRow.tsx'
 import type { TelemetryStatusRowProps } from '../src/client/TelemetryStatusRow.tsx'
 import type { TelemetryStatusState } from '../src/client/store.ts'
-import { en } from '../src/client/locales.ts'
+import { ru } from '../src/client/locales.ts'
 
 afterEach(cleanup)
 
-const t = (key: keyof typeof en) => en[key]
+const t = (key: keyof typeof ru) => ru[key]
 
 const READY: TelemetryStatusState = {
   status: 'ready',
@@ -88,13 +88,13 @@ describe('TelemetryStatusRow', () => {
   it('disables both controls while a write is in flight', () => {
     const { store } = renderRow({ status: 'saving' })
 
-    expect((screen.getByRole('button', { name: t('telemetryStatus.refresh') }) as HTMLButtonElement).disabled)
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: t('telemetryStatus.refresh') }).disabled)
       .toBe(true)
-    expect((screen.getByRole('button', { name: new RegExp(t('telemetryStatus.feedbackOnly')) }) as HTMLButtonElement).disabled)
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: new RegExp(t('telemetryStatus.feedbackOnly')) }).disabled)
       .toBe(true)
 
     act(() => { store.set({ ...store.getSnapshot(), status: 'ready' }) })
-    expect((screen.getByRole('button', { name: t('telemetryStatus.refresh') }) as HTMLButtonElement).disabled)
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: t('telemetryStatus.refresh') }).disabled)
       .toBe(false)
   })
 })

@@ -1,38 +1,38 @@
-- dialog "设置":
+- dialog "Настройки":
   - navigation:
-    - text: 设置
-    - button "通用设置":
+    - text: Настройки
+    - button "Общие":
       - img
-      - text: 通用设置
-    - button "模型":
+      - text: Общие
+    - button "Модели":
       - img
-      - text: 模型
-    - button "插件":
+      - text: Модели
+    - button "Плагины":
       - img
-      - text: 插件
-    - button "Agent 预设":
+      - text: Плагины
+    - button "Пресеты агентов":
       - img
-      - text: Agent 预设
-  - button "打开配置文件"
-  - button "关闭":
+      - text: Пресеты агентов
+  - button "Открыть файл конфигурации"
+  - button "Закрыть":
     - img
-    - text: 关闭
-  - heading "插件" [level=2]
-  - paragraph: 配置和查看本部署已安装的插件。
-  - tablist "插件视图":
-    - tab "插件配置" [selected]
-    - tab "插件列表"
-  - tabpanel "插件配置":
+    - text: Закрыть
+  - heading "Плагины" [level=2]
+  - paragraph: Настройка и просмотр плагинов, установленных в этом развертывании.
+  - tablist "Разделы плагинов":
+    - tab "Конфигурация плагинов" [selected]
+    - tab "Список плагинов"
+  - tabpanel "Конфигурация плагинов":
     - list:
       - listitem:
-        - 'button "展开设置: 终端"':
-          - text: 终端 限制 agent 运行的每一条命令。
+        - 'button "Показать настройки: Shell"':
+          - text: Shell Ограничивает каждую команду, которую запускает агент.
           - img
       - listitem:
-        - 'button "展开设置: Agent 循环"':
-          - text: Agent 循环 Agent 如何派发工具调用。
+        - 'button "Показать настройки: Цикл агента"':
+          - text: Цикл агента Как агент отправляет вызовы инструментов.
           - img
       - listitem:
-        - 'button "展开设置: 网页搜索"':
-          - text: 网页搜索 DeepSeek 搜索提供方。
+        - 'button "Показать настройки: Веб-поиск"':
+          - text: Веб-поиск Провайдер поиска DeepSeek.
           - img

@@ -12,7 +12,7 @@ import {
   assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
   launchWebScaffold, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { newEnglishPage, saveFailureShot } from './support.ts'
+import { newPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/goal-bar', import.meta.url))
 const ACTIVE_EXPECTED = join(SNAPSHOT_DIR, 'active.expected.md')
@@ -28,7 +28,7 @@ describe('web e2e: goal bar clear convergence', () => {
   beforeAll(async () => {
     scaffold = await launchWebScaffold({ extraOverlayPath: OVERLAY, welcomeNoticePending: true })
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(`${scaffold.baseUrl}?fixture`, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -43,7 +43,7 @@ describe('web e2e: goal bar clear convergence', () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-goal-bar-clear'))
     // Startup reuses the fixture workspace's blank session, keeping this
     // command independent of alpha's running replay and pending question.
-    const input = page.getByPlaceholder('Describe what you want to build')
+    const input = page.getByPlaceholder('Опишите, что хотите создать')
     await input.waitFor({ timeout: 10_000 })
     await input.fill('/goal guard rapid clear clicks')
     await input.press('Enter')
@@ -53,7 +53,7 @@ describe('web e2e: goal bar clear convergence', () => {
     const snapshot = await captureStableAria(page, '[data-goal-bar]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(ACTIVE_EXPECTED, snapshot, MODE)
 
-    const clear = bar.getByRole('button', { name: 'Clear goal' })
+    const clear = bar.getByRole('button', { name: 'Очистить цель' })
     await clear.evaluate((button) => {
       const control = button as HTMLButtonElement
       control.click()

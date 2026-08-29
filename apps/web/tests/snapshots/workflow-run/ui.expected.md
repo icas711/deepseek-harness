@@ -1,10 +1,10 @@
 - text: "Use the workflow tool exactly once, with args omitted, meta set to { \"name\": \"snapshot-flow\", \"description\": \"one child for the snapshot\" }, and this EXACT script body (copy it verbatim): phase('Run') const reply = await agent('Reply with exactly the word WF_CHILD_OK and nothing else.') return { reply } After the workflow returns, reply with the single word WORKFLOW_DONE and stop. Do not use any other tool. {{clock}}"
-- button "Copy":
+- button "Копировать":
   - img
-- button "Context injection @deepseek-ai/dsh-system-prompt":
+- button "Внедрение контекста @deepseek-ai/dsh-system-prompt":
   - img
   - img
-  - text: Context injection @deepseek-ai/dsh-system-prompt
+  - text: Внедрение контекста @deepseek-ai/dsh-system-prompt
 - button "Think The user wants me to use the workflow tool exactly once with specific parameters. Let me carefully follow the instructions:":
   - img
   - img
@@ -13,24 +13,24 @@
   - img
   - img
   - text: Tool call workflow ·
-- button "snapshot-flow 1 member Completed" [expanded]:
+- button "snapshot-flow 1 участник Завершено" [expanded]:
   - img
-  - text: snapshot-flow 1 member Completed
-- button "Run 1 member Completed 1" [expanded]:
+  - text: snapshot-flow 1 участник Завершено
+- 'button "Run 1 участник Завершено: 1" [expanded]':
   - img
-  - text: Run 1 member Completed 1
-- text: Reply with exactly the word WF_CHILD_OK and not… Completed
+  - text: "Run 1 участник Завершено: 1"
+- text: Reply with exactly the word WF_CHILD_OK and not… Завершено
 - button "Think The workflow returned successfully with the reply \"WF_CHILD_OK\". Now I need to reply with exactly \"WORKFLOW_DONE\" and stop.":
   - img
   - img
   - text: Think The workflow returned successfully with the reply "WF_CHILD_OK". Now I need to reply with exactly "WORKFLOW_DONE" and stop.
 - paragraph: WORKFLOW_DONE
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: {{clock}} Ran for {{duration}} TTFT {{duration}} {{throughput}} tok/s
+- text: {{clock}} Выполнялось {{duration}} TTFT {{duration}} {{throughput}} tok/s

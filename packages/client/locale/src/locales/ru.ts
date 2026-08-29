@@ -1,6 +1,10 @@
-import type { CommonKey } from './zh.ts'
+/**
+ * The shipped common dictionary: cross-feature standard words. This is the
+ * key-set source of truth for the `common` namespace — the product ships a
+ * single locale, so the key union and the Russian text live together here.
+ */
 
-/** ru base dictionary for the common namespace, checked complete against the zh key set. */
+/** Common namespace dictionary (the only shipped locale). */
 export const ru = {
   'ok': 'ОК',
   'cancel': 'Отмена',
@@ -26,4 +30,7 @@ export const ru = {
   'unknown': 'Неизвестно',
   'none': 'Нет',
   'truncated': 'Обрезано',
-} satisfies Record<CommonKey, string>
+} satisfies Record<string, string>
+
+/** The common vocabulary key union. */
+export type CommonKey = keyof typeof ru

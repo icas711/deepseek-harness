@@ -22,7 +22,7 @@ import {
   fixtureUserPrompts, launchWebScaffold, seedSession, webSnapshotMode,
   type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
+import { connectFreshWorkspace, newPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/pwsh-terminal', import.meta.url))
 const SEED = join(SNAPSHOT_DIR, 'seed.jsonl')
@@ -54,7 +54,7 @@ describe.skipIf(MODE === 'record' || !HAS_PWSH)('web e2e: pwsh calls use the bas
     scaffold = await launchWebScaffold({ extraOverlayPath: OVERLAY })
     await seedSession(scaffold, fixture, SEED_ID)
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
   }, 120_000)
@@ -70,14 +70,14 @@ describe.skipIf(MODE === 'record' || !HAS_PWSH)('web e2e: pwsh calls use the bas
     // sessions by workspace and its row order is world-dependent, while the
     // search index covers the seeded log deterministically. Search is a
     // collapsed header action; expand it so the input is actionable.
-    const searchButton = page.getByRole('button', { name: 'Search sessions' })
+    const searchButton = page.getByRole('button', { name: 'Поиск по сессиям' })
     if (await searchButton.getAttribute('aria-expanded') !== 'true') await searchButton.click()
-    const search = page.getByPlaceholder('Search sessions', { exact: false })
+    const search = page.getByPlaceholder('Поиск сессий…', { exact: false })
     await search.fill('Run a PowerShell command')
-    const result = page.getByRole('tree', { name: 'Search results' }).getByRole('treeitem')
+    const result = page.getByRole('tree', { name: 'Результаты поиска' }).getByRole('treeitem')
     await expect.poll(() => result.count(), { timeout: 15_000 }).toBe(1)
     await result.click()
-    await page.getByRole('tab', { name: 'Chat', exact: true }).waitFor({ timeout: 15_000 })
+    await page.getByRole('tab', { name: 'Беседа', exact: true }).waitFor({ timeout: 15_000 })
     // The tool row is expand-gated: the settled row uses the bash layout and carries the
     // shell-family variant, and the terminal card lives in the expanded body.
     const row = page.locator('[data-tool="pwsh"]').first()

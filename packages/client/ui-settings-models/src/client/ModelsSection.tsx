@@ -21,7 +21,7 @@ import { CustomProviderCard } from './CustomProviderCard.tsx'
 import { deriveKeyRef, messageOf, protocolChoices, providerUsable } from './store.ts'
 import type { ModelsSettingsState, ModelsSettingsStore, ProviderRow } from './store.ts'
 import { ProviderEditor, type ProviderEditorProps } from './ProviderEditor.tsx'
-import type { en } from './locales.ts'
+import type { ModelsKey } from './locales.ts'
 import styles from './ModelsSection.module.css'
 
 /** Injected dependencies of {@link ModelsSection} (slot `inject`). */
@@ -33,7 +33,7 @@ export interface ModelsSectionInjected {
   /** Wire faces the editor writes through. */
   api: Pick<IApiClient, 'settings' | 'credentials' | 'llm'>
   /** Section copy. */
-  t: (key: keyof typeof en) => string
+  t: (key: ModelsKey) => string
 }
 
 /**

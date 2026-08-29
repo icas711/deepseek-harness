@@ -1,3 +1,3 @@
-- text: Done {{workspace}} echo NAVIGATION_OK
-- button "Copy"
-- text: NAVIGATION_OK
+- text: Готово {{workspace}} echo NAVIGATION_ОК
+- button "Копировать"
+- text: NAVIGATION_ОК

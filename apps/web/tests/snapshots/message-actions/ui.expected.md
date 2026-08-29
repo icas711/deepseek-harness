@@ -1,30 +1,30 @@
 - banner:
-  - navigation "Session hierarchy":
+  - navigation "Иерархия сессий":
     - button "Use the read tool twice" [disabled]
   - button "Session log":
     - text: Session log
     - img
   - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-- text: "Use the read tool twice in one assistant message: read a.txt and b.txt. Then reply with the single word DONE and stop. 7/25 {{clock}}"
-- button "Copy":
+    - tab "Беседа" [selected]
+    - tab "Траектория"
+- text: "Use the read tool twice in one assistant message: read a.txt and b.txt. Then reply with the single word DONE and stop. 25.7 {{clock}}"
+- button "Копировать":
   - img
-- tooltip "Copy"
+- tooltip "Копировать"
 - button "Think The user wants me to read a.txt and b.txt, then reply with \"DONE\". Let me do both reads in parallel.":
   - img
   - img
   - text: Think The user wants me to read a.txt and b.txt, then reply with "DONE". Let me do both reads in parallel.
 - paragraph: I will read both files before answering.
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation" [disabled]:
+- button "Создать ветку в новой беседе" [disabled]:
   - img
-- text: Available only on the last message of a completed turn 7/25 {{clock}} Ran for {{duration}} TTFT {{duration}} {{throughput}} tok/s
+- text: Доступно только на последнем сообщении завершённого хода 25.7 {{clock}} Выполнялось {{duration}} TTFT {{duration}} {{throughput}} tok/s
 - button "Read a.txt":
   - img
   - img
@@ -39,25 +39,25 @@
   - img
   - img
   - text: Think Both files have been read. a.txt contains "alpha" and b.txt contains "beta". I'll now reply with DONE as instructed.
-- text: Stopped Now give the final answer. 7/25 {{clock}}
-- button "Copy":
+- text: Остановлено Now give the final answer. 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: DONE
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}}
-- textbox "Message the agent"
-- button "Commands":
+- text: 25.7 {{clock}} Выполнялось {{duration}}
+- textbox "Написать агенту"
+- button "Команды":
   - img
-- 'button "Access mode, current: Workspace Write"': Workspace Write
-- button "Select model, current DeepSeek-V4-Flash":
+- 'button "Режим доступа, текущий: Workspace Write"': Workspace Write
+- button "Выбор модели, текущая DeepSeek-V4-Flash":
   - text: DeepSeek-V4-Flash
   - img
-- button "Send message" [disabled]
-- text: 2 turns · 3 steps LLM {{duration}} · Tool call {{duration}} TTFT avg {{duration}} · {{throughput}} tok/s Cache hit 98% Input 7.8K tok · Output 103 tok
+- button "Отправить сообщение" [disabled]
+- text: 2 ход(ов) · 3 шаг(ов) LLM {{duration}} · Вызов инструмента {{duration}} Средний TTFT {{duration}} · {{throughput}} tok/s Попадания в кэш 98% Вход 7.8K tok · Выход 103 tok

@@ -20,7 +20,7 @@ import {
   webSnapshotMode,
   type WebScaffold,
 } from './scaffold.ts'
-import { newEnglishPage, saveFailureShot } from './support.ts'
+import { newPage, saveFailureShot } from './support.ts'
 
 const MODE = webSnapshotMode()
 const LOAD_MORE_EXPECTED = fileURLToPath(new URL(
@@ -67,21 +67,21 @@ interface RowAnchor {
 
 async function openSeed(page: Page): Promise<void> {
   // Search collapsed into a header action; expand it before filling.
-  const searchButton = page.getByRole('button', { name: 'Search sessions' })
+  const searchButton = page.getByRole('button', { name: 'Поиск по сессиям' })
   if (await searchButton.getAttribute('aria-expanded') !== 'true') await searchButton.click()
-  const search = page.getByRole('textbox', { name: 'Search sessions...', exact: true })
+  const search = page.getByRole('textbox', { name: 'Поиск сессий…', exact: true })
   await search.fill(FIXTURE.markers.user(1))
-  const result = page.getByRole('tree', { name: 'Search results' }).getByRole('treeitem')
+  const result = page.getByRole('tree', { name: 'Результаты поиска' }).getByRole('treeitem')
   await expect.poll(() => result.count(), { timeout: 60_000 }).toBe(1)
   await result.click()
-  await page.getByRole('tab', { name: 'Trajectory', exact: true }).waitFor({ timeout: 30_000 })
+  await page.getByRole('tab', { name: 'Траектория', exact: true }).waitFor({ timeout: 30_000 })
   await page.getByText(FIXTURE.markers.assistant(FIXTURE.turns), { exact: false })
     .last()
     .waitFor({ timeout: 30_000 })
 }
 
 async function openTrajectory(page: Page): Promise<void> {
-  await page.getByRole('tab', { name: 'Trajectory', exact: true }).click()
+  await page.getByRole('tab', { name: 'Траектория', exact: true }).click()
   const pane = page.locator('[data-trajectory-scroll]')
   await pane.waitFor({ timeout: 30_000 })
   await page.locator('[data-trajectory-scroll] table[data-scroll-ready="true"]')
@@ -194,13 +194,13 @@ describe('web e2e: Trajectory virtualization over tail-paged history', () => {
     })
     await seedSession(scaffold, FIXTURE.log, SESSION_ID)
     browser = await chromium.launch()
-    page = await newEnglishPage(browser, 900)
+    page = await newPage(browser, 900)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     // The compact layout dropped group session counts; the seeded baseline is
     // the Ungrouped bucket once cold summaries load.
-    await page.getByText('Ungrouped', { exact: true }).waitFor({ timeout: 30_000 })
+    await page.getByText('Без группы', { exact: true }).waitFor({ timeout: 30_000 })
   }, 120_000)
 
   afterAll(async () => {
@@ -245,7 +245,7 @@ describe('web e2e: Trajectory virtualization over tail-paged history', () => {
 
       const loadMore = page.locator('[data-history-load] button')
       await loadMore.waitFor({ timeout: 15_000 })
-      expect(await loadMore.textContent()).toBe('Load earlier history')
+      expect(await loadMore.textContent()).toBe('Загрузить предыдущую историю')
       const loadMoreSnapshot = await captureStableAria(
         page,
         '[data-history-load]',
@@ -260,7 +260,7 @@ describe('web e2e: Trajectory virtualization over tail-paged history', () => {
         label: await loadMore.getAttribute('aria-label'),
       }), { timeout: 15_000 }).toEqual({
         disabled: true,
-        label: 'Loading earlier history…',
+        label: 'Загрузка предыдущей истории…',
       })
 
       await scrollToRatio(page, 0)

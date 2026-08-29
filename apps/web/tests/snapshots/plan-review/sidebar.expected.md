@@ -1,1 +1,1 @@
-- 'treeitem "Plan awaiting review Plan a small change: add now" [selected]'
+- 'treeitem "План ожидает проверки Plan a small change: add сейчас" [selected]'

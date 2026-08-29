@@ -17,7 +17,7 @@ import {
   assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
   launchWebScaffold, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { newEnglishPage, saveFailureShot } from './support.ts'
+import { newPage, saveFailureShot } from './support.ts'
 
 const FIXTURE = fileURLToPath(new URL('./snapshots/fresh-round-trip/session.jsonl', import.meta.url))
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/background-job-list', import.meta.url))
@@ -57,7 +57,7 @@ describe.skipIf(MODE === 'record')('web e2e: background job list', () => {
     scaffold = await launchWebScaffold({})
     await seedSession(scaffold, await readFile(FIXTURE, 'utf8'), SEED_ID)
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -85,7 +85,7 @@ describe.skipIf(MODE === 'record')('web e2e: background job list', () => {
     // Point assertion, not a poll: `expect.poll` retries until a predicate
     // holds, so polling for zero passes at t=0 and proves nothing. The
     // "renders nothing without a task" branch is owned by the component suite.
-    const trigger = page.getByRole('button', { name: '1 background job running' })
+    const trigger = page.getByRole('button', { name: '1 фоновая задача выполняется' })
     expect(await trigger.count()).toBe(0)
 
     const started = await scaffold.ctx.tools.execute({
@@ -102,7 +102,7 @@ describe.skipIf(MODE === 'record')('web e2e: background job list', () => {
 
     await trigger.waitFor({ timeout: 15_000 })
     await trigger.click()
-    const row = page.getByRole('list', { name: 'Background jobs' }).getByRole('listitem').first()
+    const row = page.getByRole('list', { name: 'Фоновые задачи' }).getByRole('listitem').first()
     await row.waitFor({ timeout: 10_000 })
     await expect.poll(() => row.textContent()).toContain(COMMAND)
 
@@ -118,7 +118,7 @@ describe.skipIf(MODE === 'record')('web e2e: background job list', () => {
 
     // The trigger drops its live count once the task leaves running/stopping,
     // which is also the proof that settlement reached the browser unprompted.
-    const idle = page.getByRole('button', { name: '1 background job' })
+    const idle = page.getByRole('button', { name: '1 фоновая задача' })
     await idle.waitFor({ timeout: 20_000 })
 
     const snapshot = await captureStableAria(page, '[class*="menu"]', scaffold.workspaceCwd)

@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-07-19-require-agent-notes-for-non-trivial-changes.zh.md)
-
 ## Problem
 
 A selective threshold based on whether a decision seems durable, contested, and surprising lets substantial changes land without preserving their rationale. Code and tests show what changed, but they cannot consistently preserve why an approach won, which alternatives lost, or what costs maintainers accepted.
@@ -42,5 +40,5 @@ Review enforces the semantic boundary. No automated gate attempts to classify a 
 - Contributors maintain an existing owning note instead of creating duplicate records.
 - Fully superseded records can collapse into one current owner without losing their unique rationale or verification contract.
 - Features that were later removed can have one current owner without carrying obsolete implementation and test inventories forward.
-- Partial supersession remains explicit and cross-linked, while deletion requires link and bilingual-pair cleanup in the same change.
+- Partial supersession remains explicit and cross-linked, while deletion requires link cleanup in the same change.
 - Mechanical edits remain lightweight, and the gate topology and runtime remain unchanged.

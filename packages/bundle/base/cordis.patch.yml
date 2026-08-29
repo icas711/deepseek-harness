@@ -403,8 +403,8 @@
         argumentsPreviewChars: 500
 
     # Every mode enables the stable model-facing web_search tool. Two search routes
-    # are mounted: the Z.ai standalone Web Search API (resolves the same
-    # ZAI_API_KEY credential the Models page manages for chat, at each search) is
+    # are mounted: the Z.ai standalone Web Search API (ключ ZAI_API_KEY разрешается
+    # на каждый поиск из окружения запуска или хранилища учётных данных) is
     # the default selection; the DeepSeek route stays mounted for deployments that
     # store a valid DEEPSEEK_API_KEY and can be selected through the web config,
     # a settings layer, or $DSH_WEB_SEARCH_PROVIDER. DeepSeek search reuses the
@@ -467,11 +467,3 @@
     # choice.
     - id: llm-deepseek
       name: '@deepseek-ai/dsh-llm-deepseek'
-
-    # The Z.ai (GLM) adapter, same discipline: no key or endpoint inlined. The
-    # `llm-zai:` settings section or the launch environment supplies ZAI_API_KEY
-    # / ZAI_BASE_URL, and the route stays dormant (present in the Models page,
-    # unusable for requests) until a key resolves. Thinking defaults stay the
-    # adapter's own.
-    - id: llm-zai
-      name: '@deepseek-ai/dsh-llm-zai'

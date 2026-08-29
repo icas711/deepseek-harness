@@ -673,3 +673,15 @@ select.input {
   font-size: 13px;
   overflow-wrap: anywhere;
 }
+
+/* A catalog row the endpoint reply no longer names. It reads dimmed because
+   leaving it unchecked takes it out of the catalog; the hint says so. */
+.candidateAbsent .candidateId {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.candidateHint {
+  flex: 0 1 auto;
+  font-size: 12px;
+  color: var(--dsw-alias-state-warn-label);
+}

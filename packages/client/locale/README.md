@@ -1,18 +1,16 @@
 # @deepseek-ai/dsh-client-locale
 
-English | [中文](README.zh.md)
-
-Locale plugin: LocaleRuntime — the `zh`/`en`/`ru` preference stored as `locale.preference` in `$DSH_HOME/settings.yaml`; when that explicit Host value is absent, a fresh browser starts provisionally in the language `navigator` asks for (primary-subtag matching, with `zh` when it asks for no language this app ships). The Host read runs after plugin activation so an unavailable settings service cannot block the page; its result replaces the provisional browser value live. Remote browsers retain only a process-local selection because the settings API is loopback-only. `locale/change` fires on switches. The service also owns the ns×locale dictionary registry (typed `register(ns, {zh, en, ru})` checked against `LocaleNamespaceMap`, `bind(ns)`→`TranslateNS<ns>`; lookup chain ns → common → zh → key), implements the slot system's `LocaleFace`, and installs itself through `ctx.slots.installLocale`, backing the framework-injected `t` standard seat (`Translate`/`TranslateNS` are ui-slots types; import them from there — this package only re-exports for dictionary owners' convenience). The [Host-backed preferences decision](../../../.agents/notes/implemented/bug-fix/2026-08-06-host-backed-web-preferences.md) owns the persistence boundary.
+Плагин локали веб-клиента. Продукт одноязычный (русский): `LocaleRuntime` — реестр namespace-словарей без выбора языка. Типизированный `register(ns, dict)` проверяет словарь против union ключей namespace (`LocaleNamespaceMap` через declaration merging; пропущенный или лишний ключ — ошибка компиляции), `bind(ns)` возвращает стабильный по namespace `Translate`. Цепочка поиска ключа: словарь namespace → общий словарь `common` (единственный, русский, источник ключей — `src/locales/ru.ts`) → сам ключ (отсутствующий текст остаётся видимым — громкий отказ вместо пустой строки). Переключателя языка, настройки `locale`, браузерной детекции и события `locale/change` нет; снимок реестра — `{revision}` для `LocaleFace` (getSnapshot/subscribe), который рендер-машина получает через `ctx.slots.installLocale` и из которого синтезирует стандартный сид `t` (`Translate`/`TranslateNS` — типы ui-slots; этот пакет реэкспортирует их для удобства владельцев словарей). Ревизия растёт при каждой регистрации/удалении словаря, поэтому смонтированные outlet'ы подхватывают поздние словари при HMR без смены языка.
 
 ## Model Experience
 
-None, as the locale registry serves browser UI copy; nothing here reaches a model request.
+Отсутствует: реестр обслуживает копию браузерного UI; ничего отсюда не попадает в запрос к модели.
 
 #### KV Cache effect
 
-None; this package neither assembles nor sends a provider request.
+Отсутствует; пакет не собирает и не отправляет запрос провайдеру.
 
 ## Known Limitations and Deferred Work
 
-- **Some surfaces keep inline copy** — Settings rows, the sidebar, question composer, and model select use locale seats; other packages still own static text directly.
-- **Registry-held text reads its translation once** — copy captured at registration time outside the slot render path (e.g. the `/model` command description in the command registry) keeps the language it was registered under until re-registration; slot-rendered copy follows switches live.
+- **Часть поверхностей держит инлайн-копию** — строки Settings, сайдбара, композера вопросов и выбора модели идут через локальные сиды; остальные пакеты владеют статичным текстом напрямую.
+- **Текст, захваченный при регистрации, читается один раз** — копия, снятая вне слот-рендер-пути при регистрации (например, описание команды `/model` в реестре команд), хранит строку на момент регистрации до перерегистрации; слот-рендеренная копия обновляется с ревизией реестра.

@@ -10,7 +10,7 @@ import {
   assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
   launchWebScaffold, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { newEnglishPage, saveFailureShot } from './support.ts'
+import { newPage, saveFailureShot } from './support.ts'
 
 const FIXTURE = fileURLToPath(new URL('../../../examples/acp-agent/tests/snapshots/skill-load/session.jsonl', import.meta.url))
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/skill-tool-row', import.meta.url))
@@ -31,7 +31,7 @@ describe.skipIf(MODE === 'record')('web e2e: dedicated Skill tool row', () => {
     scaffold = await launchWebScaffold({})
     await seedSession(scaffold, fixture, SEED_ID)
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -59,7 +59,7 @@ describe.skipIf(MODE === 'record')('web e2e: dedicated Skill tool row', () => {
 
     await row.click()
     await expect.poll(() => row.getAttribute('aria-expanded')).toBe('true')
-    await call.getByText('Instructions', { exact: true }).waitFor()
+    await call.getByText('Инструкции', { exact: true }).waitFor()
     const output = call.locator('pre')
     await output.waitFor()
     expect(await output.textContent()).toContain('<skill_content name="snapshot-skill">')

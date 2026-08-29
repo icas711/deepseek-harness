@@ -26,7 +26,7 @@ import { GeneralSection } from './GeneralSection.tsx'
 import { SettingsDocumentAction } from './SettingsDocumentAction.tsx'
 import type { SettingsDocumentActionInjected } from './SettingsDocumentAction.tsx'
 import { refreshDocumentIfLoaded, SettingsDocumentStore } from './settings-document-store.ts'
-import { en, ru, zh, type SettingsKey } from './locales.ts'
+import { ru, type SettingsKey } from './locales.ts'
 
 export type {
   CloseLabelProps, HeaderContentProps, TriggerContentProps,
@@ -62,11 +62,11 @@ export const inject = ['slots', 'locale', 'connection']
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
-  ctx.effect(() => ctx.locale.register(NS, { zh, en, ru }), 'ui-settings-general: dictionaries')
+  ctx.effect(() => ctx.locale.register(NS, ru), 'ui-settings-general: dictionaries')
 
   // Copy freshness is framework-owned: components read the standard `t`
   // seat, and the nav label is a thunk the owner resolves per render — no
-  // locale/change re-registration wiring.
+  // re-registration wiring.
   const t = ctx.locale.bind(NS)
   const connection = ctx.get('connection') as ConnectionHandle
   const documentController = connection.isLoopback

@@ -1,45 +1,45 @@
 - banner:
-  - navigation "Session hierarchy":
+  - navigation "Иерархия сессий":
     - button "Reply with a one-sentence description" [disabled]
   - img
-  - text: Standard mode
+  - text: Стандартный режим
   - button "Session log":
     - text: Session log
     - img
   - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
+    - tab "Беседа" [selected]
+    - tab "Траектория"
 - text: Reply with a one-sentence description of event sourcing, then stop. {{clock}}
-- button "Copy":
+- button "Копировать":
   - img
-- button "Context injection @deepseek-ai/dsh-system-prompt":
+- button "Внедрение контекста @deepseek-ai/dsh-system-prompt":
   - img
   - img
-  - text: Context injection @deepseek-ai/dsh-system-prompt
+  - text: Внедрение контекста @deepseek-ai/dsh-system-prompt
 - paragraph: partial
 - status: Deep diving...
-- button "2 queued messages" [disabled] [expanded]
+- 'button "Сообщений в очереди: 2" [disabled] [expanded]'
 - list:
   - listitem:
     - text: Queue item to remove
-    - button "Edit queued message":
+    - button "Редактировать сообщение из очереди":
       - img
-    - button "Remove queued message":
+    - button "Удалить сообщение из очереди":
       - img
-    - button "Steer queued message":
+    - button "Встроить сообщение из очереди":
       - img
   - listitem:
-    - textbox "Edit queued message": Edited queue item
-    - button "Save queued message":
+    - textbox "Редактировать сообщение из очереди": Edited queue item
+    - button "Сохранить сообщение из очереди":
       - img
-    - tooltip "Save queued message"
-    - button "Cancel editing":
+    - tooltip "Сохранить сообщение из очереди"
+    - button "Отменить редактирование":
       - img
-- textbox "Cmd/Ctrl+Enter steers all queued messages"
-- button "Commands":
+- textbox "Cmd/Ctrl+Enter — встроить все сообщения из очереди"
+- button "Команды":
   - img
-- 'button "Access mode, current: Workspace Write"': Workspace Write
-- button "Select model, current DeepSeek-V4-Flash":
+- 'button "Режим доступа, текущий: Workspace Write"': Workspace Write
+- button "Выбор модели, текущая DeepSeek-V4-Flash":
   - text: DeepSeek-V4-Flash
   - img
-- button "Stop generating"
+- button "Остановить генерацию"

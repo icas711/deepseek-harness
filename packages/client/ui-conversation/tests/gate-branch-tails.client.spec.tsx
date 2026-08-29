@@ -11,16 +11,16 @@ import type { ConversationSnapshot, SessionId, SessionListState, WorkspaceListSt
 import type { SessionProviderComponent } from '@deepseek-ai/dsh-client-ui-slots'
 import type { DetailsSlotProps, DetailsToolOwnerProps, SelectionTarget } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
-import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
+import { ru as commonRu } from '@deepseek-ai/dsh-client-locale/src/locales/ru.ts'
 import { createChatStore } from '../src/client/stores.ts'
 import { AssistantMarkdown, type AssistantMarkdownProps } from '../src/client/chat/AssistantMarkdown.tsx'
 import { StatsLine } from '../src/client/chat/StatsLine.tsx'
 import { DetailsPanel } from '../src/client/skeleton/DetailsPanel.tsx'
-import { zh } from '../src/client/locales.ts'
+import { ru } from '../src/client/locales.ts'
 import { chatSnapshotFixture } from './chat-snapshot-fixture.client.ts'
 
 // Mirrors the real lookup chain (conversation namespace, then common).
-const t: AssistantMarkdownProps['t'] = makeTranslate(zh, commonZh)
+const t: AssistantMarkdownProps['t'] = makeTranslate(ru, commonRu)
 
 /** jsdom has no ResizeObserver; StatsLine watches its row for ellipsis truncation through one. */
 class ResizeObserverStub {
@@ -95,7 +95,7 @@ describe('render branch tails', () => {
         useProjection={() => undefined}
       />,
     )
-    expect(view.container.textContent).toBe('2 轮 · 3 步')
+    expect(view.container.textContent).toBe('2 ход(ов) · 3 шаг(ов)')
   })
 
   it('AssistantMarkdown reasoning as the streaming tail renders the running ring', () => {
@@ -105,7 +105,7 @@ describe('render branch tails', () => {
     expect(view.container.querySelector('[data-state="running"]')).not.toBeNull()
   })
 
-  it('DetailsPanel title falls to 详情 when the selection has no toolName and no material', () => {
+  it('DetailsPanel title falls to Детали when the selection has no toolName and no material', () => {
     localStorage.clear()
     const snap = snapshotBase()
     const chat = createChatStore().create()
@@ -139,8 +139,8 @@ describe('render branch tails', () => {
         t={t}
       />,
     )
-    expect(view.getByText('详情')).toBeTruthy()
-    expect(view.getByText('该调用不在当前窗口内')).toBeTruthy()
+    expect(view.getByText('Детали')).toBeTruthy()
+    expect(view.getByText('Этот вызов вне текущего окна')).toBeTruthy()
   })
 
   it('DetailsPanel resolves a nested run_code leaf to its full logged args and output', () => {

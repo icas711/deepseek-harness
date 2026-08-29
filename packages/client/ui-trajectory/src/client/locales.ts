@@ -1,4 +1,4 @@
-/** `trajectory` namespace dictionaries (view tab label + toolbar strings). */
+/** `trajectory` namespace dictionary (view tab label + toolbar strings). */
 
 /** Dictionary namespace owned by this plugin. */
 export const NS = 'trajectory'
@@ -19,6 +19,9 @@ export type TrajectoryKey =
   | 'toolbar.collapseCalls'
   | 'toolbar.search'
   | 'toolbar.searchPlaceholder'
+  | 'history.loadEarlier'
+  | 'history.loadingEarlier'
+  | 'history.loadEarlierHint'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -27,43 +30,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   }
 }
 
-/** Simplified Chinese dictionary (the key-set source of truth). */
-export const zh: Record<TrajectoryKey, string> = {
-  'view.trajectory': '轨迹',
-  'toolbar.aria': '轨迹工具栏',
-  'toolbar.duration': 'Duration',
-  'toolbar.useActualDuration': 'Use actual duration',
-  'toolbar.useEqualWidth': 'Use equal-width operations',
-  'toolbar.actualTime': '实际时间',
-  'toolbar.turns': 'Turns',
-  'toolbar.expandTurns': 'Expand turns',
-  'toolbar.collapseTurns': 'Collapse turns',
-  'toolbar.calls': 'Calls',
-  'toolbar.expandCalls': 'Expand calls',
-  'toolbar.collapseCalls': 'Collapse calls',
-  'toolbar.search': '搜索轨迹',
-  'toolbar.searchPlaceholder': '搜索',
-}
-
-/** English dictionary. */
-export const en: Record<TrajectoryKey, string> = {
-  'view.trajectory': 'Trajectory',
-  'toolbar.aria': 'Trajectory toolbar',
-  'toolbar.duration': 'Duration',
-  'toolbar.useActualDuration': 'Use actual duration',
-  'toolbar.useEqualWidth': 'Use equal-width operations',
-  'toolbar.actualTime': 'Actual time',
-  'toolbar.turns': 'Turns',
-  'toolbar.expandTurns': 'Expand turns',
-  'toolbar.collapseTurns': 'Collapse turns',
-  'toolbar.calls': 'Calls',
-  'toolbar.expandCalls': 'Expand calls',
-  'toolbar.collapseCalls': 'Collapse calls',
-  'toolbar.search': 'Search trajectory',
-  'toolbar.searchPlaceholder': 'Search',
-}
-
-/** Russian dictionary, checked complete against the zh key set. */
+/** Russian dictionary, checked complete against the key union. */
 export const ru: Record<TrajectoryKey, string> = {
   'view.trajectory': 'Траектория',
   'toolbar.aria': 'Панель инструментов траектории',
@@ -79,4 +46,7 @@ export const ru: Record<TrajectoryKey, string> = {
   'toolbar.collapseCalls': 'Свернуть вызовы',
   'toolbar.search': 'Поиск по траектории',
   'toolbar.searchPlaceholder': 'Поиск',
+  'history.loadEarlier': 'Загрузить предыдущую историю',
+  'history.loadingEarlier': 'Загрузка предыдущей истории…',
+  'history.loadEarlierHint': 'Нажмите, чтобы загрузить предыдущую историю',
 }

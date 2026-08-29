@@ -1,7 +1,7 @@
-- dialog "删除 minimax-cn？":
-  - heading "删除 minimax-cn？" [level=2]
-  - button "关闭":
+- dialog "Удалить minimax-cn?":
+  - heading "Удалить minimax-cn?" [level=2]
+  - button "Закрыть":
     - img
-  - paragraph: 删除 minimax-cn 会移除其配置；其使用的凭证（如有）由其他位置管理，将会保留。
-  - button "取消"
-  - button "删除 minimax-cn"
+  - paragraph: Удаление minimax-cn убирает его конфигурацию. Используемый им креденшал управляется отдельно и сохранится.
+  - button "Отмена"
+  - button "Удалить minimax-cn"

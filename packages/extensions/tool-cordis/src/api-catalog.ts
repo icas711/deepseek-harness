@@ -964,6 +964,25 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'quotaPause',
+    summary: 'The quota-pause service.',
+    description: 'The quota-pause service. One host-plane instance watches every agent; the web "continue" control reaches it through the API gateway.',
+    methods: [
+      {
+        signature: 'isPaused(agent: Agent): boolean',
+        description: 'Whether the agent currently parks proposed work on its provider\'s quota refusal.',
+        parameters: [{ name: 'agent', description: 'the agent to inspect.' }],
+        returns: 'true while proposed steps are parked.',
+      },
+      {
+        signature: 'resume(agent: Agent): boolean',
+        description: 'Release parked work: arm the resume decision with the refused turn\'s surface ids, clear the pause, and wake the driver for the pending batch. A provider still over its limit fails the released turn, which parks again — the control stays honest without probing the provider.',
+        parameters: [{ name: 'agent', description: 'the agent whose parked work is released.' }],
+        returns: 'whether the log had a quota-refused turn with input to release.',
+      },
+    ],
+  },
+  {
     key: 'sandbox',
     summary: 'Abstract process-sandbox service.',
     description: 'Abstract process-sandbox service. confine must return enforcing argv or fail closed at wrap or runner-execution time; silent unconfined passthrough is forbidden. Functional probes arbitrate multi-runner chains and may be skipped for a sole candidate, whose own refusal remains the fail-closed end.',
@@ -1061,6 +1080,11 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Read the stored events from `fromSeq` onward — the read-from-seq primitive for read models that resume from a watermark (e.g. a persisted projection cache folding only the tail past its checkpoint). Unlike inspect, it is a detached physical suffix read: no preparation cache, torn-tail truncation, synthetic closers, or coordinator-state publication. Only events from the valid contiguous stored prefix are returned, so a torn fragment never reaches the caller. `fromSeq` at or beyond the stored prefix returns an empty event list (never an error). Backends whose medium can seek by seq (SQLite) read only the suffix; sequential media (JSONL, both encodings) still parse the whole artifact and skip forward — the primitive bounds what is RETURNED and refolded, not every backend\'s physical read.',
         parameters: [{ name: 'id', description: 'the persisted session to read.' }, { name: 'fromSeq', description: 'first event seq to include; a non-negative safe integer.' }, { name: 'signal', description: 'optional cancellation for queued and backend read work.' }],
         returns: 'the header and the stored events with `seq >= fromSeq`.',
+      },
+      {
+        signature: 'abstract delete(id: SessionId): Promise<void>',
+        description: 'Durably remove one session\'s stored log. Idempotent: a session with no stored artifact resolves. Rejects while the id names a live Session — dispose that Session first so its final write-behind drain cannot resurrect the deleted log. Serialization with the write path is the backend\'s own responsibility (see PersistenceCoordinator.delete).',
+        parameters: [{ name: 'id', description: 'the persisted session to remove.' }],
       },
       {
         signature: 'abstract list(signal?: AbortSignal): Promise<SessionHeader[]>',
@@ -2146,6 +2170,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'resolution after durability.',
       },
       {
+        signature: 'forgetSession(sessionId: SessionId): Promise<void>',
+        description: 'Forget one session everywhere the registry tracks it: the header index (so workspace projections drop it immediately), every workspace record that accounts it, and the registry-global archive set. The session\'s own log is NOT touched — the caller deletes it through session persistence beside this call. Idempotent: an untracked id resolves without writing.',
+        parameters: [{ name: 'sessionId', description: 'the session to forget.' }],
+        returns: 'resolution after durability.',
+      },
+      {
         signature: 'async resolveByPath(path: string): Promise<Workspace | undefined>',
         description: 'Resolve by canonical directory path without creating or mutating a workspace. A missing path rejects during `realpath`; an existing unowned directory returns `undefined`.',
         parameters: [{ name: 'path', description: 'Existing directory path in any spelling.' }],
@@ -2225,8 +2255,8 @@ export const EVENT_API: readonly EventApiEntry[] = [
     name: 'agent/pre-step',
     mode: 'waterfall',
     signature: '\'agent/pre-step\'(this: Scoped<Agent>, payload: { agent: Agent; messages: UserMessage[]; turn: number; step: number; signal: AbortSignal }, next: () => Promise<PreStepDecision>): Promise<PreStepDecision>',
-    summary: 'Reject a proposed step or replace the messages that enter it.',
-    description: 'Reject a proposed step or replace the messages that enter it. Calling `next()` preserves the current messages.',
+    summary: 'Reject a proposed step, replace the messages that enter it, or resume over the recorded log.',
+    description: 'Reject a proposed step, replace the messages that enter it, or resume over the recorded log. Calling `next()` preserves the current messages; `resume` enters the step with no new surface content (see PreStepDecision).',
     parameters: [{ name: 'payload', description: '.signal - the current turn\'s cancellation signal. Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.' }],
   },
   {
@@ -2615,7 +2645,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'Agent',
-    declaration: 'export interface Agent {\n    readonly id: SessionId;\n    readonly options: AgentOptions;\n    readonly session: Session;\n    readonly inbox: Inbox;\n    readonly status: AgentStatus;\n    readonly ctx: Context;\n    cancel(cause: AgentCancelCause, options?: CancelOptions): void;\n    whenIdle(): Promise<void>;\n    runMaintenance<T>(task: (signal: AbortSignal) => Promise<T>): Promise<T>;\n    send(message: UserMessage, target: InboxTarget, wakeup: boolean): void;\n    followup(message: UserMessage): void;\n    steer(message: UserMessage): void;\n    inject(message: UserMessage): void;\n}',
+    declaration: 'export interface Agent {\n    readonly id: SessionId;\n    readonly options: AgentOptions;\n    readonly session: Session;\n    readonly inbox: Inbox;\n    readonly status: AgentStatus;\n    readonly ctx: Context;\n    cancel(cause: AgentCancelCause, options?: CancelOptions): void;\n    whenIdle(): Promise<void>;\n    wake(): void;\n    runMaintenance<T>(task: (signal: AbortSignal) => Promise<T>): Promise<T>;\n    send(message: UserMessage, target: InboxTarget, wakeup: boolean): void;\n    followup(message: UserMessage): void;\n    steer(message: UserMessage): void;\n    inject(message: UserMessage): void;\n}',
   },
   {
     name: 'AgentCancelCause',
@@ -3507,7 +3537,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'PreStepDecision',
-    declaration: 'export type PreStepDecision = {\n    kind: \'reject\';\n} | {\n    kind: \'enter\';\n    messages: UserMessage[];\n};',
+    declaration: 'export type PreStepDecision = {\n    kind: \'reject\';\n} | {\n    kind: \'enter\';\n    messages: UserMessage[];\n} | {\n    kind: \'resume\';\n};',
   },
   {
     name: 'PreToolDecision',

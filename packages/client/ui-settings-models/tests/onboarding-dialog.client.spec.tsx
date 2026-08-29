@@ -8,7 +8,7 @@ import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-web-react'
 import { DeepSeekOnboardingDialog } from '../src/client/DeepSeekOnboardingDialog.tsx'
 import type { DeepSeekOnboardingDialogProps } from '../src/client/DeepSeekOnboardingDialog.tsx'
 import { ModelsSettingsStore } from '../src/client/store.ts'
-import { en } from '../src/client/locales.ts'
+import { ru } from '../src/client/locales.ts'
 
 afterEach(() => {
   cleanup()
@@ -137,7 +137,7 @@ function harness(options: {
     controller,
     useModels: bindSnapshotSelector(controller.store),
     api: face as never,
-    t: key => en[key],
+    t: key => ru[key],
   }
   return {
     controller, complete, openSection, props, mutate, set,
@@ -150,18 +150,18 @@ describe('DeepSeekOnboardingDialog', () => {
     const h = harness()
     document.getElementById('root')!.remove()
     render(<DeepSeekOnboardingDialog {...h.props} />)
-    expect(await screen.findByRole('dialog', { name: en.onboardingTitle })).toBeTruthy()
+    expect(await screen.findByRole('dialog', { name: ru.onboardingTitle })).toBeTruthy()
   })
 
   it('loads a credential-only modal, inerts the product, and focuses the key', async () => {
     const h = harness()
     render(<DeepSeekOnboardingDialog {...h.props} />)
-    expect(await screen.findByRole('dialog', { name: en.onboardingTitle })).toBeTruthy()
+    expect(await screen.findByRole('dialog', { name: ru.onboardingTitle })).toBeTruthy()
     expect(document.getElementById('root')?.inert).toBe(true)
-    expect(screen.getByText(en.onboardingDescription)).toBeTruthy()
-    const key = screen.getByLabelText<HTMLInputElement>(en.keyInput)
+    expect(screen.getByText(ru.onboardingDescription)).toBeTruthy()
+    const key = screen.getByLabelText<HTMLInputElement>(ru.keyInput)
     await waitFor(() => { expect(document.activeElement).toBe(key) })
-    expect(screen.queryByText(en.customized)).toBeNull()
+    expect(screen.queryByText(ru.customized)).toBeNull()
   })
 
   it('cannot be dismissed implicitly and restores the previous inert state', async () => {
@@ -184,11 +184,11 @@ describe('DeepSeekOnboardingDialog', () => {
     const h = harness()
     render(<DeepSeekOnboardingDialog {...h.props} />)
     await screen.findByRole('dialog')
-    const save = screen.getByRole<HTMLButtonElement>('button', { name: en.onboardingSave })
+    const save = screen.getByRole<HTMLButtonElement>('button', { name: ru.onboardingSave })
     expect(save.disabled).toBe(true)
-    fireEvent.change(screen.getByLabelText(en.keyInput), { target: { value: '   ' } })
+    fireEvent.change(screen.getByLabelText(ru.keyInput), { target: { value: '   ' } })
     expect(save.disabled).toBe(true)
-    expect(screen.getByText(en.keyRequired)).toBeTruthy()
+    expect(screen.getByText(ru.keyRequired)).toBeTruthy()
     expect(h.set).not.toHaveBeenCalled()
   })
 
@@ -200,11 +200,11 @@ describe('DeepSeekOnboardingDialog', () => {
       const h = harness(options)
       const view = render(<DeepSeekOnboardingDialog {...h.props} />)
       await screen.findByRole('dialog')
-      fireEvent.change(screen.getByLabelText(en.keyInput), { target: { value: 'sk-live' } })
-      fireEvent.click(screen.getByRole('button', { name: en.onboardingSave }))
+      fireEvent.change(screen.getByLabelText(ru.keyInput), { target: { value: 'sk-live' } })
+      fireEvent.click(screen.getByRole('button', { name: ru.onboardingSave }))
       expect(await screen.findByText(message)).toBeTruthy()
       expect(screen.getByRole('dialog')).toBeTruthy()
-      expect(screen.getByRole<HTMLButtonElement>('button', { name: en.onboardingSave }).disabled).toBe(false)
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: ru.onboardingSave }).disabled).toBe(false)
       expect(h.complete).not.toHaveBeenCalled()
       expect(h.mutate).not.toHaveBeenCalled()
       view.unmount()
@@ -215,7 +215,7 @@ describe('DeepSeekOnboardingDialog', () => {
     const h = harness()
     render(<DeepSeekOnboardingDialog {...h.props} />)
     await screen.findByRole('dialog')
-    fireEvent.click(screen.getByRole('button', { name: en.onboardingLater }))
+    fireEvent.click(screen.getByRole('button', { name: ru.onboardingLater }))
     expect(h.complete).toHaveBeenCalledOnce()
     expect(h.openSection).not.toHaveBeenCalled()
     expect(h.set).not.toHaveBeenCalled()

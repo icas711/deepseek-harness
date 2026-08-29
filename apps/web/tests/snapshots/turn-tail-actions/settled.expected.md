@@ -1,45 +1,44 @@
 - banner:
-  - navigation "Session hierarchy":
+  - navigation "Иерархия сессий":
     - button "Begin your reply with the" [disabled]
   - img
-  - text: Standard mode
+  - text: Стандартный режим
   - button "Session log":
     - text: Session log
     - img
   - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
+    - tab "Беседа" [selected]
+    - tab "Траектория"
 - text: Begin your reply with the plain sentence "Reading the workspace now." as text, and in that same message call the bash tool with the command "echo alpha". After the tool result, reply with the single word DONE and stop. {{clock}}
-- button "Copy":
+- button "Копировать":
   - img
-- button "Context injection @deepseek-ai/dsh-system-prompt":
+- button "Внедрение контекста @deepseek-ai/dsh-system-prompt":
   - img
   - img
-  - text: Context injection @deepseek-ai/dsh-system-prompt
+  - text: Внедрение контекста @deepseek-ai/dsh-system-prompt
 - button "Think The user wants me to begin with \"Reading the workspace now.\" and call bash with \"echo alpha\" in the same message. Then after the tool result, reply with the single word DONE and stop.":
   - img
   - img
   - text: Think The user wants me to begin with "Reading the workspace now." and call bash with "echo alpha" in the same message. Then after the tool result, reply with the single word DONE and stop.
 - paragraph: Reading the workspace now.
-- button "Bash Print alpha to stdout":
+- 'button "Сбой Bash Error: unknown tool \"bash\""':
   - img
-  - img
-  - text: Bash Print alpha to stdout
+  - text: "Сбой Bash Error: unknown tool \"bash\""
 - paragraph: partial
-- text: Stopped
-- button "Copy":
+- text: Остановлено
+- button "Копировать":
   - img
-- tooltip "Copy"
-- button "Branch into a new conversation":
+- tooltip "Копировать"
+- button "Создать ветку в новой беседе":
   - img
-- text: {{clock}} Ran for {{duration}} TTFT {{duration}} {{throughput}} tok/s
-- textbox "Message the agent"
-- button "Commands":
+- text: {{clock}} Выполнялось {{duration}} TTFT {{duration}} {{throughput}} tok/s
+- textbox "Написать агенту"
+- button "Команды":
   - img
-- 'button "Access mode, current: Workspace Write"': Workspace Write
-- button "Select model, current DeepSeek-V4-Flash":
+- 'button "Режим доступа, текущий: Workspace Write"': Workspace Write
+- button "Выбор модели, текущая DeepSeek-V4-Flash":
   - text: DeepSeek-V4-Flash
   - img
-- button "6% of context used"
-- button "Send message" [disabled]
-- text: 1 turns · 2 steps LLM {{duration}} · Tool call {{duration}} TTFT avg {{duration}} · {{throughput}} tok/s Cache hit 0% Input 7.8K tok · Output 109 tok
+- button "Использовано 6% контекста"
+- button "Отправить сообщение" [disabled]
+- text: 1 ход(ов) · 2 шаг(ов) LLM {{duration}} · Вызов инструмента {{duration}} Средний TTFT {{duration}} · {{throughput}} tok/s Попадания в кэш 0% Вход 7.8K tok · Выход 109 tok

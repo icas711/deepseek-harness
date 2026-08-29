@@ -1,7 +1,5 @@
 # @deepseek-ai/dsh-web-search-zai
 
-English | [中文](README.zh.md)
-
 A [Z.ai](https://z.ai)-backed `WebSearchProvider` for the harness [web capability seam](../web/README.md) (`ctx.web`). It calls the standalone Web Search API (`POST /web_search`) and maps the structured results into the seam's normalized `WebSearchResult`.
 
 This is an **implementation** package: it registers a provider into `ctx.web`, it does not own the key and it does not register a model-facing tool. Like `@deepseek-ai/dsh-web-search-perplexity`, it is a function/namespace plugin (`inject: ['web']`). The wire shape is a provider-private detail — this is not an LLM request and does **not** depend on `ctx.llm`.

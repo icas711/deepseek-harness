@@ -19,7 +19,7 @@ import {
   assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
   launchWebScaffold, recordFixture, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { newEnglishPage, saveFailureShot } from './support.ts'
+import { newPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/navigation-panes', import.meta.url))
 const SEED = join(SNAPSHOT_DIR, 'seed.jsonl')
@@ -57,14 +57,14 @@ async function ensureSeedOpen(page: Page): Promise<void> {
     await welcome.getByRole('button').click()
     await welcome.waitFor({ state: 'detached', timeout: 15_000 })
   }
-  const chat = page.getByRole('tab', { name: 'Chat', exact: true })
+  const chat = page.getByRole('tab', { name: 'Беседа', exact: true })
   // Search is a collapsed header action; expand it so the input is actionable.
-  const searchButton = page.getByRole('button', { name: 'Search sessions' })
+  const searchButton = page.getByRole('button', { name: 'Поиск по сессиям' })
   if (await searchButton.getAttribute('aria-expanded') !== 'true') await searchButton.click()
-  const search = page.getByPlaceholder('Search sessions', { exact: false })
+  const search = page.getByPlaceholder('Поиск сессий…', { exact: false })
   if (await chat.count() === 0) {
     await search.fill('WATERFALL')
-    const result = page.getByRole('tree', { name: 'Search results' }).getByRole('treeitem')
+    const result = page.getByRole('tree', { name: 'Результаты поиска' }).getByRole('treeitem')
     await expect.poll(() => result.count(), { timeout: 15_000 }).toBe(1)
     await result.click()
     await chat.waitFor({ timeout: 15_000 })
@@ -103,7 +103,7 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
   }, 120_000)
 
   beforeEach(async () => {
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     slotErrors = []
     page.on('console', (message) => {
@@ -129,7 +129,7 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
     // Search must target the settled seeded row, not the startup input that
     // the ready projection replaces (the compact layout dropped group session
     // counts; the Ungrouped bucket row is the barrier).
-    await page.getByText('Ungrouped', { exact: true }).waitFor({ timeout: 30_000 })
+    await page.getByText('Без группы', { exact: true }).waitFor({ timeout: 30_000 })
   }, 120_000)
 
   afterEach(async () => {
@@ -187,22 +187,22 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
     // The API baselines can settle before React commits their projection. The
     // seeded Ungrouped bucket row is the final user-visible barrier before
     // editing search (the compact layout dropped group session counts).
-    await page.getByText('Ungrouped', { exact: true }).waitFor({ timeout: 30_000 })
+    await page.getByText('Без группы', { exact: true }).waitFor({ timeout: 30_000 })
     // Search is a collapsed header action; expand it so the input is actionable.
-    const searchButton = page.getByRole('button', { name: 'Search sessions' })
+    const searchButton = page.getByRole('button', { name: 'Поиск по сессиям' })
     if (await searchButton.getAttribute('aria-expanded') !== 'true') await searchButton.click()
-    const search = page.getByPlaceholder('Search sessions', { exact: false })
+    const search = page.getByPlaceholder('Поиск сессий…', { exact: false })
     // The cold row has not been opened, so only the persisted log can satisfy
     // this query. First search lazily reconciles the SQLite content index.
     await search.fill('zzzqx-no-such-session')
-    await page.getByText('No matching sessions').waitFor({ timeout: 30_000 })
+    await page.getByText('Нет совпадающих сессий').waitFor({ timeout: 30_000 })
     await expect.poll(
-      () => page.getByRole('tree', { name: 'Search results' }).getByRole('treeitem').count(),
+      () => page.getByRole('tree', { name: 'Результаты поиска' }).getByRole('treeitem').count(),
       { timeout: 10_000 },
     ).toBe(0)
 
     await search.fill('WATERFALL')
-    const resultTree = page.getByRole('tree', { name: 'Search results' })
+    const resultTree = page.getByRole('tree', { name: 'Результаты поиска' })
     const result = resultTree.getByRole('treeitem')
     await expect.poll(() => result.count(), { timeout: 30_000 }).toBe(1)
     await expect.poll(() => result.getByText('WATERFALL', { exact: false }).count(), {
@@ -218,7 +218,7 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
     await expect.poll(() => search.inputValue(), { timeout: 5_000 }).toBe('WATERFALL')
     await expect.poll(() => page.getByText('FIRST_DONE', { exact: true }).count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(1)
     await expect.poll(() => page.getByRole('heading', { name: 'Navigation Summary' }).count(), { timeout: 15_000 }).toBe(1)
-    await page.getByRole('button', { name: 'Clear search' }).click()
+    await page.getByRole('button', { name: 'Очистить поиск' }).click()
     await expect.poll(() => search.inputValue(), { timeout: 5_000 }).toBe('')
     await expect.poll(() => page.locator('[role="treeitem"]').count(), { timeout: 10_000 }).toBeGreaterThanOrEqual(1)
   }, 90_000)
@@ -226,7 +226,7 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
   it.skipIf(MODE === 'record')('renders the trajectory ledger and opens its local record inspector', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-navigation-trajectory'))
     await ensureSeedOpen(page)
-    await page.getByRole('tab', { name: 'Trajectory' }).click()
+    await page.getByRole('tab', { name: 'Траектория' }).click()
     await page.waitForTimeout(100)
     const overlayLayout = await page.getByRole('table').evaluate((table) => {
       const host = table.closest('[data-conversation-scroll]')
@@ -310,7 +310,7 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
     expect(response.status()).toBe(200)
     const download = await downloadPromise
     expect(download.suggestedFilename()).toMatch(/^dsh-session-.+\.zip$/)
-    const dialog = page.getByRole('dialog', { name: 'Session download started' })
+    const dialog = page.getByRole('dialog', { name: 'Загрузка сессии началась' })
     await dialog.waitFor({ timeout: 30_000 })
     // The real host streamed the ZIP; its root entry is the persisted log
     // text verbatim (the assembled seam: real route, real persistence read).
@@ -319,9 +319,9 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
     const content = strFromU8(files['session.jsonl'] as Uint8Array)
     expect(content.split('\n')[0]).toContain(SEED_ID)
     expect(content).toContain('FIRST_DONE')
-    await dialog.getByText('Close', { exact: true }).click()
+    await dialog.getByText('Закрыть', { exact: true }).click()
 
-    const observer = await newEnglishPage(browser)
+    const observer = await newPage(browser)
     const observerTripwire = watchConsole(observer)
     const observerSlotErrors: string[] = []
     let observerDownloads = 0
@@ -342,7 +342,7 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
       assertBaselineSucceeded(observerSessionResponse, 'observer session.list'),
       assertBaselineSucceeded(observerWorkspaceResponse, 'observer workspace.list'),
     ])
-    await observer.getByText('Ungrouped', { exact: true }).waitFor({ timeout: 30_000 })
+    await observer.getByText('Без группы', { exact: true }).waitFor({ timeout: 30_000 })
     await ensureSeedOpen(observer)
 
     try {
@@ -361,12 +361,12 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
       const exportDone = slashEvents.find(event =>
         event.type === 'command/done' && event.data.commandId === exportRun.data.commandId)
       expect(exportDone?.type).toBe('command/done')
-      await page.getByRole('dialog', { name: 'Session download started' }).waitFor({ timeout: 30_000 })
-      await page.getByRole('dialog', { name: 'Session download started' })
-        .getByText('Close', { exact: true }).click()
+      await page.getByRole('dialog', { name: 'Загрузка сессии началась' }).waitFor({ timeout: 30_000 })
+      await page.getByRole('dialog', { name: 'Загрузка сессии началась' })
+        .getByText('Закрыть', { exact: true }).click()
       await observer.getByText('Session log download requested.', { exact: true }).waitFor({ timeout: 30_000 })
       expect(observerDownloads).toBe(0)
-      expect(await observer.getByRole('dialog', { name: 'Session download started' }).count()).toBe(0)
+      expect(await observer.getByRole('dialog', { name: 'Загрузка сессии началась' }).count()).toBe(0)
       expect({
         pageErrors: observerTripwire.pageErrors,
         slotErrors: observerSlotErrors,
@@ -380,7 +380,7 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
   it.skipIf(MODE === 'record')('focuses the ledger by dragging an overview interval', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-navigation-timeline'))
     await ensureSeedOpen(page)
-    await page.getByRole('tab', { name: 'Trajectory' }).click()
+    await page.getByRole('tab', { name: 'Траектория' }).click()
     const plot = page.getByLabel('Timeline overview; drag horizontally to focus events')
     await plot.waitFor({ timeout: 15_000 })
     const before = await page.locator('tr[data-kind]').count()
@@ -483,7 +483,7 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
       }
     })
     expect(dot.state).toBe('done')
-    expect(dot.label).toBe('Done')
+    expect(dot.label).toBe('Готово')
     expect(dot.beforePrompt).toBe(true)
     expect(dot.insideCard).toBe(true)
     expect(dot.leftOfPrompt).toBe(true)
@@ -500,7 +500,7 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
     await card.locator('[class*="_copyButton_"]').first().click()
     await expect.poll(() => card.locator('[class*="_copyButton_"]').first().textContent(), { timeout: 5_000 })
-      .toBe('Copied')
+      .toBe('Скопировано')
     expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('NAVIGATION_OK')
   }, 60_000)
 

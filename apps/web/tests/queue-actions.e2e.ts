@@ -16,7 +16,7 @@ import {
   assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
   launchWebScaffold, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
+import { connectFreshWorkspace, newPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/queue-actions', import.meta.url))
 const FIXTURE = fileURLToPath(new URL('./snapshots/live-interactions/session.jsonl', import.meta.url))
@@ -79,7 +79,7 @@ describe('web e2e: queue row actions', () => {
     scaffold = await launchWebScaffold({ replayFixture: FIXTURE, replayOverride: overridePath })
     scaffold.ctx.on('session/event', (_session, event: SessionEvent) => { sessionEvents.push(event) })
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     const tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -96,7 +96,7 @@ describe('web e2e: queue row actions', () => {
       await input.fill(text)
       await input.press('Enter')
     }
-    const queueHeader = page.getByRole('button', { name: '2 queued messages' })
+    const queueHeader = page.getByRole('button', { name: 'Сообщений в очереди: 2' })
     await expect.poll(() => queueHeader.getAttribute('aria-expanded'), { timeout: 10_000 })
       .toBe('false')
     const collapsedSnapshot = await captureStableAria(
@@ -107,7 +107,7 @@ describe('web e2e: queue row actions', () => {
     await compareOrRefreshGolden(COLLAPSED_EXPECTED, collapsedSnapshot, MODE)
     await queueHeader.click()
     await expect.poll(
-      () => page.getByRole('button', { name: 'Remove queued message' }).count(),
+      () => page.getByRole('button', { name: 'Удалить сообщение из очереди' }).count(),
       { timeout: 10_000 },
     ).toBe(2)
 
@@ -132,16 +132,16 @@ describe('web e2e: queue row actions', () => {
     await page.setViewportSize({ width: 1680, height: 1000 })
 
     const editRow = page.getByText(EDIT, { exact: true }).locator('..')
-    await editRow.getByRole('button', { name: 'Edit queued message' }).click()
-    const editor = page.getByRole('textbox', { name: 'Edit queued message' })
+    await editRow.getByRole('button', { name: 'Редактировать сообщение из очереди' }).click()
+    const editor = page.getByRole('textbox', { name: 'Редактировать сообщение из очереди' })
     await editor.fill(EDITED)
     const editingSnapshot = await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(EDITING_EXPECTED, editingSnapshot, MODE)
-    await page.getByRole('button', { name: 'Save queued message' }).click()
+    await page.getByRole('button', { name: 'Сохранить сообщение из очереди' }).click()
     await page.getByText(EDITED, { exact: true }).waitFor()
 
     const removeRow = page.getByText(REMOVE, { exact: true }).locator('..')
-    await removeRow.getByRole('button', { name: 'Remove queued message' }).click()
+    await removeRow.getByRole('button', { name: 'Удалить сообщение из очереди' }).click()
     await expect.poll(() => page.getByText(REMOVE, { exact: true }).count()).toBe(0)
 
     const snapshot = await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)
@@ -153,15 +153,15 @@ describe('web e2e: queue row actions', () => {
     await input.fill(TAIL)
     await input.press('Enter')
     await expect.poll(
-      () => page.getByRole('button', { name: 'Remove queued message' }).count(),
+      () => page.getByRole('button', { name: 'Удалить сообщение из очереди' }).count(),
       { timeout: 10_000 },
     ).toBe(2)
 
-    await page.getByRole('button', { name: 'Stop generating' }).click()
+    await page.getByRole('button', { name: 'Остановить генерацию' }).click()
     await firstSettled
-    await expect.poll(() => page.getByRole('button', { name: 'Stop generating' }).count())
+    await expect.poll(() => page.getByRole('button', { name: 'Остановить генерацию' }).count())
       .toBe(0)
-    await expect.poll(() => page.getByRole('button', { name: 'Remove queued message' }).count())
+    await expect.poll(() => page.getByRole('button', { name: 'Удалить сообщение из очереди' }).count())
       .toBe(2)
 
     const preservedSnapshot = await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)
@@ -189,7 +189,7 @@ describe('web e2e: queue row actions', () => {
     scaffold = await launchWebScaffold({ replayFixture: FIXTURE, replayOverride: overridePath })
     scaffold.ctx.on('session/event', (_session, event: SessionEvent) => { sessionEvents.push(event) })
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     const tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -217,7 +217,7 @@ describe('web e2e: queue row actions', () => {
       await input.fill(text)
       await input.press('Enter')
     }
-    const queueHeader = page.getByRole('button', { name: '2 queued messages' })
+    const queueHeader = page.getByRole('button', { name: 'Сообщений в очереди: 2' })
     await expect.poll(() => queueHeader.getAttribute('aria-expanded'), { timeout: 10_000 })
       .toBe('false')
 
@@ -248,15 +248,15 @@ describe('web e2e: queue row actions', () => {
     await page.setViewportSize({ width: 1680, height: 1000 })
 
     await queueHeader.click()
-    const removeButtons = page.getByRole('button', { name: 'Remove queued message' })
+    const removeButtons = page.getByRole('button', { name: 'Удалить сообщение из очереди' })
     await expect.poll(() => removeButtons.count(), { timeout: 10_000 }).toBe(2)
     await removeButtons.first().click()
     await expect.poll(() => removeButtons.count(), { timeout: 10_000 }).toBe(1)
     await removeButtons.first().click()
     await expect.poll(() => page.locator('[data-queue-dock]').count(), { timeout: 10_000 }).toBe(0)
-    await page.getByRole('button', { name: 'Clear goal' }).click()
+    await page.getByRole('button', { name: 'Очистить цель' }).click()
     await expect.poll(() => page.locator('[data-goal-bar]').count(), { timeout: 10_000 }).toBe(0)
-    await page.getByRole('button', { name: 'Stop generating' }).click()
+    await page.getByRole('button', { name: 'Остановить генерацию' }).click()
     await settled
 
     expect(turnEndReasons(sessionEvents)).toEqual(['aborted'])

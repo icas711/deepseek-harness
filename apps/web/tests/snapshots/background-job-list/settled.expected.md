@@ -1,2 +1,2 @@
-- list "Background jobs":
+- list "Фоновые задачи":
   - listitem: "bash sleep 45 signal: SIGTERM {{duration}}"

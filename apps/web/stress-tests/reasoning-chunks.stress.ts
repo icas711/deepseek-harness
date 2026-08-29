@@ -8,7 +8,7 @@ import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { expect, it, onTestFailed } from 'vitest'
 import { launchWebScaffold, watchConsole, type WebScaffold } from '../tests/scaffold.ts'
-import { newEnglishPage, saveFailureShot } from '../tests/support.ts'
+import { newPage, saveFailureShot } from '../tests/support.ts'
 
 const CHUNK_COUNT = 100_000
 const CHUNKS_PER_INTERVAL = 128
@@ -50,7 +50,7 @@ it('keeps the browser responsive while rendering 100,000 reasoning chunks', asyn
   try {
     scaffold = await launchWebScaffold()
     browser = await chromium.launch({ headless: process.env.DSH_WEB_STRESS_HEADFUL !== '1' })
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     const activePage = page
     await activePage.addInitScript(() => {
       localStorage.setItem('dsh.sessions.current', JSON.stringify({ sessionId: 'fx-alpha' }))

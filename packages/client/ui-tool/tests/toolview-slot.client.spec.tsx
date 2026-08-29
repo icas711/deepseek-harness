@@ -70,7 +70,7 @@ async function bench(nodes: ToolResultNode[]) {
   runtime.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
   const layout = { openDetails: vi.fn(), closeDetails: vi.fn() }
   runtime.provide('layout', layout)
-  const locale = new LocaleRuntime(runtime.ctx)
+  const locale = new LocaleRuntime()
   runtime.provide('locale', locale)
   runtime.slots.installLocale(locale)
   await runtime.sessions.add({
@@ -208,7 +208,7 @@ describe('registrant declaration injection', () => {
     runtime.provide('remote', { $on: () => () => {} })
     runtime.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
     runtime.provide('layout', { openDetails: vi.fn(), closeDetails: vi.fn() })
-    const locale = new LocaleRuntime(runtime.ctx)
+    const locale = new LocaleRuntime()
     runtime.provide('locale', locale)
     runtime.slots.installLocale(locale)
     await runtime.root.declare(LAYOUT_CHILDREN, AppRoot)

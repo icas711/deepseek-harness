@@ -69,7 +69,7 @@ let unmount: (() => void) | undefined
 /**
  * Register the per-test jsdom setup and teardown the assembled boot needs:
  * English pinned before boot so role/text locators stay deterministic across
- * localized component migrations (the newEnglishPage e2e convention), the
+ * localized component migrations (the newPage e2e convention), the
  * observers and frame callbacks jsdom lacks, and a full reset of the document,
  * the boot globals, and the injected plugin styles afterwards.
  */

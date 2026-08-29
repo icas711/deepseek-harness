@@ -1,7 +1,5 @@
 # Cookbook: building the Windows installer
 
-English | [中文](building-the-windows-installer.zh.md)
-
 Build the user-scope Windows installer for the dsh web app: one `dsh-setup-<version>-x64.exe` that installs the deployed app closure, a bundled `node.exe`, and launcher shortcuts into `%LOCALAPPDATA%\Programs` — no admin rights, no system Node, no checkout on the target machine. Design rationale (closure manifest, launcher port semantics, keep-`~/.dsh` uninstall) lives in [the windows-installer Agent Note](../../.agents/notes/implemented/architecture/2026-08-14-windows-installer.md).
 
 ## 1. Check the prerequisites

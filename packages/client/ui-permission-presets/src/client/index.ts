@@ -27,9 +27,7 @@ import type { ClientSessionContext } from '@deepseek-ai/dsh-client-ui-input-trig
 import type { PermissionSelect } from '@deepseek-ai/dsh-permission-presets/client'
 import { PermissionRow } from './PermissionRow.tsx'
 import type { PermissionRowInjected } from './PermissionRow.tsx'
-import {
-  accessEn, accessRu, accessZh, en, ru, zh,
-} from './locales.ts'
+import { accessRu, ru } from './locales.ts'
 import {
   displayPermissionPreset, FULL_ACCESS_PRESET,
 } from './presentation.ts'
@@ -85,39 +83,12 @@ export function apply(ctx: ClientContext): void {
   const sessions = ctx.sessions
   // This optional bundle and ui-conversation can load independently, so each
   // owns the same safety copy under its own locale namespace.
-  /* jscpd:ignore-start */
-  ctx.effect(() => {
-    const disposers = [
-      ctx.locale.register(ACCESS_NS, 'zh', {
-        'confirm.title': accessZh['confirm.title'],
-        'confirm.description': accessZh['confirm.description'],
-        'confirm.acknowledge': accessZh['confirm.acknowledge'],
-        'confirm.cancel': accessZh['confirm.cancel'],
-        'confirm.enable': accessZh['confirm.enable'],
-      }),
-      ctx.locale.register(ACCESS_NS, 'en', {
-        'confirm.title': accessEn['confirm.title'],
-        'confirm.description': accessEn['confirm.description'],
-        'confirm.acknowledge': accessEn['confirm.acknowledge'],
-        'confirm.cancel': accessEn['confirm.cancel'],
-        'confirm.enable': accessEn['confirm.enable'],
-      }),
-      ctx.locale.register(ACCESS_NS, 'ru', {
-        'confirm.title': accessRu['confirm.title'],
-        'confirm.description': accessRu['confirm.description'],
-        'confirm.acknowledge': accessRu['confirm.acknowledge'],
-        'confirm.cancel': accessRu['confirm.cancel'],
-        'confirm.enable': accessRu['confirm.enable'],
-      }),
-    ]
-    return () => { for (const dispose of disposers) dispose() }
-  }, 'ui-permission: Full access confirmation dictionaries')
-  /* jscpd:ignore-end */
+  ctx.effect(() => ctx.locale.register(ACCESS_NS, accessRu), 'ui-permission: Full access confirmation dictionaries')
   const t = ctx.locale.bind(ACCESS_NS)
   const sessionFor = (session: ClientSessionContext): SessionFace | undefined =>
     sessions.binding(session.sessionId)?.session
 
-  ctx.effect(() => ctx.locale.register('settings.permission', { zh, en, ru }), 'ui-permission: settings row dictionaries')
+  ctx.effect(() => ctx.locale.register('settings.permission', ru), 'ui-permission: settings row dictionaries')
 
   const connection = ctx.get('connection') as ConnectionHandle
   const controller = new PermissionPresetSettingsController(connection.api)

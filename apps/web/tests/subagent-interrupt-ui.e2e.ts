@@ -24,7 +24,7 @@ import {
   acknowledgeReloadConnectionLoss, assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
   launchWebScaffold, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
+import { connectFreshWorkspace, newPage, saveFailureShot } from './support.ts'
 
 const BASE_FIXTURE = fileURLToPath(new URL('./snapshots/live-interactions/session.jsonl', import.meta.url))
 
@@ -128,7 +128,7 @@ describe.skipIf(MODE === 'record')('web e2e: composer interrupt for a running co
       replayChildFixtures: [parentTurnPath],
     })
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     page.on('request', (request) => {
       const path = new URL(request.url()).pathname
       if (path.startsWith('/api/')) apiCalls.push(path)
@@ -164,7 +164,7 @@ describe.skipIf(MODE === 'record')('web e2e: composer interrupt for a running co
     const warningStart = tripwire.warnings.length
     await page.reload({ waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
-    await page.getByRole('button', { name: /1 subagent/ }).waitFor({ timeout: 15_000 })
+    await page.getByRole('button', { name: /1 субагент/ }).waitFor({ timeout: 15_000 })
     acknowledgeReloadConnectionLoss(tripwire, warningStart)
     expect(scaffold.ctx.agents.get(childId)?.status).toBe('running')
   }, 120_000)
@@ -197,17 +197,17 @@ describe.skipIf(MODE === 'record')('web e2e: composer interrupt for a running co
       await route.fulfill({ response, json: body })
     })
     try {
-      await page.getByRole('button', { name: /1 subagent/ }).click()
+      await page.getByRole('button', { name: /1 субагент/ }).click()
       await page.getByRole('treeitem', { name: new RegExp(LABEL) }).click()
       const input = page.getByRole('textbox', {
-        name: 'Parent session offline; sending is unavailable but you can still stop the run',
+        name: 'Родительская сессия не в сети; отправка недоступна, но текущий запуск ещё можно остановить',
       })
       await input.waitFor({ timeout: 15_000 })
       expect(await input.isDisabled()).toBe(true)
-      const stop = page.getByRole('button', { name: 'Stop generating' })
+      const stop = page.getByRole('button', { name: 'Остановить генерацию' })
       expect(await stop.count()).toBe(1)
       expect(await stop.isEnabled()).toBe(true)
-      const send = page.getByRole('button', { name: 'Send message' })
+      const send = page.getByRole('button', { name: 'Отправить сообщение' })
       expect(await send.count()).toBe(1)
       expect(await send.isDisabled()).toBe(true)
       await compareOrRefreshGolden(
@@ -254,11 +254,11 @@ describe.skipIf(MODE === 'record')('web e2e: composer interrupt for a running co
   it('interrupts through subagent.interrupt, parks the follow-up, and resumes it FIFO', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-subagent-interrupt-flow'))
     // Reselect the child with the truthful catalog: parent available again.
-    await page.getByRole('navigation', { name: 'Session hierarchy' })
+    await page.getByRole('navigation', { name: 'Иерархия сессий' })
       .getByRole('button').first().click()
-    await page.getByRole('button', { name: /1 subagent/ }).click()
+    await page.getByRole('button', { name: /1 субагент/ }).click()
     await page.getByRole('treeitem', { name: new RegExp(LABEL) }).click()
-    const input = page.getByRole('textbox', { name: 'Message the agent' })
+    const input = page.getByRole('textbox', { name: 'Написать агенту' })
     await input.waitFor({ timeout: 15_000 })
     expect(await input.isDisabled()).toBe(false)
 
@@ -266,12 +266,12 @@ describe.skipIf(MODE === 'record')('web e2e: composer interrupt for a running co
     const promptResponse = page.waitForResponse(response =>
       new URL(response.url()).pathname === '/api/subagent.prompt')
     await input.fill(FOLLOWUP)
-    await page.getByRole('button', { name: 'Send message' }).click()
+    await page.getByRole('button', { name: 'Отправить сообщение' }).click()
     expect(((await (await promptResponse).json()) as { result: { ok: boolean } }).result)
       .toMatchObject({ ok: true })
 
     const aborted = waitForAbortedTurn(scaffold, childId)
-    const stop = page.getByRole('button', { name: 'Stop generating' })
+    const stop = page.getByRole('button', { name: 'Остановить генерацию' })
     expect(await stop.count()).toBe(1)
     const interruptResponse = page.waitForResponse(response =>
       new URL(response.url()).pathname === '/api/subagent.interrupt')
@@ -290,7 +290,7 @@ describe.skipIf(MODE === 'record')('web e2e: composer interrupt for a running co
     expect(child).toBeDefined()
     expect(child!.inbox.nextTurn).toHaveLength(2)
     expect(child!.session.events.filter(event => event.type === 'turn/start')).toHaveLength(2)
-    await page.getByRole('button', { name: 'Send message' }).waitFor({ timeout: 15_000 })
+    await page.getByRole('button', { name: 'Отправить сообщение' }).waitFor({ timeout: 15_000 })
 
     // Only the waking send resumes the parked queue, FIFO, to settlement.
     await input.fill(WAKING)

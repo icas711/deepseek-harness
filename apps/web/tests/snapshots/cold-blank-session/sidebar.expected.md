@@ -1,1 +1,1 @@
-- tree "Sessions": No sessions yet
+- tree "Сессии": Пока нет сессий

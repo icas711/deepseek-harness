@@ -479,6 +479,14 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Producers (background bash, PTY sends, and subagent delegations) register running work; tool-jobs is the model-facing controller that reads, lists, and kills it; jobs-local is the process-local registry.',
   },
   {
+    key: 'quotaPause',
+    pkg: 'quota-pause',
+    title: 'Quota-refusal parking guard',
+    mode: 'core',
+    consumers: ['apiproxy'],
+    note: 'Parks the agent when a provider refuses a request because the usage limit is exhausted and replays the parked input from the log; the gateway resume RPC releases the parked work.',
+  },
+  {
     key: 'web',
     pkg: 'web',
     title: 'Web access provider registry',

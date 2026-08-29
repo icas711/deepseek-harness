@@ -5,12 +5,11 @@ import { cleanup } from '@testing-library/react'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
-import { usePinnedBrowserLanguages } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply, inject, NS } from '../src/client/index.ts'
 import { PluginInventorySettingsTab } from '../src/client/PluginInventorySettingsTab.tsx'
 import type { PluginInventorySettingsTabInjected } from '../src/client/PluginInventorySettingsTab.tsx'
+import { ru } from '../src/client/locales.ts'
 
-usePinnedBrowserLanguages('zh-CN')
 afterEach(cleanup)
 
 const EMPTY = { entries: [] }
@@ -21,7 +20,7 @@ type ListResult =
 async function bench() {
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
-  const locale = new LocaleRuntime(ctx)
+  const locale = new LocaleRuntime()
   ctx.provide('locale', locale)
   class RemoteService extends Service {
     constructor(serviceCtx: Context) {
@@ -56,7 +55,7 @@ describe('ui-settings-plugin-inventory browser plugin', () => {
     expect(entry.component).toBe(PluginInventorySettingsTab)
     expect(entry.options).toMatchObject({ id: 'all', order: 10 })
     expect(entry.locale).toBe(NS)
-    expect(resolveSlotLabel(entry.options.label)).toBe('插件列表')
+    expect(resolveSlotLabel(entry.options.label)).toBe('Список плагинов')
     expect(b.list).not.toHaveBeenCalled()
 
     const injected = (entry.inject as unknown as () => PluginInventorySettingsTabInjected)()
@@ -67,7 +66,7 @@ describe('ui-settings-plugin-inventory browser plugin', () => {
     await b.ctx.fiber.dispose()
   })
 
-  it('follows locale and recovers across late declaration and declarer reload', async () => {
+  it('recovers across late declaration and declarer reload', async () => {
     const b = await bench()
     const fiber = b.ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
@@ -75,8 +74,7 @@ describe('ui-settings-plugin-inventory browser plugin', () => {
 
     const stop = declare(b.slots)
     await vi.waitFor(() => { expect(b.slots.entries('settings.plugins.tab')).toHaveLength(1) })
-    b.locale.setLocale('en')
-    expect(resolveSlotLabel(b.slots.entries('settings.plugins.tab')[0]!.options.label)).toBe('Plugin list')
+    expect(resolveSlotLabel(b.slots.entries('settings.plugins.tab')[0]!.options.label)).toBe('Список плагинов')
 
     stop()
     expect(b.slots.entries('settings.plugins.tab')).toHaveLength(0)
@@ -87,7 +85,8 @@ describe('ui-settings-plugin-inventory browser plugin', () => {
 
     await fiber.dispose()
     expect(b.slots.entries('settings.plugins.tab')).toHaveLength(0)
-    expect(() => b.locale.register(NS, 'zh', {})).not.toThrow()
+    // The seat is free again — the dictionary disposer ran.
+    expect(() => b.locale.register(NS, ru)).not.toThrow()
     await b.ctx.fiber.dispose()
   })
 })

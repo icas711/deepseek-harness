@@ -1,33 +1,33 @@
 - banner:
-  - navigation "Session hierarchy":
+  - navigation "Иерархия сессий":
     - 'button "Run two shell commands: wait" [disabled]'
   - button "Session log":
     - text: Session log
     - img
   - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-- text: "Run two shell commands: wait for cancellation, then write skipped.txt. {{date}} {{clock}}"
-- button "Copy":
+    - tab "Беседа" [selected]
+    - tab "Траектория"
+- text: "Run two shell commands: wait for cancellation, then write skipped.txt. 31.7 {{clock}}"
+- button "Копировать":
   - img
-- button "Context injection @deepseek-ai/dsh-system-prompt":
+- button "Внедрение контекста @deepseek-ai/dsh-system-prompt":
   - img
   - img
-  - text: Context injection @deepseek-ai/dsh-system-prompt
-- 'button "Failed Bash Error: tool call aborted" [expanded]':
+  - text: Внедрение контекста @deepseek-ai/dsh-system-prompt
+- 'button "Сбой Bash Error: tool call aborted" [expanded]':
   - img
-  - text: "Failed Bash Error: tool call aborted"
+  - text: "Сбой Bash Error: tool call aborted"
 - text: "IN { \"command\": \"node -e \\\"require('node:fs').writeFileSync('started.txt', 'started'); setInterval(() => {}, 1000)\\\"\", \"description\": \"Wait until cancellation\" } OUT Error: tool call aborted"
 - button "Inspect"
-- 'button "Failed Bash Error: tool call aborted before dispatch"':
+- 'button "Сбой Bash Error: tool call aborted before dispatch"':
   - img
-  - text: "Failed Bash Error: tool call aborted before dispatch"
-- textbox "Message the agent"
-- button "Commands":
+  - text: "Сбой Bash Error: tool call aborted before dispatch"
+- textbox "Написать агенту"
+- button "Команды":
   - img
-- 'button "Access mode, current: Workspace Write"': Workspace Write
-- button "Select model, current DeepSeek-V4-Flash":
+- 'button "Режим доступа, текущий: Workspace Write"': Workspace Write
+- button "Выбор модели, текущая DeepSeek-V4-Flash":
   - text: DeepSeek-V4-Flash
   - img
-- button "Send message" [disabled]
-- text: 1 turns · 1 steps LLM {{duration}} · Tool call {{duration}} TTFT avg {{duration}} · {{throughput}} tok/s Cache hit 0% Input 10 tok · Output 10 tok
+- button "Отправить сообщение" [disabled]
+- text: 1 ход(ов) · 1 шаг(ов) LLM {{duration}} · Вызов инструмента {{duration}} Средний TTFT {{duration}} · {{throughput}} tok/s Попадания в кэш 0% Вход 10 tok · Выход 10 tok

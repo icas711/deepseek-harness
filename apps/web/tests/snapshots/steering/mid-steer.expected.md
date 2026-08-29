@@ -1,48 +1,48 @@
 - banner:
-  - navigation "Session hierarchy":
+  - navigation "Иерархия сессий":
     - button "Use the ask_user_question tool to" [disabled]
   - img
-  - text: Standard mode
+  - text: Стандартный режим
   - button "Session log":
     - text: Session log
     - img
   - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
+    - tab "Беседа" [selected]
+    - tab "Траектория"
 - text: Use the ask_user_question tool to ask me exactly one question with id "checkpoint", question "Ready to continue?", header "Checkpoint", and options labeled "Yes" and "No". After I answer, reply with one short sentence acknowledging my answer and stop. {{clock}}
-- button "Copy":
+- button "Копировать":
   - img
-- button "Context injection @deepseek-ai/dsh-system-prompt":
+- button "Внедрение контекста @deepseek-ai/dsh-system-prompt":
   - img
   - img
-  - text: Context injection @deepseek-ai/dsh-system-prompt
+  - text: Внедрение контекста @deepseek-ai/dsh-system-prompt
 - button "Think The user wants me to use the ask_user_question tool to ask them a specific question with the given parameters. Let me do exactly that.":
   - img
   - img
   - text: Think The user wants me to use the ask_user_question tool to ask them a specific question with the given parameters. Let me do exactly that.
-- text: Running
-- button "Ask question waiting":
+- text: Выполняется
+- button "Задать вопрос ожидание":
   - img
   - img
-  - text: Ask question waiting
+  - text: Задать вопрос ожидание
 - status: Deep diving...
 - text: "Interjection: include the word BANANA in your final reply."
-- button "Copy":
+- button "Копировать":
   - img
 - region "Ready to continue?":
   - text: Checkpoint
   - heading "Ready to continue?" [level=2]
-  - button "Dismiss all questions":
+  - button "Отменить все вопросы":
     - img
   - radiogroup:
     - radio "Yes": 1 Yes
     - radio "No": 2 No
-    - textbox "Type your answer"
-  - button "Previous question" [disabled]:
+    - textbox "Введите свой ответ"
+  - button "Предыдущий вопрос" [disabled]:
     - img
   - text: 1 / 1
-  - button "Next question" [disabled]:
+  - button "Следующий вопрос" [disabled]:
     - img
   - status
-  - button "Skip this question"
-  - button "Submit" [disabled]
+  - button "Пропустить вопрос"
+  - button "Отправить" [disabled]

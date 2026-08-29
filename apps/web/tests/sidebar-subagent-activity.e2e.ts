@@ -19,7 +19,7 @@ import {
   webSnapshotMode,
   type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
+import { connectFreshWorkspace, newPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/sidebar-subagent-activity', import.meta.url))
 const RUNNING_OWNER_EXPECTED = join(SNAPSHOT_DIR, 'owner-running.expected.md')
@@ -109,7 +109,7 @@ describe('web e2e: sidebar subagent activity', () => {
     await waitForRunningChild(scaffold, adapter, childId)
 
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -135,18 +135,18 @@ describe('web e2e: sidebar subagent activity', () => {
 
   it('pins a running descendant on its visible idle owner row', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-sidebar-subagent-activity'))
-    const sidebar = page.getByRole('tree', { name: 'Sessions' })
-    const ownerRow = sidebar.getByRole('treeitem', { name: /1 subagent running Delegate a background job/ })
+    const sidebar = page.getByRole('tree', { name: 'Сессии' })
+    const ownerRow = sidebar.getByRole('treeitem', { name: /1 субагент выполняется Delegate a background job/ })
     await ownerRow.waitFor({ timeout: 10_000 })
     expect(parentHandle.agent.status).toBe('idle')
     await compareOrRefreshGolden(
       RUNNING_OWNER_EXPECTED,
-      await captureStableAria(page, '[role="tree"][aria-label="Sessions"]', scaffold.workspaceCwd),
+      await captureStableAria(page, '[role="tree"][aria-label="Сессии"]', scaffold.workspaceCwd),
       MODE,
     )
     expect(await ownerRow.locator('[data-state="ongoing"]').count()).toBe(1)
     await ownerRow.click()
-    const runningTrigger = page.getByRole('button', { name: '1 subagent running' })
+    const runningTrigger = page.getByRole('button', { name: '1 субагент выполняется' })
     await runningTrigger.waitFor({ timeout: 10_000 })
     expect(await runningTrigger.locator('[data-state="ongoing"]').count()).toBe(1)
     await assertFixtureInventory(SNAPSHOT_DIR, ['owner-running.expected.md'])

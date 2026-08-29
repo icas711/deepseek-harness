@@ -10,13 +10,13 @@ import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-web-react'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { TodoItem } from '@deepseek-ai/dsh-client-runtime/client'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
-import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
+import { ru as commonRu } from '@deepseek-ai/dsh-client-locale/src/locales/ru.ts'
 import type { TodoDockProps } from '../src/client/skeleton/TodoPanel.tsx'
 import { TodoDock, TodoPanel, todoDockEntry } from '../src/client/skeleton/TodoPanel.tsx'
-import { NS, zh } from '../src/client/locales.ts'
+import { NS, ru } from '../src/client/locales.ts'
 
 // Mirrors the real lookup chain (conversation namespace, then common).
-const t: TodoDockProps['t'] = makeTranslate(zh, commonZh)
+const t: TodoDockProps['t'] = makeTranslate(ru, commonRu)
 
 afterEach(cleanup)
 
@@ -44,8 +44,8 @@ describe('TodoPanel', () => {
   it('starts collapsed with the per-status count summary visible', () => {
     render(<TodoPanel todos={LIST} t={t} />)
     expect(screen.getByTestId('todo-panel')).toBeTruthy()
-    expect(screen.getByText('任务')).toBeTruthy()
-    expect(screen.getByText('1 已完成 · 1 进行中 · 1 待处理')).toBeTruthy()
+    expect(screen.getByText('Задачи')).toBeTruthy()
+    expect(screen.getByText('1 завершено · 1 в работе · 1 в ожидании')).toBeTruthy()
     expect(screen.getByRole('button', { expanded: false })).toBeTruthy()
     expect(screen.queryByRole('list')).toBeNull()
   })
@@ -55,8 +55,8 @@ describe('TodoPanel', () => {
       { content: '写组件', status: 'in_progress' },
       { content: '补测试', status: 'pending' },
     ]} t={t} />)
-    expect(screen.getByText('1 进行中 · 1 待处理')).toBeTruthy()
-    expect(screen.queryByText(/已完成/)).toBeNull()
+    expect(screen.getByText('1 в работе · 1 в ожидании')).toBeTruthy()
+    expect(screen.queryByText(/завершено/)).toBeNull()
   })
 
   it('expands to show one row per item with its status glyph', () => {
@@ -77,7 +77,7 @@ describe('TodoPanel', () => {
     fireEvent.click(header)
     expect(screen.queryByRole('list')).toBeNull()
     // Collapsed header is title + progress only (no in-progress content hint).
-    expect(screen.getByText('1 已完成 · 1 进行中 · 1 待处理')).toBeTruthy()
+    expect(screen.getByText('1 завершено · 1 в работе · 1 в ожидании')).toBeTruthy()
     expect(screen.queryByText('写组件')).toBeNull()
     fireEvent.click(screen.getByRole('button', { expanded: false }))
     expect(screen.getAllByRole('listitem')).toHaveLength(3)
@@ -92,15 +92,15 @@ describe('TodoPanel', () => {
     expect(statuses.filter(s => s === 'in_progress')).toHaveLength(3)
     expect(screen.getByText('跑后台构建')).toBeTruthy()
     expect(screen.getByText('读源码')).toBeTruthy()
-    expect(screen.getByText('1 已完成 · 3 进行中 · 1 待处理')).toBeTruthy()
+    expect(screen.getByText('1 завершено · 3 в работе · 1 в ожидании')).toBeTruthy()
   })
 
   it('an all-completed list collapses the summary to the done count alone', () => {
     render(<TodoPanel todos={[{ content: '都完了', status: 'completed' }]} t={t} />)
     expect(screen.getByRole('button', { expanded: false })).toBeTruthy()
     expect(screen.queryByText('都完了')).toBeNull()
-    expect(screen.getByText('1 已完成')).toBeTruthy()
-    expect(screen.queryByText(/进行中|待处理/)).toBeNull()
+    expect(screen.getByText('1 завершено')).toBeTruthy()
+    expect(screen.queryByText(/в работе|в ожидании/)).toBeNull()
   })
 })
 
@@ -118,7 +118,7 @@ describe('TodoDock', () => {
     // Capability absent (no baseline/frame yet) renders nothing.
     expect(screen.queryByTestId('todo-panel')).toBeNull()
     act(() => { store.set({ value: LIST }) })
-    expect(screen.getByText('1 已完成 · 1 进行中 · 1 待处理')).toBeTruthy()
+    expect(screen.getByText('1 завершено · 1 в работе · 1 в ожидании')).toBeTruthy()
     // The pre-first-write whole value (null) retires the strip (the panel owns no data).
     act(() => { store.set({ value: null }) })
     expect(screen.queryByTestId('todo-panel')).toBeNull()

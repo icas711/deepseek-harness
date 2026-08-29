@@ -1,7 +1,7 @@
 - menu:
-  - menuitem "Standard mode Full coding agent with file editing, shell, file and web search, skills, planning, goals, subagents, and workflows.":
-    - text: Standard mode Full coding agent with file editing, shell, file and web search, skills, planning, goals, subagents, and workflows.
+  - 'menuitem "Стандартный режим Полноценный агент для программирования: редактирование файлов, shell, поиск по файлам и в интернете, скиллы, планирование, цели, субагенты и воркфлоу."':
+    - text: "Стандартный режим Полноценный агент для программирования: редактирование файлов, shell, поиск по файлам и в интернете, скиллы, планирование, цели, субагенты и воркфлоу."
     - img
-  - menuitem "Code mode All Standard mode capabilities, with tools exposed through the Code Mode SDK so the model can combine multi-step operations in one TypeScript program."
-  - menuitem "Minimal mode Two-tool coding agent with persistent bash and str_replace_editor."
-  - menuitem "Creator mode Built for creating custom agent presets, with all Standard mode capabilities plus runtime inspection, plugin experiments, and preset-authoring guidance."
+  - 'menuitem "Режим Code Все возможности стандартного режима: инструменты доступны через Code Mode SDK, чтобы модель могла объединять многошаговые операции в одну программу на TypeScript."'
+  - 'menuitem "Минимальный режим Агент для программирования с двумя инструментами: постоянный bash и str_replace_editor."'
+  - 'menuitem "Режим Creator Предназначен для создания собственных пресетов агента: все возможности стандартного режима плюс инспекция рантайма, эксперименты с плагинами и помощь в создании пресетов."'

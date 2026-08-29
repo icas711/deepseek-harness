@@ -15,9 +15,9 @@ export const name = 'client-locale-invariant'
 export const inject = ['invariants']
 
 /**
- * No runtime invariant: ns-by-locale dictionary registry with a stable
+ * No runtime invariant: namespace dictionary registry with a stable
  * bind(ns) API — it emits no cordis events and owns no cross-plugin
- * mutable relation; fallback-chain resolution and locale-store behavior are
+ * mutable relation; fallback-chain resolution and registry behavior are
  * asserted directly by this package's behavior specs.
  */
 const install: InvariantInstaller = () => {}

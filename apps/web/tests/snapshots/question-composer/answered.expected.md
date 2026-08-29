@@ -1,50 +1,50 @@
 - banner:
-  - navigation "Session hierarchy":
+  - navigation "Иерархия сессий":
     - button "Use the ask_user_question tool to" [disabled]
   - img
-  - text: Standard mode
+  - text: Стандартный режим
   - button "Session log":
     - text: Session log
     - img
   - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
+    - tab "Беседа" [selected]
+    - tab "Траектория"
 - text: "Use the ask_user_question tool to ask me exactly one multi-select question with id \"color\", question \"Which color do you prefer?\", header \"Pick one\", and two options: label \"Blue\" with description \"A cool recessive hue that reads as calm and trustworthy in long reading sessions and dense dashboards.\", and label \"Green\" with description \"A restful mid-spectrum hue with the highest perceived brightness, easiest on the eye over long sessions.\" Set multi_select to true. After I answer, reply with the single word DONE and stop. {{clock}}"
-- button "Copy":
+- button "Копировать":
   - img
-- button "Context injection @deepseek-ai/dsh-system-prompt":
+- button "Внедрение контекста @deepseek-ai/dsh-system-prompt":
   - img
   - img
-  - text: Context injection @deepseek-ai/dsh-system-prompt
+  - text: Внедрение контекста @deepseek-ai/dsh-system-prompt
 - button "Think The user wants me to use the ask_user_question tool with specific parameters. Let me do exactly that.":
   - img
   - img
   - text: Think The user wants me to use the ask_user_question tool with specific parameters. Let me do exactly that.
-- button "Ask question 1/1 answered":
+- button "Задать вопрос 1/1 отвечено":
   - img
   - img
-  - text: Ask question 1/1 answered
+  - text: Задать вопрос 1/1 отвечено
 - button "Think The user answered \"Blue\". I should now reply with the single word DONE and stop.":
   - img
   - img
   - text: Think The user answered "Blue". I should now reply with the single word DONE and stop.
 - paragraph: DONE
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: {{clock}} Ran for {{duration}} TTFT {{duration}} {{throughput}} tok/s
-- textbox "Message the agent"
-- button "Commands":
+- text: {{clock}} Выполнялось {{duration}} TTFT {{duration}} {{throughput}} tok/s
+- textbox "Написать агенту"
+- button "Команды":
   - img
-- 'button "Access mode, current: Workspace Write"': Workspace Write
-- button "Select model, current DeepSeek-V4-Flash":
+- 'button "Режим доступа, текущий: Workspace Write"': Workspace Write
+- button "Выбор модели, текущая DeepSeek-V4-Flash":
   - text: DeepSeek-V4-Flash
   - img
-- button "3% of context used"
-- button "Send message" [disabled]
-- text: 1 turns · 2 steps LLM {{duration}} · Tool call {{duration}} TTFT avg {{duration}} · {{throughput}} tok/s Cache hit 95% Input 8.6K tok · Output 180 tok
+- button "Использовано 3% контекста"
+- button "Отправить сообщение" [disabled]
+- text: 1 ход(ов) · 2 шаг(ов) LLM {{duration}} · Вызов инструмента {{duration}} Средний TTFT {{duration}} · {{throughput}} tok/s Попадания в кэш 95% Вход 8.6K tok · Выход 180 tok

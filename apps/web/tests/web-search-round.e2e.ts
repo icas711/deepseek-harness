@@ -16,7 +16,7 @@ import {
   assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
   launchWebScaffold, recordFixture, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
+import { connectFreshWorkspace, newPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/web-search-round', import.meta.url))
 const FIXTURE = fileURLToPath(new URL('./snapshots/web-search-round/session.jsonl', import.meta.url))
@@ -136,7 +136,7 @@ describe('web e2e: shipped default web search', () => {
     await scaffold.ctx.credentials.set(SEARCH_CREDENTIAL_REF, SEARCH_CREDENTIAL)
     scaffold.ctx.on('session/event', (_session, event: SessionEvent) => { sessionEvents.push(event) })
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -255,7 +255,7 @@ describe('web e2e: shipped default web search', () => {
     expect(await sources.locator('li').count()).toBe(WEB_SEARCH_MAX_RESULTS)
     // The list is complete in the DOM, so the card carries no expand control.
     expect(await card.locator('button').count()).toBe(0)
-    expect(await card.getByText('来源列表已截断').isVisible()).toBe(true)
+    expect(await card.getByText('Список источников обрезан').isVisible()).toBe(true)
 
     const geometry = await sources.evaluate((element) => {
       const computed = getComputedStyle(element)

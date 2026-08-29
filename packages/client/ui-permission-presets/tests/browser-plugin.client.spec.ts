@@ -19,7 +19,7 @@ import {
   PermissionRow, type PermissionRowInjected,
 } from '../src/client/PermissionRow.tsx'
 import { apply, inject } from '../src/client/index.ts'
-import { accessEn } from '../src/client/locales.ts'
+import { accessRu } from '../src/client/locales.ts'
 
 const sid = (k: string): SessionId => k as SessionId
 
@@ -35,8 +35,7 @@ const SELECT: PermissionSelect = {
 async function bench() {
   const ctx = new Context()
   await ctx.plugin(SlotRegistry)
-  const locale = new LocaleRuntime(ctx)
-  locale.setLocale('en')
+  const locale = new LocaleRuntime()
   ctx.provide('locale', locale)
   // The plugin injects `remote`; forwarded events reach it through the same
   // `$dispatch` handoff the connection sink makes.
@@ -129,11 +128,11 @@ describe('ui-permission browser plugin', () => {
     // Kebab-case names title-case; non-kebab host-configured names pass through.
     expect(again.map(option => option.label)).toEqual(['Read Only', 'Workspace Write', 'Full access'])
     expect(again.find(option => option.id === 'danger-full-access')?.confirmation).toEqual({
-      title: 'Enable Full access?',
-      description: accessEn['confirm.description'],
-      acknowledgeLabel: 'I understand the risks and want to continue',
-      cancelLabel: 'Cancel',
-      confirmLabel: 'Enable Full access',
+      title: accessRu['confirm.title'],
+      description: accessRu['confirm.description'],
+      acknowledgeLabel: accessRu['confirm.acknowledge'],
+      cancelLabel: accessRu['confirm.cancel'],
+      confirmLabel: accessRu['confirm.enable'],
     })
     b.values.set(sid('s1'), { ...SELECT, options: [{ value: 'plain', name: 'Ask Every Time' }] })
     const passthrough = await c.ui.options(proj, new AbortController().signal)

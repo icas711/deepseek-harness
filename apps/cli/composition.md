@@ -36,6 +36,8 @@ flowchart LR
   cfg --> plugin_dsh_base_jobs
   plugin_dsh_base_llm_retry["llm-retry<br/>@deepseek-ai/dsh-llm-retry"]
   cfg --> plugin_dsh_base_llm_retry
+  plugin_dsh_base_quota_pause["quota-pause<br/>@deepseek-ai/dsh-quota-pause"]
+  cfg --> plugin_dsh_base_quota_pause
   plugin_dsh_base_settings["settings<br/>@deepseek-ai/dsh-settings-file"]
   cfg --> plugin_dsh_base_settings
   plugin_dsh_base_credentials["credentials<br/>@deepseek-ai/dsh-credentials-local"]
@@ -150,6 +152,8 @@ flowchart LR
   cfg --> plugin_dsh_base_repeat_tool_reminder
   plugin_dsh_base_web["web<br/>@deepseek-ai/dsh-web"]
   cfg --> plugin_dsh_base_web
+  plugin_dsh_base_web_search_zai["web-search-zai<br/>@deepseek-ai/dsh-web-search-zai"]
+  cfg --> plugin_dsh_base_web_search_zai
   plugin_dsh_base_web_search_deepseek["web-search-deepseek<br/>@deepseek-ai/dsh-web-search-deepseek"]
   cfg --> plugin_dsh_base_web_search_deepseek
   plugin_dsh_base_tool_web["tool-web<br/>@deepseek-ai/dsh-tool-web"]
@@ -182,6 +186,7 @@ flowchart LR
 | `agent-default-model` | `@deepseek-ai/dsh-agent-default-model` |
 | `jobs` | `@deepseek-ai/dsh-jobs-local` |
 | `llm-retry` | `@deepseek-ai/dsh-llm-retry` |
+| `quota-pause` | `@deepseek-ai/dsh-quota-pause` |
 | `settings` | `@deepseek-ai/dsh-settings-file` |
 | `credentials` | `@deepseek-ai/dsh-credentials-local` |
 | `llm-pi-ai` | `@deepseek-ai/dsh-llm-pi-ai` |
@@ -239,6 +244,7 @@ flowchart LR
 | `tool-str-replace-editor` | `@deepseek-ai/dsh-tool-str-replace-editor` |
 | `repeat-tool-reminder` | `@deepseek-ai/dsh-repeat-tool-reminder` |
 | `web` | `@deepseek-ai/dsh-web` |
+| `web-search-zai` | `@deepseek-ai/dsh-web-search-zai` |
 | `web-search-deepseek` | `@deepseek-ai/dsh-web-search-deepseek` |
 | `tool-web` | `@deepseek-ai/dsh-tool-web` |
 | `tools` | `@deepseek-ai/dsh-tools` |

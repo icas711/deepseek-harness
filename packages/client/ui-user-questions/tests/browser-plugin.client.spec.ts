@@ -22,7 +22,7 @@ async function bench() {
     { name: 'root', children: { 'conversation.composer': { kind: 'chain', scope: 'session' } } } as never,
     () => null,
   )
-  ctx.provide('locale', new LocaleRuntime(ctx))
+  ctx.provide('locale', new LocaleRuntime())
   return { ctx, slots }
 }
 
@@ -34,7 +34,7 @@ describe('apply', () => {
   it('waits until a live entry declares the composer slot', async () => {
     const ctx = new Context()
     await ctx.plugin(SlotRegistry).await()
-    ctx.provide('locale', new LocaleRuntime(ctx))
+    ctx.provide('locale', new LocaleRuntime())
     const fiber = ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
     expect(ctx.slots.entries('conversation.composer')).toHaveLength(0)

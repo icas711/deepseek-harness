@@ -1,1 +1,1 @@
-- treeitem "Waiting for answer Use the ask_user_question tool to now" [selected]
+- treeitem "Ожидает ответа Use the ask_user_question tool to сейчас" [selected]

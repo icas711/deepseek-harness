@@ -1,23 +1,23 @@
 - banner:
-  - navigation "Session hierarchy":
+  - navigation "Иерархия сессий":
     - button "Load the snapshot-skill skill with" [disabled]
   - button "Session log":
     - text: Session log
     - img
   - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-- text: Load the snapshot-skill skill with the skill tool, then reply DONE. {{date}} {{clock}}
-- button "Copy":
+    - tab "Беседа" [selected]
+    - tab "Траектория"
+- text: Load the snapshot-skill skill with the skill tool, then reply DONE. 31.7 {{clock}}
+- button "Копировать":
   - img
-- button "Context injection @deepseek-ai/dsh-system-prompt":
-  - img
-  - img
-  - text: Context injection @deepseek-ai/dsh-system-prompt
-- button "Context injection skill-catalog":
+- button "Внедрение контекста @deepseek-ai/dsh-system-prompt":
   - img
   - img
-  - text: Context injection skill-catalog
+  - text: Внедрение контекста @deepseek-ai/dsh-system-prompt
+- button "Внедрение контекста skill-catalog":
+  - img
+  - img
+  - text: Внедрение контекста skill-catalog
 - button "Think Load the requested skill.":
   - img
   - img
@@ -25,28 +25,28 @@
 - button "Skill snapshot-skill" [expanded]:
   - img
   - text: Skill snapshot-skill
-- region "Instructions": "Instructions <skill_content name=\"snapshot-skill\"> <skill_resources> Base directory for this skill: {{cwd}}/.dsh/skills/snapshot-skill Resolve relative paths mentioned by this skill against the base directory before using them. Load referenced resources only as needed. </skill_resources> <skill_instructions> Follow these snapshot-only instructions. Resolve referenced resources relative to this skill directory. </skill_instructions> </skill_content>"
+- region "Инструкции": "Инструкции <skill_content name=\"snapshot-skill\"> <skill_resources> Base directory for this skill: C:\\Users\\exo\\AppData\\Local\\Temp\\{{workspace}}/.dsh/skills/snapshot-skill Resolve relative paths mentioned by this skill against the base directory before using them. Load referenced resources only as needed. </skill_resources> <skill_instructions> Follow these snapshot-only instructions. Resolve referenced resources relative to this skill directory. </skill_instructions> </skill_content>"
 - button "Inspect"
 - button "Think The skill is loaded.":
   - img
   - img
   - text: Think The skill is loaded.
 - paragraph: DONE
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: {{date}} {{clock}} Ran for {{duration}} TTFT {{duration}} {{throughput}} tok/s
-- textbox "Message the agent"
-- button "Commands":
+- text: 3.8 {{clock}} Выполнялось {{duration}} TTFT {{duration}} {{throughput}} tok/s
+- textbox "Написать агенту"
+- button "Команды":
   - img
-- 'button "Access mode, current: Workspace Write"': Workspace Write
-- button "Select model, current DeepSeek-V4-Flash":
+- 'button "Режим доступа, текущий: Workspace Write"': Workspace Write
+- button "Выбор модели, текущая DeepSeek-V4-Flash":
   - text: DeepSeek-V4-Flash
   - img
-- button "Send message" [disabled]
-- text: 1 turns · 2 steps LLM {{duration}} · Tool call {{duration}} TTFT avg {{duration}} · {{throughput}} tok/s Cache hit 0% Input 280 tok · Output 30 tok
+- button "Отправить сообщение" [disabled]
+- text: 1 ход(ов) · 2 шаг(ов) LLM {{duration}} · Вызов инструмента {{duration}} Средний TTFT {{duration}} · {{throughput}} tok/s Попадания в кэш 0% Вход 280 tok · Выход 30 tok

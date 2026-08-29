@@ -1,8 +1,8 @@
-- button "Choose workspace":
+- button "Выбрать рабочую область":
   - img
   - text: workspace
   - img
-- button "Standard mode":
+- button "Стандартный режим":
   - img
-  - text: Standard mode
+  - text: Стандартный режим
   - img

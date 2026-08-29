@@ -11,24 +11,15 @@ export const DIST_INDEX = fileURLToPath(new URL('../dist/index.html', import.met
 export const REPO_ROOT = fileURLToPath(new URL('../../..', import.meta.url))
 
 /**
- * Browser language a page must advertise to boot into the product's Chinese
- * surface: with no stored preference the client derives its initial locale
- * from the browser, and Playwright's default browser asks for English.
- */
-export const ZH_BROWSER_LOCALE = 'zh-CN'
-
-/**
- * Open the standard browser-test page advertising English before client boot.
- * This keeps role locators and goldens deterministic while leaving the Host
- * settings document free to override the provisional browser-derived locale;
- * scenarios asserting the Chinese surface advertise
- * {@link ZH_BROWSER_LOCALE} instead.
+ * Open the standard browser-test page. The client ships one locale, so no
+ * browser-language pin is needed for deterministic role locators or goldens;
+ * scenarios with a custom viewport still call `browser.newPage` directly.
  * @param browser - Playwright browser owning the page.
  * @param height - Viewport height; width is fixed to the lane baseline.
  * @returns the initialized page.
  */
-export async function newEnglishPage(browser: Browser, height = 1000): Promise<Page> {
-  return await browser.newPage({ viewport: { width: 1680, height }, locale: 'en-US' })
+export async function newPage(browser: Browser, height = 1000): Promise<Page> {
+  return await browser.newPage({ viewport: { width: 1680, height } })
 }
 
 /** Fail loud on a stale checkout instead of testing yesterday's bundle. */
@@ -73,39 +64,17 @@ export function probeFreePort(): Promise<number> {
  */
 export async function connectFreshWorkspace(page: Page, root: string, name = 'workspace'): Promise<void> {
   mkdirSync(join(root, name), { recursive: true })
-  await page.getByRole('textbox', { name: 'Choose workspace' }).click()
-  const dialog = page.getByRole('dialog', { name: 'Select Workspace Directory' })
+  await page.getByRole('textbox', { name: 'Выбрать рабочую область' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Выберите каталог рабочей области' })
   await dialog.waitFor({ timeout: 10_000 })
-  await dialog.getByRole('button', { name: 'Edit path' }).click()
-  const pathInput = dialog.getByRole('textbox', { name: 'Edit path' })
+  await dialog.getByRole('button', { name: 'Изменить путь' }).click()
+  const pathInput = dialog.getByRole('textbox', { name: 'Изменить путь' })
   await pathInput.fill(join(root, name))
   await pathInput.press('Enter')
-  await dialog.getByRole('button', { name: 'Open', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Открыть', exact: true }).click()
   // The pick connected the workspace: the blank session's live composer
   // replaces the locked placeholder and enables.
-  await page.locator('textarea:enabled[placeholder="Describe what you want to build"]')
-    .waitFor({ timeout: 15_000 })
-}
-
-/**
- * {@link connectFreshWorkspace} over the product default Chinese locale: the
- * English helper's anchors assume the locale every other scenario boots, so a
- * scenario that deliberately keeps zh needs the localized picker copy.
- * @param page - the browser page under test.
- * @param root - workspace parent directory.
- * @param name - directory created under `root` and connected.
- */
-export async function connectFreshWorkspaceZh(page: Page, root: string, name = 'workspace'): Promise<void> {
-  mkdirSync(join(root, name), { recursive: true })
-  await page.getByRole('textbox', { name: '选择工作区' }).click()
-  const dialog = page.getByRole('dialog', { name: '选择工作区目录' })
-  await dialog.waitFor({ timeout: 10_000 })
-  await dialog.getByRole('button', { name: '编辑路径' }).click()
-  const pathInput = dialog.getByRole('textbox', { name: '编辑路径' })
-  await pathInput.fill(join(root, name))
-  await pathInput.press('Enter')
-  await dialog.getByRole('button', { name: '打开', exact: true }).click()
-  await page.locator('textarea:enabled[placeholder="描述你想要构建的内容"]')
+  await page.locator('textarea:enabled[placeholder="Опишите, что хотите создать"]')
     .waitFor({ timeout: 15_000 })
 }
 

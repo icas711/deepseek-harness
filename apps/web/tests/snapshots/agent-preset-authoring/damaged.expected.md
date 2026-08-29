@@ -1,96 +1,96 @@
-- dialog "设置":
+- dialog "Настройки":
   - navigation:
-    - text: 设置
-    - button "通用设置":
+    - text: Настройки
+    - button "Общие":
       - img
-      - text: 通用设置
-    - button "模型":
+      - text: Общие
+    - button "Модели":
       - img
-      - text: 模型
-    - button "插件":
+      - text: Модели
+    - button "Плагины":
       - img
-      - text: 插件
-    - button "Agent 预设":
+      - text: Плагины
+    - button "Пресеты агентов":
       - img
-      - text: Agent 预设
-  - button "打开配置文件"
-  - button "关闭":
+      - text: Пресеты агентов
+  - button "Открыть файл конфигурации"
+  - button "Закрыть":
     - img
-    - text: 关闭
-  - heading "Agent 预设" [level=2]
-  - paragraph: 预设即一个会话的 Agent 所运行的插件组装 —— 它的工具、提示词与能力。复制一份既有预设改成自己的，或用「创造模式」让 Agent 帮你创建。
-  - heading "内置" [level=3]
+    - text: Закрыть
+  - heading "Пресеты агентов" [level=2]
+  - paragraph: "Пресет — это набор плагинов, который запускает агент сессии: его инструменты, промпт и возможности. Скопируйте существующий пресет и сделайте его своим или попросите агента подготовить новый в режиме Creator."
+  - heading "Встроенные" [level=3]
   - list:
     - listitem:
-      - 'button "当前使用: 标准模式" [disabled] [pressed]':
-        - text: 标准模式 内置 当前使用 功能完整的编码 Agent，支持文件编辑、Shell、文件与网页检索、Skills、计划、目标、子代理和工作流。
+      - 'button "Используется: Стандартный режим" [disabled] [pressed]':
+        - text: "Стандартный режим Встроенный Используется Полноценный агент для программирования: редактирование файлов, shell, поиск по файлам и в интернете, скиллы, планирование, цели, субагенты и воркфлоу."
         - code: standard
-      - 'button "查看: 标准模式"':
+      - 'button "Просмотр: Стандартный режим"':
         - img
-        - text: 查看
-      - 'button "复制: 标准模式"':
+        - text: Просмотр
+      - 'button "Дублировать: Стандартный режим"':
         - img
-        - text: 复制
+        - text: Дублировать
     - listitem:
-      - 'button "设为默认: PTC 模式"':
-        - text: PTC 模式 内置 具备标准模式的全部能力，并通过 Code Mode SDK 呈现工具，让模型用一个 TypeScript 程序组合多步操作。
+      - 'button "Назначить по умолчанию: Режим Code"':
+        - text: "Режим Code Встроенный Все возможности стандартного режима: инструменты доступны через Code Mode SDK, чтобы модель могла объединять многошаговые операции в одну программу на TypeScript."
         - code: code
-      - 'button "查看: PTC 模式"':
+      - 'button "Просмотр: Режим Code"':
         - img
-        - text: 查看
-      - 'button "复制: PTC 模式"':
+        - text: Просмотр
+      - 'button "Дублировать: Режим Code"':
         - img
-        - text: 复制
+        - text: Дублировать
     - listitem:
-      - 'button "设为默认: 极简模式"':
-        - text: 极简模式 内置 仅提供持久 bash 与 str_replace_editor 的双工具编码 Agent。
+      - 'button "Назначить по умолчанию: Минимальный режим"':
+        - text: "Минимальный режим Встроенный Агент для программирования с двумя инструментами: постоянный bash и str_replace_editor."
         - code: minimal
-      - 'button "查看: 极简模式"':
+      - 'button "Просмотр: Минимальный режим"':
         - img
-        - text: 查看
-      - 'button "复制: 极简模式"':
+        - text: Просмотр
+      - 'button "Дублировать: Минимальный режим"':
         - img
-        - text: 复制
+        - text: Дублировать
     - listitem:
-      - 'button "设为默认: 创造模式"':
-        - text: 创造模式 内置 用于创建自定义 Agent preset：具备标准模式的全部能力，并提供运行时检查、插件实验和 preset 创作指导。
+      - 'button "Назначить по умолчанию: Режим Creator"':
+        - text: "Режим Creator Встроенный Предназначен для создания собственных пресетов агента: все возможности стандартного режима плюс инспекция рантайма, эксперименты с плагинами и помощь в создании пресетов."
         - code: cordis
-      - 'button "查看: 创造模式"':
+      - 'button "Просмотр: Режим Creator"':
         - img
-        - text: 查看
-      - 'button "复制: 创造模式"':
+        - text: Просмотр
+      - 'button "Дублировать: Режим Creator"':
         - img
-        - text: 复制
-  - heading "自定义" [level=3]
+        - text: Дублировать
+  - heading "Пользовательские" [level=3]
   - list:
     - listitem:
-      - 'button "加载失败: broken-yaml" [disabled]':
-        - text: broken-yaml 加载失败 自定义 暂无描述。
+      - 'button "Ошибка загрузки: broken-yaml" [disabled]':
+        - text: broken-yaml Ошибка загрузки Пользовательский Нет описания.
         - alert: "the composition is not valid YAML: unexpected end of the stream within a flow collection (3:1)"
         - code: broken-yaml
-      - 'button "查看路径: broken-yaml"':
+      - 'button "Показать расположение: broken-yaml"':
         - img
-        - text: 查看路径
-      - 'button "复制: broken-yaml" [disabled]':
+        - text: Показать расположение
+      - 'button "Дублировать: broken-yaml" [disabled]':
         - img
-        - text: 预设加载失败，不能复制
-      - 'button "删除: broken-yaml"':
+        - text: Пресет, который не удалось загрузить, нельзя дублировать
+      - 'button "Удалить: broken-yaml"':
         - img
-        - text: 删除
+        - text: Удалить
     - listitem:
-      - 'button "加载失败: 幽灵预设" [disabled]':
-        - text: 幽灵预设 加载失败 自定义 composition 已被手动删除。
+      - 'button "Ошибка загрузки: 幽灵预设" [disabled]':
+        - text: 幽灵预设 Ошибка загрузки Пользовательский composition 已被手动删除。
         - alert: the composition file agent.cordis.yml is missing — the directory still occupies the id; delete it or restore the file
         - code: ghost
-      - 'button "查看路径: 幽灵预设"':
+      - 'button "Показать расположение: 幽灵预设"':
         - img
-        - text: 查看路径
-      - 'button "复制: 幽灵预设" [disabled]':
+        - text: Показать расположение
+      - 'button "Дублировать: 幽灵预设" [disabled]':
         - img
-        - text: 预设加载失败，不能复制
-      - 'button "删除: 幽灵预设"':
+        - text: Пресет, который не удалось загрузить, нельзя дублировать
+      - 'button "Удалить: 幽灵预设"':
         - img
-        - text: 删除
-  - button "用「创造模式」创作自定义预设":
+        - text: Удалить
+  - button "Создать свой пресет в режиме Creator":
     - img
-    - text: 用「创造模式」创作自定义预设
+    - text: Создать свой пресет в режиме Creator

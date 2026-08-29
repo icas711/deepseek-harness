@@ -21,7 +21,11 @@ No configuration is supported; unknown keys fail the plugin load.
 
 ## Model Experience
 
-The guard injects no model-visible content. A released turn's request history contains the parked input exactly once — the surface copy the refused turn recorded; the model never sees a duplicate prompt or a guard notice. Re-parked work keeps its original message ids.
+None, as the guard parks and releases agent work through inbox splices and pre-step decisions; a released turn's request history contains the parked input exactly once — the surface copy the refused turn recorded.
+
+#### KV Cache effect
+
+None: the guard adds no prompt, schema, or request field to any model request.
 
 ## Known Limitations and Deferred Work
 

@@ -55,18 +55,18 @@ export interface TerminalBlockLabels {
 }
 
 const DEFAULT_LABELS: TerminalBlockLabels = {
-  signal: signal => `信号 ${signal}`,
-  exitCode: exitCode => `退出码 ${exitCode}`,
-  running: '运行中',
-  failed: '失败',
-  done: '已完成',
-  copy: '复制',
-  copied: '复制成功',
-  noOutput: '无输出',
-  collapseAria: '收起输出',
-  collapse: '收起',
-  expandAria: hidden => `展开其余 ${hidden} 行输出`,
-  expand: hidden => `… 其余 ${hidden} 行`,
+  signal: signal => `Сигнал ${signal}`,
+  exitCode: exitCode => `Код выхода ${exitCode}`,
+  running: 'Выполняется…',
+  failed: 'Сбой',
+  done: 'Завершено',
+  copy: 'Копировать',
+  copied: 'Скопировано',
+  noOutput: 'Нет вывода',
+  collapseAria: 'Свернуть вывод',
+  collapse: 'Свернуть',
+  expandAria: hidden => `Развернуть оставшиеся ${hidden} строк вывода`,
+  expand: hidden => `… ещё ${hidden} строк`,
 }
 
 export interface TerminalBlockProps {

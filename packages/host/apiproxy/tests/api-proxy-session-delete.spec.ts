@@ -245,12 +245,9 @@ describe('sessions.delete', () => {
   it('answers internal when the composition mounts no session-persistence service', async () => {
     const { api } = await harness(false)
     const response = await api.sessions.delete(request({ sessionId: SessionId('no-persistence') }))
-    expect(response.result).toMatchObject({
-      ok: false,
-      error: {
-        code: 'internal',
-        message: expect.stringContaining('session-persistence'),
-      },
-    })
+    expect(response.result.ok).toBe(false)
+    if (response.result.ok) throw new Error('unreachable')
+    expect(response.result.error.code).toBe('internal')
+    expect(response.result.error.message).toContain('session-persistence')
   })
 })

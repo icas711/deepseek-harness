@@ -1,10 +1,10 @@
-- dialog "Select Workspace Directory":
-  - heading "Select Workspace Directory" [level=2]
+- dialog "Выберите каталог рабочей области":
+  - heading "Выберите каталог рабочей области" [level=2]
   - navigation:
-    - button "Home"
+    - button "Домашний каталог"
     - img
     - button "browse-golden"
-  - button "Edit path":
+  - button "Изменить путь":
     - img
   - list:
     - listitem:
@@ -48,9 +48,9 @@
         - img
         - text: beta
         - img
-  - button "New folder":
+  - button "Новая папка":
     - img
-    - text: New folder
-  - button "Show hidden files"
-  - button "Cancel"
-  - button "Open"
+    - text: Новая папка
+  - button "Показывать скрытые файлы"
+  - button "Отмена"
+  - button "Открыть"

@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-08-14-windows-installer.zh.md)
-
 ## Problem
 
 The web GUI is reachable only by running `dsh web` from a repository checkout with a system Node install. A Windows end user needs a normal application experience: run one installer, get a Start-menu/desktop shortcut, click it, and see the UI in the browser — without Node, pnpm, or a checkout on the machine.

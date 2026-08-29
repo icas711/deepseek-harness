@@ -64,7 +64,7 @@ async function bench() {
     name: 'root',
     children: { 'conversation.chat.assistant-actions': { kind: 'list', scope: 'session' } },
   } as never, (() => null) as never)
-  ctx.provide('locale', new LocaleRuntime(ctx))
+  ctx.provide('locale', new LocaleRuntime())
   const fiber = ctx.plugin({ inject: [...inject], apply })
   return {
     ctx,

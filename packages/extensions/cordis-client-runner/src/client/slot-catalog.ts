@@ -1149,8 +1149,8 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     key: 'settings.general.item',
     kind: 'list',
     scope: 'root',
-    summary: 'One preference row inside the General section — the additive seat for a single setting that needs no page of its own (a whole page is `settings.section`), contributed by the feature plugin that owns the preference (locale → Language, ui-theme → Appearance, ui-conversation → Composer Enter).',
-    doc: 'One preference row inside the General section — the additive seat for a\nsingle setting that needs no page of its own (a whole page is\n`settings.section`), contributed by the feature plugin that owns the\npreference (locale → Language, ui-theme → Appearance, ui-conversation →\nComposer Enter). Options: `id` (row key), `order` (row position). The\nsection column only stacks rows, so a row draws its own internals,\nincluding its label: nothing projects a `label` here and the owner passes\nno props at all — copy, current value, and the write path are all yours,\nthrough your own inject face and `host.call`. Declared at runtime by\nui-settings-general\'s General entry; the type lives here with every other\nsettings slot type, because this package is the settings domain\'s base\nlayer and every registrant already depends on it for `ctx.settingsScope`.',
+    summary: 'One preference row inside the General section — the additive seat for a single setting that needs no page of its own (a whole page is `settings.section`), contributed by the feature plugin that owns the preference (ui-theme → Appearance, ui-permission-presets → Default permission mode, ui-conversation → Composer Enter).',
+    doc: 'One preference row inside the General section — the additive seat for a\nsingle setting that needs no page of its own (a whole page is\n`settings.section`), contributed by the feature plugin that owns the\npreference (ui-theme → Appearance, ui-permission-presets → Default\npermission mode, ui-conversation → Composer Enter). Options: `id` (row\nkey), `order` (row position). The section column only stacks rows, so a\nrow draws its own internals, including its label: nothing projects a\n`label` here and the owner passes no props at all — copy, current value,\nand the write path are all yours, through your own inject face and\n`host.call`. Declared at runtime by ui-settings-general\'s General entry;\nthe type lives here with every other settings slot type, because this\npackage is the settings domain\'s base layer and every registrant already\ndepends on it for `ctx.settingsScope`.',
     registerOptions: [
       {
         name: 'id',
@@ -1184,15 +1184,15 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     slotInject: '',
     declaredBy: 'an entry in \'settings.section\' (client-ui-settings-general), so it exists while that entry is mounted',
     occupants: [
-      'client-locale LanguageRow id \'language\'',
       'client-ui-agent-preset AgentPresetRow id \'agent-preset\'',
       'client-ui-conversation EnterBehaviorRow id \'composer-enter\'',
       'client-ui-permission-presets PermissionRow id \'permission\'',
+      'client-ui-telemetry-status TelemetryStatusRow id \'telemetry-status\'',
       'client-ui-theme AppearanceRow id \'appearance\'',
     ],
     replaceRisk: 'none',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'settings.general.item\', () => ctx.slots.register(\n      { name: \'settings.general.item\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-    source: 'packages/client/ui-settings/src/client/contract/slots.ts:88',
+    source: 'packages/client/ui-settings/src/client/contract/slots.ts:89',
   },
   {
     key: 'settings.header',

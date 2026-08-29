@@ -1,44 +1,44 @@
 - banner:
-  - navigation "Session hierarchy":
+  - navigation "Иерархия сессий":
     - button "Reply with a one-sentence description" [disabled]
   - img
-  - text: Standard mode
+  - text: Стандартный режим
   - button "Session log":
     - text: Session log
     - img
   - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
+    - tab "Беседа" [selected]
+    - tab "Траектория"
 - text: Reply with a one-sentence description of event sourcing, then stop. {{clock}}
-- button "Copy":
+- button "Копировать":
   - img
-- button "Context injection @deepseek-ai/dsh-system-prompt":
+- button "Внедрение контекста @deepseek-ai/dsh-system-prompt":
   - img
   - img
-  - text: Context injection @deepseek-ai/dsh-system-prompt
+  - text: Внедрение контекста @deepseek-ai/dsh-system-prompt
 - group:
-  - status: Retried model request (1/2) · {{duration}}
+  - status: Повтор запроса к модели запущен (1/2) · {{duration}}
 - button "Think The user is asking for a one-sentence description of event sourcing. This is a straightforward knowledge question that doesn't require any skill loading or tool calls.":
   - img
   - img
   - text: Think The user is asking for a one-sentence description of event sourcing. This is a straightforward knowledge question that doesn't require any skill loading or tool calls.
 - paragraph: Event sourcing is a pattern where all changes to an application's state are stored as an immutable, append-only sequence of events, rather than persisting only the current state, enabling full auditability, temporal queries, and event-driven architectures.
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: {{clock}} Ran for {{duration}} TTFT {{duration}} {{throughput}} tok/s
-- textbox "Message the agent"
-- button "Commands":
+- text: {{clock}} Выполнялось {{duration}} TTFT {{duration}} {{throughput}} tok/s
+- textbox "Написать агенту"
+- button "Команды":
   - img
-- 'button "Access mode, current: Workspace Write"': Workspace Write
-- button "Select model, current DeepSeek-V4-Flash":
+- 'button "Режим доступа, текущий: Workspace Write"': Workspace Write
+- button "Выбор модели, текущая DeepSeek-V4-Flash":
   - text: DeepSeek-V4-Flash
   - img
-- button "6% of context used"
-- button "Send message" [disabled]
-- text: 1 turns · 1 steps LLM {{duration}} TTFT avg {{duration}} · {{throughput}} tok/s Cache hit 99% Input 7.8K tok · Output 79 tok
+- button "Использовано 6% контекста"
+- button "Отправить сообщение" [disabled]
+- text: 1 ход(ов) · 1 шаг(ов) LLM {{duration}} Средний TTFT {{duration}} · {{throughput}} tok/s Попадания в кэш 99% Вход 7.8K tok · Выход 79 tok

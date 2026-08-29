@@ -18,7 +18,7 @@ import {
   assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
   launchWebScaffold, recordFixture, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
+import { connectFreshWorkspace, newPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/plan-review', import.meta.url))
 const FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
@@ -51,7 +51,7 @@ describe('web e2e: plan review takeover round trip', () => {
     browser = await chromium.launch()
     // English page: the decision copy is the surface under test, and the
     // golden pins one language.
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -81,11 +81,11 @@ describe('web e2e: plan review takeover round trip', () => {
     await card.waitFor({ timeout: MODE === 'record' ? 120_000 : 30_000 })
     // The plan-review request must NOT land on the generic question flow.
     expect(await page.locator('[data-question-key]').count()).toBe(0)
-    await expect.poll(() => card.getByText('Plan review').count(), { timeout: 10_000 }).toBeGreaterThan(0)
+    await expect.poll(() => card.getByText('Согласование плана').count(), { timeout: 10_000 }).toBeGreaterThan(0)
 
     const selectedRow = page.locator('[role="treeitem"][aria-selected="true"]')
     await expect.poll(() => selectedRow.locator('[data-state="warning"]').count(), { timeout: 10_000 }).toBe(1)
-    await expect.poll(() => selectedRow.getByText('Plan awaiting review', { exact: true }).count(), { timeout: 10_000 }).toBe(1)
+    await expect.poll(() => selectedRow.getByText('План ожидает проверки', { exact: true }).count(), { timeout: 10_000 }).toBe(1)
 
     if (MODE !== 'record') {
       const snapshot = await captureStableAria(page, '[data-plan-review-key]', scaffold.workspaceCwd)
@@ -94,7 +94,7 @@ describe('web e2e: plan review takeover round trip', () => {
       await compareOrRefreshGolden(SIDEBAR_EXPECTED, sidebar, MODE)
     }
 
-    await card.getByRole('button', { name: 'Approve' }).click()
+    await card.getByRole('button', { name: 'Одобрить' }).click()
 
     const sessionId = await settled
     if (MODE === 'record') {

@@ -3,16 +3,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, createEvent, fireEvent, render, screen } from '@testing-library/react'
 import type { SessionId, WorkspaceId } from '@deepseek-ai/dsh-client-runtime/client'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
-import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
+import { ru as commonRu } from '@deepseek-ai/dsh-client-locale/src/locales/ru.ts'
 import type { RowDragProps } from '../src/client/rows/Rows.tsx'
 import { ProjectRowItem, SearchResultItem, SessionNodeItem } from '../src/client/rows/Rows.tsx'
 import type { GroupNode, SearchResultNode, SessionNode } from '../src/client/tree.ts'
-import { zh } from '../src/client/locales.ts'
+import { ru } from '../src/client/locales.ts'
 
 afterEach(cleanup)
 
-// Standard locale seat stub mirroring the real ns → common → key chain (zh default).
-const t = makeTranslate(zh, commonZh) as never
+// Standard locale seat stub mirroring the real ns → common → key chain.
+const t = makeTranslate(ru, commonRu) as never
 
 const sid = (id: string) => id as SessionId
 const wid = (id: string) => id as WorkspaceId
@@ -89,16 +89,16 @@ describe('workspace browser rows', () => {
     expect(screen.getByText('Workspace context')).toBeTruthy()
     expect(screen.getByText('matching message excerpt')).toBeTruthy()
     expect(row.querySelector('[data-state="ongoing"]')).toBeTruthy()
-    expect(screen.getByText('进行中')).toBeTruthy()
+    expect(screen.getByText('Выполняется')).toBeTruthy()
     expect(row.hasAttribute('draggable')).toBe(false)
     fireEvent.click(row)
     expect(onOpen).toHaveBeenCalledWith(result.id)
   })
 
   it.each([
-    ['approval', '等待审批'],
-    ['plan-review', '计划待审'],
-    ['question', '等待回答'],
+    ['approval', 'Ожидает одобрения'],
+    ['plan-review', 'План ожидает проверки'],
+    ['question', 'Ожидает ответа'],
   ] as const)('shows %s ahead of running in search results', (pendingInteraction, label) => {
     const result: SearchResultNode = {
       id: sid(pendingInteraction), title: 'Needs input', workspace: 'Project',
@@ -121,7 +121,7 @@ describe('workspace browser rows', () => {
     render(<ProjectRowItem group={group} onToggle={onToggle} onCreate={onCreate} t={t} />)
 
     expect(screen.getByRole('treeitem').getAttribute('aria-expanded')).toBe('true')
-    fireEvent.click(screen.getByRole('button', { name: '在“Project”中新建会话' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Новая сессия в Project' }))
     expect(onCreate).toHaveBeenCalledOnce()
     expect(onToggle).not.toHaveBeenCalled()
     fireEvent.click(screen.getByText('Project'))
@@ -142,7 +142,7 @@ describe('workspace browser rows', () => {
     const row = screen.getByRole('treeitem')
     expect(row.getAttribute('aria-selected')).toBe('true')
     expect(row.hasAttribute('aria-expanded')).toBe(false)
-    expect(screen.queryByRole('button', { name: /展开|收起/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Развернуть|Свернуть/ })).toBeNull()
     fireEvent.click(row)
     expect(onOpen).toHaveBeenCalledWith(node.id)
   })
@@ -190,12 +190,12 @@ describe('workspace browser rows', () => {
         onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} onDelete={vi.fn()} t={t} />)
       const row = screen.getByRole('treeitem')
       expect(row.querySelector('[data-state="ongoing"]')).not.toBeNull()
-      expect(screen.getByText('2 个子代理运行中')).toBeTruthy()
-      expect(screen.queryByText('进行中')).toBeNull()
+      expect(screen.getByText('2 субагентов выполняется')).toBeTruthy()
+      expect(screen.queryByText('Выполняется')).toBeNull()
 
       fireEvent.pointerEnter(row.parentElement as HTMLElement)
       act(() => { vi.advanceTimersByTime(500) })
-      expect(screen.getAllByText('2 个子代理运行中')).toHaveLength(2)
+      expect(screen.getAllByText('2 субагентов выполняется')).toHaveLength(2)
     } finally {
       vi.useRealTimers()
     }
@@ -212,13 +212,13 @@ describe('workspace browser rows', () => {
         onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} onDelete={vi.fn()} t={t} />)
       const row = screen.getByRole('treeitem')
       expect(row.querySelectorAll('[data-state="ongoing"]')).toHaveLength(1)
-      expect(screen.getByText('进行中')).toBeTruthy()
-      expect(screen.getByText('1 个子代理运行中')).toBeTruthy()
+      expect(screen.getByText('Выполняется')).toBeTruthy()
+      expect(screen.getByText('1 субагент выполняется')).toBeTruthy()
 
       fireEvent.pointerEnter(row.parentElement as HTMLElement)
       act(() => { vi.advanceTimersByTime(500) })
-      expect(screen.getAllByText('进行中')).toHaveLength(2)
-      expect(screen.getAllByText('1 个子代理运行中')).toHaveLength(2)
+      expect(screen.getAllByText('Выполняется')).toHaveLength(2)
+      expect(screen.getAllByText('1 субагент выполняется')).toHaveLength(2)
     } finally {
       vi.useRealTimers()
     }
@@ -234,8 +234,8 @@ describe('workspace browser rows', () => {
     const row = screen.getByRole('treeitem')
     expect(row.querySelector('[data-state="warning"]')).not.toBeNull()
     expect(row.querySelector('[data-state="ongoing"]')).toBeNull()
-    expect(screen.getByText('等待回答')).toBeTruthy()
-    expect(screen.getByText('1 个子代理运行中')).toBeTruthy()
+    expect(screen.getByText('Ожидает ответа')).toBeTruthy()
+    expect(screen.getByText('1 субагент выполняется')).toBeTruthy()
   })
 
   it('shows the green done dot on a finished search result row', () => {
@@ -261,20 +261,20 @@ describe('workspace browser rows', () => {
       group={group} onToggle={onToggle} onCreate={vi.fn()}
       actions={{ rename: onRename, delete: onDelete }} t={t}
     />)
-    fireEvent.click(screen.getByRole('button', { name: '工作区“Project”的操作' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Действия с рабочей областью Project' }))
     // Opening the menu neither toggles the group nor renames yet.
     expect(onToggle).not.toHaveBeenCalled()
-    expect(screen.getByRole('menuitem', { name: '删除工作区' }).className).toMatch(/danger/)
-    fireEvent.click(screen.getByRole('menuitem', { name: '重命名' }))
+    expect(screen.getByRole('menuitem', { name: 'Удалить рабочую область' }).className).toMatch(/danger/)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Переименовать' }))
     expect(onRename).toHaveBeenCalledOnce()
     expect(screen.queryByRole('menu')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: '工作区“Project”的操作' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: '删除工作区' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Действия с рабочей областью Project' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Удалить рабочую область' }))
     expect(screen.queryByRole('menu')).toBeNull()
     expect(onRename).toHaveBeenCalledOnce()
     expect(onDelete).toHaveBeenCalledOnce()
     // Escape closes without selecting (Menu onClose path).
-    fireEvent.click(screen.getByRole('button', { name: '工作区“Project”的操作' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Действия с рабочей областью Project' }))
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByRole('menu')).toBeNull()
   })
@@ -294,10 +294,10 @@ describe('workspace browser rows', () => {
       // Card body: full title + cwd + absolute creation time.
       expect(screen.getAllByText('Project')).toHaveLength(2)
       expect(screen.getByText('/projects/project')).toBeTruthy()
-      expect(screen.getByText(/^创建于 \d+年\d+月\d+日 /)).toBeTruthy()
-      await act(async () => { fireEvent.click(screen.getByRole('button', { name: '复制: /projects/project' })) })
+      expect(screen.getByText(/^Создано \d+\.\d+\.\d+ /)).toBeTruthy()
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Копировать: /projects/project' })) })
       expect(writeText).toHaveBeenCalledWith('/projects/project')
-      expect(screen.getByRole('status').textContent).toBe('已复制')
+      expect(screen.getByRole('status').textContent).toBe('Скопировано')
     } finally {
       restoreClipboard()
       vi.useRealTimers()
@@ -310,7 +310,7 @@ describe('workspace browser rows', () => {
       sessionCount: 0, expanded: false, containsCurrent: false, sessions: [],
     }
     render(<ProjectRowItem group={group} onToggle={vi.fn()} onCreate={vi.fn()} t={t} />)
-    expect(screen.queryByRole('button', { name: /工作区/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /рабочей области/ })).toBeNull()
   })
 
   it('blank New Session rows carry no menu, no time label, and no hover-card time', () => {
@@ -323,16 +323,16 @@ describe('workspace browser rows', () => {
       render(<SessionNodeItem node={node} currentId={node.id} now={0} onOpen={vi.fn()}
         onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} onDelete={vi.fn()} t={t} />)
       // The placeholder has no content yet: no row verbs, no "now" stamp.
-      expect(screen.queryByRole('button', { name: /会话.*的操作/ })).toBeNull()
-      expect(screen.queryByText('刚刚')).toBeNull()
+      expect(screen.queryByRole('button', { name: /Действия с сессией/ })).toBeNull()
+      expect(screen.queryByText('сейчас')).toBeNull()
       // The hover card keeps title + status but drops the timestamp line.
       const wrapper = screen.getByRole('treeitem').parentElement as HTMLElement
       fireEvent.pointerEnter(wrapper)
       act(() => { vi.advanceTimersByTime(500) })
-      expect(screen.getAllByText('新会话').length).toBeGreaterThanOrEqual(2)
-      expect(screen.getByText('空闲')).toBeTruthy()
-      expect(screen.queryByText('刚刚')).toBeNull()
-      expect(screen.getByText('空闲').closest('[role="button"]')).toBeNull()
+      expect(screen.getAllByText('Новая сессия').length).toBeGreaterThanOrEqual(2)
+      expect(screen.getByText('Простой')).toBeTruthy()
+      expect(screen.queryByText('сейчас')).toBeNull()
+      expect(screen.getByText('Простой').closest('[role="button"]')).toBeNull()
     } finally {
       vi.useRealTimers()
     }
@@ -350,32 +350,32 @@ describe('workspace browser rows', () => {
     }
     render(<SessionNodeItem node={node} currentId={undefined} now={0} onOpen={onOpen}
       onRename={onRename} onFork={onFork} onArchive={onArchive} onDelete={onDelete} t={t} />)
-    fireEvent.click(screen.getByRole('button', { name: '会话“One”的操作' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Действия с сессией One' }))
     expect(onOpen).not.toHaveBeenCalled()
     // Archive is not destructive (log and accounting slot remain): no danger styling.
-    expect(screen.getByRole('menuitem', { name: '归档会话' }).className).not.toMatch(/danger/)
+    expect(screen.getByRole('menuitem', { name: 'Архивировать сессию' }).className).not.toMatch(/danger/)
     // Delete removes the log irreversibly: the menu styles it destructive.
-    expect(screen.getByRole('menuitem', { name: '删除会话' }).className).toMatch(/danger/)
+    expect(screen.getByRole('menuitem', { name: 'Удалить сессию' }).className).toMatch(/danger/)
     // Rename dispatches with the current display title (dialog prefill).
-    fireEvent.click(screen.getByRole('menuitem', { name: '重命名' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Переименовать' }))
     expect(screen.queryByRole('menu')).toBeNull()
     expect(onRename).toHaveBeenCalledWith(node.id, 'One')
     expect(onOpen).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: '会话“One”的操作' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: '分叉会话' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Действия с сессией One' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Форкнуть сессию' }))
     expect(onFork).toHaveBeenCalledWith(node.id)
     // Archive dispatches without opening the session.
-    fireEvent.click(screen.getByRole('button', { name: '会话“One”的操作' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: '归档会话' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Действия с сессией One' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Архивировать сессию' }))
     expect(onArchive).toHaveBeenCalledWith(node.id)
     // Delete opens the confirmation dialog with the row title for the warning.
-    fireEvent.click(screen.getByRole('button', { name: '会话“One”的操作' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: '删除会话' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Действия с сессией One' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Удалить сессию' }))
     expect(onDelete).toHaveBeenCalledWith(node.id, 'One')
     expect(onRename).toHaveBeenCalledOnce()
     expect(onOpen).not.toHaveBeenCalled()
     // Escape closes without selecting (Menu onClose path).
-    fireEvent.click(screen.getByRole('button', { name: '会话“One”的操作' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Действия с сессией One' }))
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByRole('menu')).toBeNull()
   })
@@ -395,23 +395,23 @@ describe('workspace browser rows', () => {
       act(() => { vi.advanceTimersByTime(500) })
       // Card body: full title + relative time + running status.
       expect(screen.getAllByText('Hovered')).toHaveLength(2)
-      expect(screen.getByText('1分钟前')).toBeTruthy()
-      expect(screen.getAllByText('进行中')).toHaveLength(2)
+      expect(screen.getByText('1 мин назад')).toBeTruthy()
+      expect(screen.getAllByText('Выполняется')).toHaveLength(2)
       fireEvent.pointerLeave(wrapper)
       // Menu open (disabled=true) suppresses the card for the same hover.
-      fireEvent.click(screen.getByRole('button', { name: '会话“Hovered”的操作' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Действия с сессией Hovered' }))
       fireEvent.pointerEnter(wrapper)
       act(() => { vi.advanceTimersByTime(1000) })
-      expect(screen.queryByText('1分钟前')).toBeNull()
+      expect(screen.queryByText('1 мин назад')).toBeNull()
     } finally {
       vi.useRealTimers()
     }
   })
 
   it.each([
-    ['approval', '等待审批'],
-    ['plan-review', '计划待审'],
-    ['question', '等待回答'],
+    ['approval', 'Ожидает одобрения'],
+    ['plan-review', 'План ожидает проверки'],
+    ['question', 'Ожидает ответа'],
   ] as const)('shows %s as warning ahead of the running state', (pendingInteraction, label) => {
     vi.useFakeTimers()
     try {
@@ -450,8 +450,8 @@ describe('workspace browser rows', () => {
         onRename={vi.fn()} onFork={vi.fn()} onArchive={vi.fn()} onDelete={vi.fn()} t={t} />)
       fireEvent.pointerEnter(screen.getByRole('treeitem').parentElement as HTMLElement)
       act(() => { vi.advanceTimersByTime(500) })
-      expect(screen.getByText('空闲')).toBeTruthy()
-      expect(screen.getAllByText('刚刚')).toHaveLength(2)
+      expect(screen.getByText('Простой')).toBeTruthy()
+      expect(screen.getAllByText('сейчас')).toHaveLength(2)
     } finally {
       vi.useRealTimers()
     }
@@ -469,7 +469,7 @@ describe('workspace browser rows', () => {
       fireEvent.pointerEnter(screen.getByRole('treeitem').parentElement as HTMLElement)
       act(() => { vi.advanceTimersByTime(500) })
       // Row's visually-hidden reminder label plus the hover card's status line.
-      expect(screen.getAllByText('已完成')).toHaveLength(2)
+      expect(screen.getAllByText('Завершено')).toHaveLength(2)
     } finally {
       vi.useRealTimers()
     }

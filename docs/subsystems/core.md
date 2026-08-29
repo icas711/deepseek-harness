@@ -1,7 +1,5 @@
 # Core
 
-English | [中文](core.zh.md)
-
 The **core** subsystem is [`packages/core`](../../packages/core/README.md) — the packages every composition boots: the event-sourced session log, system-prompt assembly, the tool registry, the agent types, and the concrete loop that drives them. This page explains what the `agent`/`agent-loop` pair declares — how an agent is created and owned, and the `Agent` handle's delivery, cancellation, and interception contracts — plus the two type patterns every subsystem follows. The group's dedicated pages and the rest of the folder are indexed in the [subsystems README](README.md).
 
 ## The spine, package by package
@@ -88,6 +86,16 @@ interface Agent {
    * @returns fulfillment after no active driver or maintenance task remains.
    */
   whenIdle(): Promise<void>
+
+  /**
+   * Wake the driver for already-pending inbox work without adding input. A
+   * no-op when a driver or maintenance task is active or the inbox holds
+   * nothing; from true idle it opens the turn that claims the pending work,
+   * exactly like waking input would. The pause-style `agent/pre-step`
+   * rejection that re-splices its claimed batch relies on this to release
+   * parked work when the blocking condition lifts.
+   */
+  wake(): void
 
   /**
    * Run one non-turn maintenance task from the true idle phase. The task starts
@@ -216,13 +224,21 @@ Source: [`packages/core/agent/src/types.ts`](../../packages/core/agent/src/types
 
 `agent/pre-step` receives one payload carrying the exclusive claimed batch (`messages`), the proposed step's coordinates (`turn`, `step`), and the current turn's cancellation `signal`. The initial proposal runs inside an open turn before any step; a tool continuation may submit an empty claimed batch between steps:
 
-It returns a `PreStepDecision`. Reject opens no step. Enter supplies the complete message batch appended after `step/start`; claimed messages omitted by the final decision remain removed, while input inserted after the claim stays pending:
+It returns a `PreStepDecision`. Reject opens no step. Enter supplies the complete message batch appended after `step/start`; claimed messages omitted by the final decision remain removed, while input inserted after the claim stays pending. Resume enters the step without surfacing anything — for input whose surface copy already exists (a quota-parked turn's re-claimed batch), so the model request runs over the log as recorded instead of duplicating it:
 
 ```ts type-equiv
-/** Whether and with which messages the loop enters a proposed step. */
+/**
+ * Whether and with which messages the loop enters a proposed step.
+ *
+ * `enter` surfaces `messages` onto the session log; `resume` enters the step
+ * without surfacing anything — for input whose surface copy already exists
+ * (a quota-parked turn's re-claimed batch), so the model request runs over
+ * the log as recorded instead of duplicating it.
+ */
 type PreStepDecision =
   | { kind: 'reject' }
   | { kind: 'enter'; messages: UserMessage[] }
+  | { kind: 'resume' }
 ```
 
 `agent/request-error` runs after a failed model step closes and before its turn closes. Listeners can repair durable state or await policy work while the failed turn's signal is still live. A handling listener returns `{ kind: 'retry' }` without calling `next()`; the default `undefined` leaves the failure terminal.
@@ -722,6 +738,34 @@ roots(): Agent[]
 
 Source: [`packages/core/agent/src/index.ts:256`](../../packages/core/agent/src/index.ts)
 
+<a id="ctxquotapause--quotapause"></a>
+
+### `ctx.quotaPause` — `QuotaPause`
+
+The quota-pause service. One host-plane instance watches every agent; the web "continue" control reaches it through the API gateway.
+
+```ts cordis-catalog
+/**
+ * Whether the agent currently parks proposed work on its provider's quota
+ * refusal.
+ * @param agent - the agent to inspect.
+ * @returns true while proposed steps are parked.
+ */
+isPaused(agent: Agent): boolean
+
+/**
+ * Release parked work: arm the resume decision with the refused turn's
+ * surface ids, clear the pause, and wake the driver for the pending batch.
+ * A provider still over its limit fails the released turn, which parks
+ * again — the control stays honest without probing the provider.
+ * @param agent - the agent whose parked work is released.
+ * @returns whether the log had a quota-refused turn with input to release.
+ */
+resume(agent: Agent): boolean
+```
+
+Source: [`packages/guard/quota-pause/src/index.ts:118`](../../packages/guard/quota-pause/src/index.ts)
+
 <a id="agent-events"></a>
 
 ### `agent/*` events
@@ -748,7 +792,7 @@ A fully configured agent and live session were published. Setup is composition-o
 
 Types: [Scoped](scope.md)
 
-Source: [`packages/core/agent/src/runtime-types.ts:159`](../../packages/core/agent/src/runtime-types.ts)
+Source: [`packages/core/agent/src/runtime-types.ts:177`](../../packages/core/agent/src/runtime-types.ts)
 
 <a id="agentdisposed--emit"></a>
 
@@ -770,7 +814,7 @@ An agent left the registry; AgentLoop emits this after driver quiescence and sco
 
 Types: [Scoped](scope.md)
 
-Source: [`packages/core/agent/src/runtime-types.ts:168`](../../packages/core/agent/src/runtime-types.ts)
+Source: [`packages/core/agent/src/runtime-types.ts:186`](../../packages/core/agent/src/runtime-types.ts)
 
 <a id="agenterror--emit"></a>
 
@@ -794,7 +838,7 @@ A step or turn errored. The machine reports a failure here even when the error h
 
 Types: [Scoped](scope.md)
 
-Source: [`packages/core/agent/src/runtime-types.ts:290`](../../packages/core/agent/src/runtime-types.ts)
+Source: [`packages/core/agent/src/runtime-types.ts:310`](../../packages/core/agent/src/runtime-types.ts)
 
 <a id="agentinboxclaimed--emit"></a>
 
@@ -818,7 +862,7 @@ One message left the inbox inside its open turn. If the proposed step is rejecte
 
 Types: [Scoped](scope.md) · [UserMessage](session.md)
 
-Source: [`packages/core/agent/src/runtime-types.ts:197`](../../packages/core/agent/src/runtime-types.ts)
+Source: [`packages/core/agent/src/runtime-types.ts:215`](../../packages/core/agent/src/runtime-types.ts)
 
 <a id="agentinboxdiscarded--emit"></a>
 
@@ -839,7 +883,7 @@ One message was discarded from the live inbox.
 
 Types: [Scoped](scope.md) · [UserMessage](session.md)
 
-Source: [`packages/core/agent/src/runtime-types.ts:205`](../../packages/core/agent/src/runtime-types.ts)
+Source: [`packages/core/agent/src/runtime-types.ts:223`](../../packages/core/agent/src/runtime-types.ts)
 
 <a id="agentinboxinserted--emit"></a>
 
@@ -860,18 +904,20 @@ One message entered the live inbox.
 
 Types: [Scoped](scope.md) · [UserMessage](session.md)
 
-Source: [`packages/core/agent/src/runtime-types.ts:186`](../../packages/core/agent/src/runtime-types.ts)
+Source: [`packages/core/agent/src/runtime-types.ts:204`](../../packages/core/agent/src/runtime-types.ts)
 
 <a id="agentpre-step--waterfall"></a>
 
 #### `agent/pre-step` — waterfall
 
-Reject a proposed step or replace the messages that enter it. Calling `next()` preserves the current messages.
+Reject a proposed step, replace the messages that enter it, or resume over the recorded log. Calling `next()` preserves the current messages; `resume` enters the step with no new surface content (see PreStepDecision).
 
 ```ts cordis-catalog
 /**
- * Reject a proposed step or replace the messages that enter it. Calling
- * `next()` preserves the current messages.
+ * Reject a proposed step, replace the messages that enter it, or resume
+ * over the recorded log. Calling `next()` preserves the current messages;
+ * `resume` enters the step with no new surface content (see
+ * {@link PreStepDecision}).
  * @param payload.agent - the agent proposing the step.
  * @param payload.messages - messages removed from the inbox for this step.
  * @param payload.turn - the turn that will own the step.
@@ -885,7 +931,7 @@ Reject a proposed step or replace the messages that enter it. Calling `next()` p
 
 Types: [Scoped](scope.md) · [UserMessage](session.md)
 
-Source: [`packages/core/agent/src/runtime-types.ts:231`](../../packages/core/agent/src/runtime-types.ts)
+Source: [`packages/core/agent/src/runtime-types.ts:251`](../../packages/core/agent/src/runtime-types.ts)
 
 <a id="agentrequest--waterfall"></a>
 
@@ -911,7 +957,7 @@ Replace the frozen call configuration. `await next()` yields the config the mach
 
 Types: [LlmCallConfig](llm-streaming.md) · [Scoped](scope.md)
 
-Source: [`packages/core/agent/src/runtime-types.ts:244`](../../packages/core/agent/src/runtime-types.ts)
+Source: [`packages/core/agent/src/runtime-types.ts:264`](../../packages/core/agent/src/runtime-types.ts)
 
 <a id="agentrequest-error--waterfall"></a>
 
@@ -940,7 +986,7 @@ Handle one failed model-request attempt before the loop retries or closes its st
 
 Types: [LlmFailure](llm-streaming.md) · [ResolvedRetryPolicy](llm-streaming.md) · [Scoped](scope.md)
 
-Source: [`packages/core/agent/src/runtime-types.ts:260`](../../packages/core/agent/src/runtime-types.ts)
+Source: [`packages/core/agent/src/runtime-types.ts:280`](../../packages/core/agent/src/runtime-types.ts)
 
 <a id="agentsession-start--emit"></a>
 
@@ -964,7 +1010,7 @@ The session lifecycle began, once before the first turn. Use `agent.inject()` to
 
 Types: [Scoped](scope.md)
 
-Source: [`packages/core/agent/src/runtime-types.ts:217`](../../packages/core/agent/src/runtime-types.ts)
+Source: [`packages/core/agent/src/runtime-types.ts:235`](../../packages/core/agent/src/runtime-types.ts)
 
 <a id="agentstatus--emit"></a>
 
@@ -987,7 +1033,7 @@ Agent status changed (`idle` ⇄ `running`). A waking delivery enters `running` 
 
 Types: [Scoped](scope.md)
 
-Source: [`packages/core/agent/src/runtime-types.ts:178`](../../packages/core/agent/src/runtime-types.ts)
+Source: [`packages/core/agent/src/runtime-types.ts:196`](../../packages/core/agent/src/runtime-types.ts)
 
 <a id="agentturn-stopping--serial"></a>
 
@@ -1018,7 +1064,7 @@ The turn is about to close: the model owes no response (no live tool calls, no f
 
 Types: [Scoped](scope.md)
 
-Source: [`packages/core/agent/src/runtime-types.ts:278`](../../packages/core/agent/src/runtime-types.ts)
+Source: [`packages/core/agent/src/runtime-types.ts:298`](../../packages/core/agent/src/runtime-types.ts)
 
 <a id="agent-loop-events"></a>
 

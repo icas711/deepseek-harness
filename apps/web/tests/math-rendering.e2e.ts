@@ -15,7 +15,7 @@ import {
   webSnapshotMode,
   type WebScaffold,
 } from './scaffold.ts'
-import { newEnglishPage, saveFailureShot } from './support.ts'
+import { newPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/math-rendering', import.meta.url))
 const UI_EXPECTED = fileURLToPath(new URL('./snapshots/math-rendering/ui.expected.md', import.meta.url))
@@ -95,7 +95,7 @@ describe('web e2e: settled Markdown math rendering', () => {
     scaffold = await launchWebScaffold({})
     await seedSession(scaffold, mathFixture(), SEED_ID)
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -120,7 +120,7 @@ describe('web e2e: settled Markdown math rendering', () => {
     await expect.poll(() => page.locator('.katex-display').count(), { timeout: 10_000 }).toBe(2)
     expect(await page.locator('.katex-error').count()).toBe(0)
     await expect.poll(
-      () => page.getByText('1 turns · 1 steps', { exact: false }).count(),
+      () => page.getByText('1 ход(ов) · 1 шаг(ов)', { exact: false }).count(),
       { timeout: 10_000 },
     ).toBe(1)
 

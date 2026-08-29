@@ -1,60 +1,60 @@
 - banner:
-  - navigation "Session hierarchy":
+  - navigation "Иерархия сессий":
     - button "Ask a research subagent to"
     - text: /
     - button "event-sourcing researcher" [disabled]
   - img
-  - text: Standard mode
-  - button "1 subagent":
-    - text: 1 subagent
+  - text: Стандартный режим
+  - button "1 субагент":
+    - text: 1 субагент
     - img
   - button "Session log":
     - text: Session log
     - img
   - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
+    - tab "Беседа" [selected]
+    - tab "Траектория"
 - text: Explain event sourcing in one sentence. {{clock}}
-- button "Copy":
+- button "Копировать":
   - img
-- button "Context injection @deepseek-ai/dsh-system-prompt":
+- button "Внедрение контекста @deepseek-ai/dsh-system-prompt":
   - img
   - img
-  - text: Context injection @deepseek-ai/dsh-system-prompt
+  - text: Внедрение контекста @deepseek-ai/dsh-system-prompt
 - button "Think The user is asking for a one-sentence description of event sourcing. This is a straightforward knowledge question that doesn't require any skill loading or tool calls.":
   - img
   - img
   - text: Think The user is asking for a one-sentence description of event sourcing. This is a straightforward knowledge question that doesn't require any skill loading or tool calls.
 - paragraph: Event sourcing is a pattern where all changes to an application's state are stored as an immutable, append-only sequence of events, rather than persisting only the current state, enabling full auditability, temporal queries, and event-driven architectures.
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: {{clock}} Ran for {{duration}} TTFT {{duration}} {{throughput}} tok/s Now give the same explanation to a human reader. {{clock}}
-- button "Copy":
+- text: {{clock}} Выполнялось {{duration}} TTFT {{duration}} {{throughput}} tok/s Now give the same explanation to a human reader. {{clock}}
+- button "Копировать":
   - img
 - button "Think The user is asking for a one-sentence description of event sourcing. This is a straightforward knowledge question that doesn't require any skill loading or tool calls.":
   - img
   - img
   - text: Think The user is asking for a one-sentence description of event sourcing. This is a straightforward knowledge question that doesn't require any skill loading or tool calls.
 - paragraph: Event sourcing is a pattern where all changes to an application's state are stored as an immutable, append-only sequence of events, rather than persisting only the current state, enabling full auditability, temporal queries, and event-driven architectures.
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: {{clock}} Ran for {{duration}} TTFT {{duration}} {{throughput}} tok/s
-- textbox "Message the agent"
-- button "Commands":
+- text: {{clock}} Выполнялось {{duration}} TTFT {{duration}} {{throughput}} tok/s
+- textbox "Написать агенту"
+- button "Команды":
   - img
-- 'button "Access mode, current: Custom"': Custom
-- button "6% of context used"
-- button "Send message" [disabled]
-- text: 2 turns · 2 steps LLM {{duration}} TTFT avg {{duration}} · {{throughput}} tok/s Cache hit 99% Input 15.6K tok · Output 158 tok
+- 'button "Режим доступа, текущий: Custom"': Custom
+- button "Использовано 6% контекста"
+- button "Отправить сообщение" [disabled]
+- text: 2 ход(ов) · 2 шаг(ов) LLM {{duration}} Средний TTFT {{duration}} · {{throughput}} tok/s Попадания в кэш 99% Вход 15.6K tok · Выход 158 tok

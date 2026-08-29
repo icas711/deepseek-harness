@@ -77,8 +77,8 @@ describe('TelemetryStatusController.load', () => {
 
   it('refuses a concurrent read without disturbing the first', async () => {
     let release: (() => void) | undefined
-    const read = vi.fn(() => new Promise<Awaited<ReturnType<HostFace['telemetryStatus']>>>(resolve => {
-      release = () => resolve(okHost({ ok: true, value: DISCLOSURE }))
+    const read = vi.fn(() => new Promise<Awaited<ReturnType<HostFace['telemetryStatus']>>>((resolve) => {
+      release = () => { resolve(okHost({ ok: true, value: DISCLOSURE })) }
     }))
     const controller = new TelemetryStatusController(wire(read))
 

@@ -15,7 +15,7 @@ import {
   assertFixtureInventory, fixtureUserPrompts, launchWebScaffold, recordFixture,
   watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
+import { connectFreshWorkspace, newPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/permission-policy-context', import.meta.url))
 const FIXTURE = fileURLToPath(new URL('./snapshots/permission-policy-context/session.jsonl', import.meta.url))
@@ -75,7 +75,7 @@ describe('web e2e: current sandbox policy reaches the model before tools', () =>
       sessionEvents.push(event)
     })
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -99,7 +99,7 @@ describe('web e2e: current sandbox policy reaches the model before tools', () =>
     for (const [index, preset] of ['read-only', 'danger-full-access', 'workspace-write'].entries()) {
       await input.fill(`/permission ${preset}`)
       await input.press('Enter')
-      await page.getByRole('button', { name: `Access mode, current: ${PRESET_LABELS[index]}` })
+      await page.getByRole('button', { name: `Режим доступа, текущий: ${PRESET_LABELS[index]}` })
         .waitFor({ timeout: 10_000 })
 
       const settled = scaffold.whenTurnSettled()
@@ -111,7 +111,7 @@ describe('web e2e: current sandbox policy reaches the model before tools', () =>
 
     await input.fill('/permission read-only')
     await input.press('Enter')
-    await page.getByRole('button', { name: 'Access mode, current: Read Only' }).waitFor({ timeout: 10_000 })
+    await page.getByRole('button', { name: 'Режим доступа, текущий: Read Only' }).waitFor({ timeout: 10_000 })
     const settled = scaffold.whenTurnSettled()
     await input.fill(PROMPTS[3])
     await input.press('Enter')

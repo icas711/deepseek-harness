@@ -1,6 +1,0 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
-#   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-08-16-quota-pause-and-live-telemetry-mode.md
-2026-08-16-quota-pause-and-live-telemetry-mode.md: d14db219200c67e759209cd8025d88d56b89a66c
-2026-08-16-quota-pause-and-live-telemetry-mode.zh.md: 78eee94ad7511ed73a31a57008154fb72375eb1e

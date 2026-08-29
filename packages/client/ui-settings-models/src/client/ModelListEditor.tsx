@@ -1,13 +1,16 @@
 /**
- * The model list of one pi-ai provider profile, plus the action that asks the
- * provider what it serves.
+ * The model list of one pi-ai provider profile, plus the two actions that ask
+ * the provider what it serves.
  *
  * The list is the profile's `models` array as the card holds it: an empty list
  * means "serve this route's built-in catalog", and any entry replaces that
- * catalog, so a row is only ever added deliberately. Fetching asks the endpoint
- * **the form currently shows** — including a key typed but not yet saved — so
- * adding a provider is one pass instead of save-then-return; the reply is
- * candidates the user picks from, never configuration written behind them.
+ * catalog, so a row is only ever added deliberately. Both actions ask the
+ * endpoint **the form currently shows** — including a key typed but not yet
+ * saved — so adding a provider is one pass instead of save-then-return; the
+ * reply is candidates the user picks from, never configuration written behind
+ * them. Fetch offers the reply as additions; refresh states the whole catalog:
+ * its selection replaces the list, so an endpoint that stopped serving a model
+ * can also take it out.
  *
  * A provider that cannot be interrogated (an unreachable endpoint, a protocol
  * with no readable listing) is not a dead end: the failure is shown next to the
@@ -21,7 +24,7 @@ import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import { formatCapacity, parseCapacity } from './DeepSeekModelsEditor.tsx'
 import type { DeepSeekModelDraft } from './DeepSeekModelsEditor.tsx'
 import { messageOf } from './store.ts'
-import type { en } from './locales.ts'
+import type { ModelsKey } from './locales.ts'
 import styles from './ModelsSection.module.css'
 
 /**
@@ -80,11 +83,11 @@ export interface ModelListEditorProps {
    * asking with a key the form has already refused spends a round trip to be
    * told what the field already says.
    */
-  probeBlocked?: keyof typeof en | undefined
+  probeBlocked?: ModelsKey | undefined
   /** Wire face the fetch action calls. */
   api: Pick<IApiClient, 'llm'>
   /** Section copy. */
-  t: (key: keyof typeof en) => string
+  t: (key: ModelsKey) => string
   /** Disable every control (read-only deployment or a pending write). */
   disabled: boolean
 }
@@ -154,15 +157,25 @@ function adopt(candidate: DiscoveredModelView): ModelDraft {
 }
 
 /**
+ * One open picker dialog. Both modes list the endpoint's reply; a refresh also
+ * lists the catalog rows that reply no longer names, so its selection states
+ * the whole catalog rather than only additions.
+ */
+type Picker =
+  | { mode: 'add'; candidates: readonly DiscoveredModelView[] }
+  | { mode: 'sync'; candidates: readonly DiscoveredModelView[]; absent: readonly ModelDraft[] }
+
+/**
  * Render the model list with its fetch action.
  * @param props - the drafted rows, probe target, wire face, and copy.
  * @returns the model-list editor.
  */
 export function ModelListEditor(props: ModelListEditorProps): ReactNode {
   const { models, onChange, probe, api, t, disabled } = props
-  const [busy, setBusy] = useState(false)
+  // Which action is in flight, so only the pressed button swaps its label.
+  const [busyAction, setBusyAction] = useState<'add' | 'sync' | undefined>(undefined)
   const [failure, setFailure] = useState<string | undefined>(undefined)
-  const [candidates, setCandidates] = useState<readonly DiscoveredModelView[] | undefined>(undefined)
+  const [picker, setPicker] = useState<Picker | undefined>(undefined)
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
   // Rows carry an id and a name; capacities are the exception, so they stay
   // folded until asked for rather than crowding every row with four inputs.
@@ -227,8 +240,8 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
     }))
   }
 
-  const fetchModels = async (): Promise<void> => {
-    setBusy(true)
+  const fetchModels = async (mode: 'add' | 'sync'): Promise<void> => {
+    setBusyAction(mode)
     setFailure(undefined)
     try {
       const response = await api.llm.discoverModels({
@@ -247,38 +260,73 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
         setFailure(t('fetchEmpty'))
         return
       }
-      // Everything already configured starts unchecked, so adopting a
-      // selection never silently rewrites a capacity the user corrected.
-      const known = new Set(models.map(model => textOf(model, 'id')))
-      setCandidates(found)
-      setPicked(new Set(found.filter(model => !known.has(model.id)).map(model => model.id)))
+      if (mode === 'add') {
+        // Everything already configured starts unchecked, so adopting a
+        // selection never silently rewrites a capacity the user corrected.
+        const known = new Set(models.map(model => textOf(model, 'id')))
+        setPicker({ mode, candidates: found })
+        setPicked(new Set(found.filter(model => !known.has(model.id)).map(model => model.id)))
+        return
+      }
+      // A refresh checks everything the endpoint serves — that is the state the
+      // button names — while catalog rows the reply omits join unchecked, so
+      // removing one is a decision, not a default. A row with no id yet is not
+      // a model and stays out of the dialog entirely.
+      const foundIds = new Set(found.map(model => model.id))
+      setPicker({
+        mode,
+        candidates: found,
+        absent: models.filter((model) => {
+          const id = textOf(model, 'id')
+          return id !== '' && !foundIds.has(id)
+        }),
+      })
+      setPicked(foundIds)
     } catch (error) {
       // The transport rejected rather than answering; without this the button
       // would stay busy with nothing shown.
       setFailure(messageOf(error))
     } finally {
-      setBusy(false)
+      setBusyAction(undefined)
     }
   }
 
   const closePicker = (): void => {
-    setCandidates(undefined)
+    setPicker(undefined)
     setPicked(new Set())
   }
 
-  const adoptPicked = (): void => {
-    /* v8 ignore next -- the dialog only renders with candidates loaded */
-    if (candidates === undefined) return
-    const byId = new Map(models.map(model => [textOf(model, 'id'), model]))
-    for (const candidate of candidates) {
-      if (!picked.has(candidate.id)) continue
+  const applyPicker = (): void => {
+    /* v8 ignore next -- the dialog only renders with a picker loaded */
+    if (picker === undefined) return
+    if (picker.mode === 'add') {
       // A row the user already tuned wins over the provider's own numbers.
       // Keyed by id, so a half-typed row whose id is still empty is not a
       // match and the candidate joins as its own row — correct, since a row
       // without an id is not yet a model and the create/apply gates refuse it.
-      byId.set(candidate.id, byId.get(candidate.id) ?? adopt(candidate))
+      const byId = new Map(models.map(model => [textOf(model, 'id'), model]))
+      for (const candidate of picker.candidates) {
+        if (!picked.has(candidate.id)) continue
+        byId.set(candidate.id, byId.get(candidate.id) ?? adopt(candidate))
+      }
+      onChange([...byId.values()])
+    } else {
+      // The selection is the whole catalog: kept rows stay exactly as tuned,
+      // in their current order, and checked candidates the catalog lacks join
+      // after them in the endpoint's order. An unchecked row leaves; a row
+      // with no id yet is preserved untouched — typing in progress, not a
+      // model the endpoint could vouch for.
+      const kept: ModelDraft[] = []
+      for (const model of models) {
+        const id = textOf(model, 'id')
+        if (id === '' || picked.has(id)) kept.push(model)
+      }
+      const keptIds = new Set(kept.map(model => textOf(model, 'id')))
+      const joined = picker.candidates.filter(
+        candidate => picked.has(candidate.id) && !keptIds.has(candidate.id),
+      )
+      onChange([...kept, ...joined.map(adopt)])
     }
-    onChange([...byId.values()])
     closePicker()
   }
 
@@ -293,6 +341,12 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
   // A route the adapter already describes answers without an endpoint; only a
   // draft with neither has nothing to ask about.
   const askable = probe.provider !== undefined || (probe.baseURL !== undefined && probe.baseURL.length > 0)
+  // Both actions interrogate the same target, so one unavailability reason
+  // covers them; hoisted to keep the two buttons symmetric.
+  const probeTitle = props.probeBlocked !== undefined
+    ? t(props.probeBlocked)
+    : askable ? undefined : t('fetchNeedsBaseUrl')
+  const probeDisabled = disabled || busyAction !== undefined || !askable || props.probeBlocked !== undefined
   return (
     <section className={styles['modelCatalog']} aria-label={t('models')}>
       <div className={styles['modelListHead']}>
@@ -321,13 +375,20 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
         <button
           type="button"
           className={styles['linkButton']}
-          disabled={disabled || busy || !askable || props.probeBlocked !== undefined}
-          title={props.probeBlocked !== undefined
-            ? t(props.probeBlocked)
-            : askable ? undefined : t('fetchNeedsBaseUrl')}
-          onClick={() => { void fetchModels() }}
+          disabled={probeDisabled}
+          title={probeTitle}
+          onClick={() => { void fetchModels('add') }}
         >
-          {busy ? t('fetching') : t('fetchModels')}
+          {busyAction === 'add' ? t('fetching') : t('fetchModels')}
+        </button>
+        <button
+          type="button"
+          className={styles['linkButton']}
+          disabled={probeDisabled}
+          title={probeTitle}
+          onClick={() => { void fetchModels('sync') }}
+        >
+          {busyAction === 'sync' ? t('fetching') : t('refreshModels')}
         </button>
       </div>
       {models.length === 0 ? <p className={styles['modelEmpty']}>{t('modelsEmpty')}</p> : null}
@@ -432,21 +493,23 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
       </button>
       {failure !== undefined ? <p className={styles['error']}>{failure}</p> : null}
       <Modal
-        open={candidates !== undefined}
+        open={picker !== undefined}
         onClose={closePicker}
-        title={t('fetchTitle')}
+        title={picker?.mode === 'sync' ? t('syncTitle') : t('fetchTitle')}
         closeLabel={t('close')}
-        description={t('fetchDescription')}
+        description={picker?.mode === 'sync' ? t('syncDescription') : t('fetchDescription')}
         className={styles['fetchDialog'] as string}
         footer={(
           <>
             <Button variant="outline" onClick={closePicker}>{t('cancel')}</Button>
-            <Button variant="outline" onClick={adoptPicked}>{t('fetchAdopt')}</Button>
+            <Button variant="outline" onClick={applyPicker}>
+              {picker?.mode === 'sync' ? t('syncApply') : t('fetchAdopt')}
+            </Button>
           </>
         )}
       >
         <ul className={styles['candidateList']}>
-          {(candidates ?? []).map(candidate => (
+          {(picker?.candidates ?? []).map(candidate => (
             <li key={candidate.id} className={styles['candidate']}>
               <label className={styles['candidateLabel']}>
                 <input
@@ -461,6 +524,22 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
               </label>
             </li>
           ))}
+          {(picker?.mode === 'sync' ? picker.absent : []).map((model) => {
+            const id = textOf(model, 'id')
+            return (
+              <li key={id} className={`${styles['candidate']} ${styles['candidateAbsent']}`}>
+                <label className={styles['candidateLabel']}>
+                  <input
+                    type="checkbox"
+                    checked={picked.has(id)}
+                    onChange={() => { toggle(id) }}
+                  />
+                  <span className={styles['candidateId']}>{id}</span>
+                  <span className={styles['candidateHint']}>{t('syncAbsentHint')}</span>
+                </label>
+              </li>
+            )
+          })}
         </ul>
       </Modal>
     </section>

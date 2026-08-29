@@ -22,7 +22,7 @@ import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
 import type { SessionEvent, UserMessage } from '@deepseek-ai/dsh-session'
 
 /** Reject unknown keys before defaults can hide them (no settings are supported). */
-function validateConfigKeys(config: Record<string, never>): void {
+function validateConfigKeys(config: QuotaPauseConfig): void {
   for (const key of Object.keys(config)) {
     throw new Error(`QuotaPauseConfig: unknown key "${key}" (no settings are supported)`)
   }
@@ -62,8 +62,7 @@ interface PauseState {
 export function quotaRefusedWindow(events: readonly SessionEvent[]): readonly [number, number] | undefined {
   let end: number | undefined
   let turn: number | undefined
-  for (let index = events.length - 1; index >= 0; index -= 1) {
-    const event = events[index]!
+  for (const event of events.toReversed()) {
     if (end === undefined) {
       // Later non-turn events (inbox splices from parking) precede the turn's
       // own end; skip them until the last closed turn is found.
@@ -106,17 +105,22 @@ function armedIds(agent: Agent): Set<string> | undefined {
 }
 
 /**
+ * No configuration keys exist; Schemastery preserves untrusted loader keys on
+ * an empty object schema, so the public type excludes settings while
+ * `validateConfigKeys` rejects them at load.
+ */
+export interface QuotaPauseConfig {}
+
+/**
  * The quota-pause service. One host-plane instance watches every agent; the
  * web "continue" control reaches it through the API gateway.
  */
 export class QuotaPause extends Service {
-  // Schemastery preserves untrusted loader keys on an empty object schema;
-  // the public type excludes settings while validateConfigKeys rejects them.
-  static Config: z<Record<string, never>> = z.object({}) as unknown as z<Record<string, never>>
+  static Config: z<QuotaPauseConfig> = z.object({})
 
   private readonly states = new WeakMap<Agent, PauseState>()
 
-  constructor(ctx: Context, config: Record<string, never> = {}) {
+  constructor(ctx: Context, config: QuotaPauseConfig = {}) {
     super(ctx, 'quotaPause')
     validateConfigKeys(config)
 

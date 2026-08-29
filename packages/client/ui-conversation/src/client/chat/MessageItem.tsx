@@ -170,7 +170,7 @@ function TurnErrorResumeButton({ sessionId, turn, useSession, resumeAfterQuota, 
   // The control exists only while its refusal is the conversation's last
   // word: a later closed turn (the one the release itself opens, or any
   // newer work) retires it, and an in-flight turn disables it.
-  const superseded = useSession(snapshot => {
+  const superseded = useSession((snapshot) => {
     for (const closed of snapshot.turnEnds.keys()) {
       if (closed > turn) return true
     }
@@ -186,7 +186,7 @@ function TurnErrorResumeButton({ sessionId, turn, useSession, resumeAfterQuota, 
       onClick={() => {
         setPending(true)
         setFailure(null)
-        void resumeAfterQuota(sessionId).then(outcome => {
+        void resumeAfterQuota(sessionId).then((outcome) => {
           setPending(false)
           if (!outcome.ok) setFailure(outcome.error)
         })

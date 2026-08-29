@@ -2,30 +2,28 @@
 
 Status: implemented
 
-English | [中文](2026-08-11-quickstart-documentation-home.zh.md)
-
 ## Problem
 
-A separate documentation landing page duplicates product positioning and feature summaries owned by the product landing page. Those parallel claims require synchronization and review without helping readers reach technical instructions.
+Отдельная посадочная страница документации дублирует продуктовое позиционирование и перечисление возможностей, за которые отвечает продуктовая посадочная страница. Эти параллельные утверждения требуют синхронизации и ревью, не помогая читателю добраться до технических инструкций.
 
 ## Decision
 
-Each locale root is a redirect page. `/` sends readers to `./guide/quickstart`, and `/en/` resolves the same relative target to `/en/guide/quickstart`. The relative target preserves the configured `DOCS_BASE` when the site is hosted below an origin path.
+Корень документации — страница-редирект: `/` отправляет читателя на `./guide/quickstart`. Относительная цель сохраняет настроенный `DOCS_BASE`, когда сайт хостится ниже пути внутри origin.
 
-`docs/user/index.md` and `docs/user/index.zh.md` own the redirect as VitePress frontmatter. The [documentation-site projector](../process/2026-07-13-documentation-site-projection.md) publishes only that frontmatter for locale homes, so the canonical Markdown retains its bilingual switcher without rendering a second landing page. The projector test verifies that both locale roots use the same locale-relative quick-start target.
+Редиректом владеет `docs/user/index.md` через VitePress frontmatter. [Проектор документационного сайта](../process/2026-07-13-documentation-site-projection.md) публикует для корня только этот frontmatter, поэтому канонический Markdown не рисует второй посадочной страницы. Сайт одноязычный: других корней локалей нет, и тест проектора проверяет ровно одну корневую цель.
 
-Product positioning and feature summaries stay outside the documentation site. Guide, development, reference, search, and locale navigation remain available from the quick-start page.
+Позиционирование продукта и перечисление возможностей остаются за пределами документационного сайта. Руководство, разработка, справочник и поиск доступны со страницы quick-start.
 
 ## Alternatives considered
 
-**Keep a documentation hero and synchronize its wording.** This preserves a promotional entry page but creates a second product narrative whose claims and terminology can drift from the product landing page.
+**Оставить промо-герой документации и синхронизировать формулировки.** Сохраняет второе продуктовое повествование, чьи утверждения и терминология расходятся с продуктовой посадочной страницей.
 
-**Render a documentation index at the root.** An index repeats the navigation already provided by the site and inserts another choice before the first actionable guide.
+**Рисовать индекс документации в корне.** Индекс повторяет навигацию сайта и вставляет ещё один выбор до первого действенного шага.
 
-**Copy quick-start content to each locale root.** Two public routes would then own the same tutorial and require another synchronization mechanism.
+**Копировать содержимое quick-start в корень.** Появляются два публичных маршрута с одним туториалом и потребность ещё в одном механизме синхронизации.
 
-**Use origin-absolute redirect targets.** Paths such as `/guide/quickstart` ignore `DOCS_BASE` and fail when the documentation site is hosted below an origin path.
+**Использовать абсолютные от origin цели редиректа.** Пути вида `/guide/quickstart` игнорируют `DOCS_BASE` и ломаются, когда сайт хостится ниже пути внутри origin.
 
 ## Consequences
 
-Readers entering either locale root immediately reach the quick-start tutorial in that locale. The documentation site gives up a promotional home surface, while the product landing page remains the single owner of positioning and feature summaries. The stable root routes remain valid entry points, and quick-start content retains one canonical source.
+Читатель, открывший корень документации, сразу попадает на туториал quick-start. Сайт отказывается от промо-поверхности, а продуктовая посадочная страница остаётся единственным владельцем позиционирования и перечня возможностей. Стабильные корневые маршруты остаются рабочими точками входа.

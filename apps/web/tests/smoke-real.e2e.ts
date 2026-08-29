@@ -25,7 +25,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
-import { REPO_ROOT, connectFreshWorkspace, newEnglishPage, probeFreePort, requireDist, saveFailureShot } from './support.ts'
+import { REPO_ROOT, connectFreshWorkspace, newPage, probeFreePort, requireDist, saveFailureShot } from './support.ts'
 
 const WEB_SURFACE_PROMPT = fileURLToPath(new URL('./snapshots/web-runtime-context/web-surface-prompt.expected.md', import.meta.url))
 
@@ -506,7 +506,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY || notReady.length > 0)('web smoke
     )
     baseUrl = (await waitForReadyLine(child)).replace('0.0.0.0', '127.0.0.1')
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     page.on('pageerror', e => pageErrors.push(String(e)))
     await page.goto(baseUrl, { waitUntil: 'load' })
   }, 120_000)
@@ -565,7 +565,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY || notReady.length > 0)('web smoke
       durableTitle,
       { timeout: 15_000 },
     )
-    const sessionTree = page.getByRole('tree', { name: 'Sessions' })
+    const sessionTree = page.getByRole('tree', { name: 'Сессии' })
     const projectRow = sessionTree.getByRole('treeitem').first()
     if (await projectRow.getAttribute('aria-expanded') === 'false') await projectRow.click()
     await Promise.all([

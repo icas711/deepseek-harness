@@ -15,7 +15,7 @@ async function bench(declare = true) {
   ctx.provide('layout', layout)
   ctx.provide('sessions', sessions as never)
   ctx.provide('workspaces', workspaces as never)
-  ctx.provide('locale', new LocaleRuntime(ctx))
+  ctx.provide('locale', new LocaleRuntime())
   const slots = ctx.get('slots') as SlotRegistry
   if (declare) {
     slots.register(

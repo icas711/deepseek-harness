@@ -2,15 +2,10 @@ import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it, vi } from 'vitest'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { usePinnedBrowserLanguages } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply, inject } from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type { WorkspaceBrowserInjected, WorkspacePickerInjected } from '@deepseek-ai/dsh-client-ui-workspace/client'
 import { WorkspaceBrowser } from '../src/client/WorkspaceBrowser.tsx'
 import { WorkspacePicker } from '../src/client/WorkspacePicker.tsx'
-
-// The service reads its initial locale from the browser; these specs assert
-// the shipped Chinese copy, so they state the browser they assume.
-usePinnedBrowserLanguages('zh-CN')
 
 async function bench() {
   const ctx = new Context()
@@ -36,7 +31,7 @@ async function bench() {
     create, startSession, rename, insertSessionBefore,
   } as never)
   ctx.provide('sessions', { open, clear, search, searchResultLimit: 20, binding, fork } as never)
-  const locale = new LocaleRuntime(ctx)
+  const locale = new LocaleRuntime()
   ctx.provide('locale', locale)
   return {
     ctx, slots: ctx.get('slots') as SlotRegistry, locale, create, startSession, rename,
@@ -63,9 +58,9 @@ describe('ui-workspace apply', () => {
     await before.ctx.plugin({ inject: [...inject], apply }).await()
     expect(before.slots.entries('sidebar.workspaces')[0]!.component).toBe(WorkspaceBrowser)
     // Copy rides the standard locale seat: the entry declares the namespace
-    // and apply registered both dictionaries.
+    // and apply registered the dictionary.
     expect(before.slots.entries('sidebar.workspaces')[0]!.locale).toBe('workspace')
-    expect(before.locale.bind('workspace')('session.new')).toBe('新会话')
+    expect(before.locale.bind('workspace')('session.new')).toBe('Новая сессия')
 
     const after = await bench()
     await after.ctx.plugin({ inject: [...inject], apply }).await()

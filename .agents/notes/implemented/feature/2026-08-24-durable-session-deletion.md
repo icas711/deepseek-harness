@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-08-24-durable-session-deletion.zh.md)
-
 ## Problem
 
 The Web GUI could archive a session but never delete one. Archiving hides a row without touching its log, so storage grew without bound and a user who wanted a session gone had to remove files under the persistence root out-of-band — invisible to the Workspace registry's accounting and the archive set. Both first-party backends documented "nothing deletes session files" as a known limitation, and the feedback sidecar note recorded that no deletion authority existed to own a truthful cascade.

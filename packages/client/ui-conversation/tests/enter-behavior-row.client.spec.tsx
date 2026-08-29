@@ -7,7 +7,7 @@ import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { EnterBehaviorRow } from '../src/client/settings/EnterBehaviorRow.tsx'
 import type { EnterBehaviorRowProps } from '../src/client/settings/EnterBehaviorRow.tsx'
 import { ComposerSubmissionPolicy } from '../src/client/input/submission-policy.ts'
-import { en } from '../src/client/locales.ts'
+import { ru } from '../src/client/locales.ts'
 
 afterEach(() => {
   cleanup()
@@ -35,33 +35,33 @@ function mount() {
     useWorkspaces: emptyWorkspaces(),
     useBusyEnter: bindSnapshotSelector(policy.busyEnter),
     setBusyEnter,
-    t: makeTranslate(en),
+    t: makeTranslate(ru),
   }
   render(<EnterBehaviorRow {...props} />)
   return { policy, setBusyEnter }
 }
 
 describe('EnterBehaviorRow', () => {
-  it('explains the busy-only scope and shows Queue by default', () => {
+  it('explains the busy-only scope and shows В очередь by default', () => {
     mount()
-    expect(screen.getByText('Enter behavior while busy')).toBeDefined()
-    expect(screen.getByText('Busy only; Cmd/Ctrl+Enter uses the other behavior')).toBeDefined()
-    expect(screen.getByRole('button', { name: /Queue/ }).getAttribute('aria-expanded')).toBe('false')
+    expect(screen.getByText('Поведение Enter во время выполнения')).toBeDefined()
+    expect(screen.getByText('Только когда агент занят; Cmd/Ctrl+Enter использует другое поведение')).toBeDefined()
+    expect(screen.getByRole('button', { name: /В очередь/ }).getAttribute('aria-expanded')).toBe('false')
   })
 
-  it('selects Steer, follows later preference changes, and closes outside', () => {
+  it('selects Встроить, follows later preference changes, and closes outside', () => {
     const b = mount()
-    const trigger = screen.getByRole('button', { name: /Queue/ })
+    const trigger = screen.getByRole('button', { name: /В очередь/ })
     fireEvent.click(trigger)
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Steer' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Встроить' }))
     expect(b.setBusyEnter).toHaveBeenCalledWith('steer')
-    expect(screen.getByRole('button', { name: /Steer/ })).toBeDefined()
+    expect(screen.getByRole('button', { name: /Встроить/ })).toBeDefined()
 
     act(() => { b.policy.setBusyEnter('queue') })
-    const queueTrigger = screen.getByRole('button', { name: /Queue/ })
+    const queueTrigger = screen.getByRole('button', { name: /В очередь/ })
     fireEvent.click(queueTrigger)
-    expect(screen.getByRole('menuitem', { name: 'Steer' })).toBeDefined()
+    expect(screen.getByRole('menuitem', { name: 'Встроить' })).toBeDefined()
     fireEvent.pointerDown(document.body)
-    expect(screen.queryByRole('menuitem', { name: 'Steer' })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: 'Встроить' })).toBeNull()
   })
 })

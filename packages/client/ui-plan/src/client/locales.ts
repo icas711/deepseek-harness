@@ -1,28 +1,12 @@
-/** `plan` namespace dictionaries (the composer plan chip's copy). */
-
-/** Simplified Chinese dictionary (the key-set source of truth). */
-export const zh = {
-  'chip.on.aria': 'plan mode 已开启，按下关闭',
-  'chip.on.title': 'plan mode 已开启 — 点击关闭（/plan off）',
-  'chip.off.aria': 'plan mode 已关闭，按下开启',
-  'chip.off.title': 'plan mode 已关闭 — 点击开启（/plan）',
-} satisfies Record<string, string>
+/** `plan` namespace dictionary (the composer plan chip's copy). */
 
 /** The plan namespace key union. */
-export type PlanKey = keyof typeof zh
+export type PlanKey = keyof typeof ru
 
-/** English dictionary, checked complete against the zh key set. */
-export const en = {
-  'chip.on.aria': 'Plan mode on, press to turn off',
-  'chip.on.title': 'Plan mode on — click to turn off (/plan off)',
-  'chip.off.aria': 'Plan mode off, press to turn on',
-  'chip.off.title': 'Plan mode off — click to turn on (/plan)',
-} satisfies Record<PlanKey, string>
-
-/** Russian dictionary, checked complete against the zh key set. */
+/** Russian dictionary (the key-set source of truth; the only shipped locale). */
 export const ru = {
   'chip.on.aria': 'Режим плана включён, нажмите, чтобы выключить',
   'chip.on.title': 'Режим плана включён — нажмите, чтобы выключить (/plan off)',
   'chip.off.aria': 'Режим плана выключен, нажмите, чтобы включить',
   'chip.off.title': 'Режим плана выключен — нажмите, чтобы включить (/plan)',
-} satisfies Record<PlanKey, string>
+} satisfies Record<string, string>

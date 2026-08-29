@@ -12,22 +12,13 @@
       "path": "../runtime"
     },
     {
-      "path": "../ui-primitives"
-    },
-    {
       "path": "../ui-slots"
     },
     {
       "path": "../../../vendor/cordis"
     },
     {
-      "path": "../../settings/settings"
-    },
-    {
       "path": "../../runtime-diagnostics/invariants"
-    },
-    {
-      "path": "../ui-settings"
     }
   ]
 }

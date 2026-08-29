@@ -5,14 +5,13 @@ import { cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import type { ISession, SessionId, TodoItem, ToolResultNode } from '@deepseek-ai/dsh-client-runtime/client'
 import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
-import { SlotTestRuntime, usePinnedBrowserLanguages, stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
+import { SlotTestRuntime, stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply as applyConversation, inject as injectConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { apply as applyTool, inject as injectTool } from '../src/client/apply.ts'
 import { toolChatSnapshot } from './tool-details-render.client.tsx'
 
 // The service reads its initial locale from the browser; these specs assert
 // the shipped Chinese copy, so they state the browser they assume.
-usePinnedBrowserLanguages('zh-CN')
 
 const SID = 's1' as SessionId
 
@@ -73,7 +72,7 @@ async function bench(nodes: ToolResultNode[]) {
   runtime.provide('remote', { $on: () => () => {} })
   runtime.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
   runtime.provide('layout', { openDetails: vi.fn(), closeDetails: vi.fn() })
-  const locale = new LocaleRuntime(runtime.ctx)
+  const locale = new LocaleRuntime()
   runtime.provide('locale', locale)
   runtime.slots.installLocale(locale)
   await runtime.sessions.add({
@@ -101,13 +100,13 @@ describe('todo_write assembly (product registrations, no outlet twins)', () => {
     // Keyed toolview registration took the row (summary derived from args).
     const row = view.container.querySelector('[data-tool="todo_write"]')
     expect(row).not.toBeNull()
-    expect(row!.textContent).toContain('1/3 已完成 · 实现 fixture 样本')
+    expect(row!.textContent).toContain('1/3 завершено · 实现 fixture 样本')
 
     // The plan strip sits in the input dock, fed by the projection
     // (default-collapsed: the header summary shows; rows appear on expand).
     const panel = view.container.querySelector('[data-testid="todo-panel"]')
     expect(panel).not.toBeNull()
-    expect(panel!.textContent).toContain('1 已完成\u2002·\u20021 进行中\u2002·\u20021 待处理')
+    expect(panel!.textContent).toContain('1 завершено\u2002·\u20021 в работе\u2002·\u20021 в ожидании')
     fireEvent.click(panel!.querySelector('button')!)
     expect([...panel!.querySelectorAll('li')].map(li => li.getAttribute('data-status')))
       .toEqual(['completed', 'in_progress', 'pending'])

@@ -1,29 +1,9 @@
-/** Shell chrome and General-nav dictionaries; feature rows own their copy. */
-
-/** Simplified Chinese dictionary (the key-set source of truth). */
-export const zh = {
-  'trigger': '设置',
-  'title': '设置',
-  'close': '关闭',
-  'openDocument': '打开配置文件',
-  'openDocument.error': '无法打开配置文件',
-  'general.nav': '通用设置',
-} satisfies Record<string, string>
+/** Shell chrome and General-nav dictionary; feature rows own their copy. */
 
 /** The settings namespace key union. */
-export type SettingsKey = keyof typeof zh
+export type SettingsKey = keyof typeof ru
 
-/** English dictionary, checked complete against the zh key set. */
-export const en = {
-  'trigger': 'Settings',
-  'title': 'Settings',
-  'close': 'Close',
-  'openDocument': 'Open configuration file',
-  'openDocument.error': 'Could not open configuration file',
-  'general.nav': 'General',
-} satisfies Record<SettingsKey, string>
-
-/** Russian dictionary, checked complete against the zh key set. */
+/** Russian dictionary (the key-set source of truth; the only shipped locale). */
 export const ru = {
   'trigger': 'Настройки',
   'title': 'Настройки',
@@ -31,4 +11,4 @@ export const ru = {
   'openDocument': 'Открыть файл конфигурации',
   'openDocument.error': 'Не удалось открыть файл конфигурации',
   'general.nav': 'Общие',
-} satisfies Record<SettingsKey, string>
+} satisfies Record<string, string>

@@ -20,7 +20,7 @@ import {
   assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
   launchWebScaffold, recordFixture, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, REPO_ROOT, saveFailureShot } from './support.ts'
+import { connectFreshWorkspace, newPage, REPO_ROOT, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/fresh-round-trip', import.meta.url))
 const FIXTURE = fileURLToPath(new URL('./snapshots/fresh-round-trip/session.jsonl', import.meta.url))
@@ -47,7 +47,7 @@ describe('web e2e: fresh round trip through the real assembly', () => {
     })
     scaffold.ctx.on('session/event', (_session, event: SessionEvent) => { sessionEvents.push(event) })
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -143,7 +143,7 @@ describe('web e2e: fresh round trip through the real assembly', () => {
     await expect(page.getByRole('textbox').first().isVisible()).resolves.toBe(true)
     expect(await page.getByText('WEB_E2E_OK', { exact: false }).count()).toBeGreaterThanOrEqual(1)
     await page.getByRole('button', {
-      name: 'Select model, current DeepSeek-V4-Flash',
+      name: 'Выбор модели, текущая DeepSeek-V4-Flash',
     }).waitFor({ timeout: 10_000 })
     const snapshot = await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(UI_EXPECTED, snapshot, MODE)

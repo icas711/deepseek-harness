@@ -72,7 +72,7 @@ import {
   assertFixtureInventory, compareOrRefreshGolden, launchWebScaffold, seedSession, watchConsole,
   webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { newEnglishPage, saveFailureShot } from './support.ts'
+import { newPage, saveFailureShot } from './support.ts'
 
 const SEED = fileURLToPath(new URL('./snapshots/seeded-history/seed.jsonl', import.meta.url))
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/sidebar-scrollbar', import.meta.url))
@@ -139,7 +139,7 @@ interface ListMetrics {
  */
 function measureList(page: Page): Promise<ListMetrics> {
   return page.evaluate(() => {
-    const list = document.querySelector<HTMLElement>('[role="tree"][aria-label="Sessions"]')
+    const list = document.querySelector<HTMLElement>('[role="tree"][aria-label="Сессии"]')
     if (list === null) throw new Error('sidebar session list not in the DOM')
     const time = list.querySelector<HTMLElement>('[class*="time"]')
     if (time === null) throw new Error('no row relative-time element in the sidebar list')
@@ -218,7 +218,7 @@ function measureList(page: Page): Promise<ListMetrics> {
  */
 function measureRowInset(page: Page): Promise<Pick<ListMetrics, 'overflows' | 'rowEdgeInset'>> {
   return page.evaluate(() => {
-    const list = document.querySelector<HTMLElement>('[role="tree"][aria-label="Sessions"]')
+    const list = document.querySelector<HTMLElement>('[role="tree"][aria-label="Сессии"]')
     if (list === null) throw new Error('sidebar session list not in the DOM')
     const row = list.querySelector<HTMLElement>('[role="treeitem"]')
     if (row === null) throw new Error('no row in the sidebar list')
@@ -314,7 +314,7 @@ function renderGeometry(light: PaletteMetrics, dark: PaletteMetrics): string {
  */
 function resolveThumb(page: Page): Promise<string> {
   return page.evaluate(() => {
-    const list = document.querySelector<HTMLElement>('[role="tree"][aria-label="Sessions"]')
+    const list = document.querySelector<HTMLElement>('[role="tree"][aria-label="Сессии"]')
     if (list === null) throw new Error('sidebar session list not in the DOM')
     const probe = document.createElement('span')
     probe.style.color = 'var(--dsh-scrollbar-thumb)'
@@ -337,7 +337,7 @@ const NO_THUMB = 'rgba(0, 0, 0, 0)'
  * of the viewport (the conversation column).
  */
 async function pointAt(page: Page, where: 'list' | 'away'): Promise<void> {
-  const box = await page.locator('[role="tree"][aria-label="Sessions"]').boundingBox()
+  const box = await page.locator('[role="tree"][aria-label="Сессии"]').boundingBox()
   if (box === null) throw new Error('sidebar session list has no layout box')
   const viewport = page.viewportSize()
   if (viewport === null) throw new Error('page has no viewport')
@@ -356,15 +356,15 @@ async function pointAt(page: Page, where: 'list' | 'away'): Promise<void> {
  * @param page - the page under test.
  */
 async function expandSeededSessions(page: Page): Promise<void> {
-  const bucket = page.getByText('Ungrouped', { exact: true }).locator('..').locator('..')
+  const bucket = page.getByText('Без группы', { exact: true }).locator('..').locator('..')
   await bucket.waitFor({ timeout: 15_000 })
-  const rows = page.locator('[role="tree"][aria-label="Sessions"] [role="treeitem"]')
+  const rows = page.locator('[role="tree"][aria-label="Сессии"] [role="treeitem"]')
   const deadline = Date.now() + 30_000
   for (;;) {
     if (await bucket.getAttribute('aria-expanded') !== 'true') {
-      await page.getByText('Ungrouped', { exact: true }).click()
+      await page.getByText('Без группы', { exact: true }).click()
     }
-    const showMore = page.getByRole('button', { name: /Show \d+ more sessions/ })
+    const showMore = page.getByRole('button', { name: /Показать ещё \d+ сессий/ })
     if (await bucket.getAttribute('aria-expanded') === 'true'
       && await rows.count() <= SEED_COUNT / 2
       && await showMore.count() > 0) {
@@ -393,7 +393,7 @@ describe('web e2e: sidebar session list scrollbar (reserved gutter / themed thum
     browser = await chromium.launch()
     // Shorter than the other scenarios' 1000px so SEED_COUNT rows overflow
     // the list with room to spare.
-    page = await newEnglishPage(browser, 800)
+    page = await newPage(browser, 800)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -462,7 +462,7 @@ describe('web e2e: sidebar session list scrollbar (reserved gutter / themed thum
     // leaves the column quiet. This is the one deliberate loss, and
     // it is pinned here rather than only described, so making a scroll
     // re-reveal the bar has to be a decision rather than a side effect.
-    await page.locator('[role="tree"][aria-label="Sessions"]').evaluate((el) => { el.scrollTop += 200 })
+    await page.locator('[role="tree"][aria-label="Сессии"]').evaluate((el) => { el.scrollTop += 200 })
     await page.waitForTimeout(500)
     expect(await resolveThumb(page)).toBe(NO_THUMB)
     await pointAt(page, 'list')
@@ -473,7 +473,7 @@ describe('web e2e: sidebar session list scrollbar (reserved gutter / themed thum
   it('keeps the row background inset when overflow disappears', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-sidebar-scrollbar-stable-inset'))
     expect(await measureRowInset(page)).toEqual({ overflows: true, rowEdgeInset: 12 })
-    const bucket = page.getByText('Ungrouped', { exact: true }).locator('..').locator('..')
+    const bucket = page.getByText('Без группы', { exact: true }).locator('..').locator('..')
     await bucket.click()
     try {
       await expect.poll(async () => (await measureRowInset(page)).overflows, { timeout: 10_000 }).toBe(false)

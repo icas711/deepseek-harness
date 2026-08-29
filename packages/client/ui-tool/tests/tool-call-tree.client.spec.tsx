@@ -4,14 +4,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render } from '@testing-library/react'
 import type { ConversationSnapshot, ToolResultNode } from '@deepseek-ai/dsh-client-runtime/client'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
-import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
+import { ru as commonRu } from '@deepseek-ai/dsh-client-locale/src/locales/ru.ts'
 import type { ToolTreeProps } from '../src/client/contract/slots.ts'
 import { ToolCallTree } from '../src/client/tool/ToolCallTree.tsx'
-import { zh } from '@deepseek-ai/dsh-client-ui-conversation/src/client/locales.ts'
+import { ru } from '@deepseek-ai/dsh-client-ui-conversation/src/client/locales.ts'
 
 afterEach(cleanup)
 
-const t: ToolTreeProps['t'] = makeTranslate(zh, commonZh)
+const t: ToolTreeProps['t'] = makeTranslate(ru, commonRu)
 
 const root = (callId: string, call: ToolResultNode['call']): ToolResultNode => ({
   kind: 'tool-result', seq: 3, time: 3_000, callId, call, callTime: 2_000,

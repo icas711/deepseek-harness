@@ -4,16 +4,12 @@ import { describe, expect, it, vi } from 'vitest'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { usePinnedBrowserLanguages } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply, inject } from '@deepseek-ai/dsh-client-ui-settings-general/client'
 import { CloseLabel, HeaderContent, TriggerContent } from '../src/client/chrome.tsx'
 import { GeneralSection } from '../src/client/GeneralSection.tsx'
 import { SettingsDocumentAction } from '../src/client/SettingsDocumentAction.tsx'
 import type { SettingsDocumentActionInjected } from '../src/client/SettingsDocumentAction.tsx'
-
-// The service reads its initial locale from the browser; these specs assert
-// the shipped Chinese copy, so they state the browser they assume.
-usePinnedBrowserLanguages('zh-CN')
+import { ru } from '../src/client/locales.ts'
 
 /** The seats this plugin fills for a loopback browser (slot name → expected component). */
 const SEATS = [
@@ -27,7 +23,7 @@ const SEATS = [
 async function bench(isLoopback = true) {
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
-  const locale = new LocaleRuntime(ctx)
+  const locale = new LocaleRuntime()
   ctx.provide('locale', locale)
   const settingsDescribe = vi.fn(() => Promise.resolve({
     rpcId: 'settings-general' as never,
@@ -87,8 +83,8 @@ describe('ui-settings-general apply', () => {
     }
     const entry = generalEntry(before.slots)!
     expect(entry.options).toMatchObject({ id: 'general', order: 0 })
-    // The nav label is a locale-following thunk; owners resolve at read time.
-    expect(resolveSlotLabel(entry.options.label)).toBe('通用设置')
+    // The nav label is a thunk; owners resolve it at read time.
+    expect(resolveSlotLabel(entry.options.label)).toBe('Общие')
     expect(before.slots.spec('settings.general.item')).toEqual({ kind: 'list', scope: 'root' })
     expect(before.slots.entries('settings.general.item')).toEqual([])
     // The onboarding hole stays declared for feature-owned steps; this plugin
@@ -117,36 +113,15 @@ describe('ui-settings-general apply', () => {
     })
   })
 
-  it('registers the zh/en settings dictionaries and frees the seats on teardown', async () => {
+  it('registers the ru settings dictionary and frees the seat on teardown', async () => {
     const b = await bench()
     declare(b.slots)
     const fiber = b.ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
-    expect(b.locale.bind('settings')('title')).toBe('设置')
-    b.locale.setLocale('en')
-    expect(b.locale.bind('settings')('close')).toBe('Close')
-    b.locale.setLocale('zh')
+    expect(b.locale.bind('settings')('title')).toBe('Настройки')
     await fiber.dispose()
-    // The (ns, locale) seats are free again — the dictionary disposer ran.
-    expect(() => b.locale.register('settings', 'zh', {})).not.toThrow()
-    expect(() => b.locale.register('settings', 'en', {})).not.toThrow()
-  })
-
-  it('the nav label thunk follows the active locale without re-registration', async () => {
-    const b = await bench()
-    declare(b.slots)
-    await b.ctx.plugin({ inject: [...inject], apply }).await()
-    const zhVersions = SEATS.map(([name]) => b.slots.getVersion(name))
-    b.locale.setLocale('en')
-    // No ledger churn: freshness rides the thunk (and the renderer's locale
-    // subscription), not re-registration.
-    SEATS.forEach(([name], i) => {
-      expect(b.slots.getVersion(name)).toBe(zhVersions[i]!)
-      expect(b.slots.entries(name)).toHaveLength(1)
-    })
-    expect(resolveSlotLabel(generalEntry(b.slots)!.options.label)).toBe('General')
-    b.locale.setLocale('zh')
-    expect(resolveSlotLabel(generalEntry(b.slots)!.options.label)).toBe('通用设置')
+    // The seat is free again — the dictionary disposer ran.
+    expect(() => b.locale.register('settings', ru)).not.toThrow()
   })
 
   it('refreshes loaded document availability on reconnect without reading it eagerly', async () => {
@@ -190,10 +165,9 @@ describe('ui-settings-general apply', () => {
     }
     expect(b.slots.entries('settings.general.item')).toEqual([])
     expect(b.slots.spec('settings.general.item')).toEqual({ kind: 'list', scope: 'root' })
-    // The recovered registrations still ride the locale path.
-    b.locale.setLocale('en')
-    expect(resolveSlotLabel(generalEntry(b.slots)!.options.label)).toBe('General')
-    b.locale.setLocale('zh')
+    // The recovered registrations still resolve their label through the
+    // locale seat.
+    expect(resolveSlotLabel(generalEntry(b.slots)!.options.label)).toBe('Общие')
   })
 
   it('removes every seat and the item declaration on teardown', async () => {

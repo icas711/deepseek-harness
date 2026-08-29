@@ -18,7 +18,7 @@ import {
   webSnapshotMode,
   type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
+import { connectFreshWorkspace, newPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/skill-invocation-policy', import.meta.url))
 const MENU_EXPECTED = join(SNAPSHOT_DIR, 'menu.expected.md')
@@ -81,7 +81,7 @@ describe('web e2e: skill invocation policy through the real host', () => {
     scaffold = await launchWebScaffold({})
     await seedSkills(scaffold.workspaceCwd)
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -97,7 +97,7 @@ describe('web e2e: skill invocation policy through the real host', () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-skill-invocation-policy'))
     const input = page.locator('textarea').first()
     await input.fill('/policy')
-    const menu = page.getByRole('listbox', { name: 'Trigger suggestions' })
+    const menu = page.getByRole('listbox', { name: 'Подсказки триггеров' })
     await expect.poll(
       () => menu.getByRole('option', { name: /policy-shared/ }).count(),
       { timeout: 10_000 },
@@ -105,7 +105,7 @@ describe('web e2e: skill invocation policy through the real host', () => {
 
     // The user-only quadrant is invocable here — its only entry point — and
     // wears the user-only marker; both user-disabled quadrants stay hidden.
-    expect(await menu.getByRole('option', { name: /policy-user-only user-only · / }).count()).toBe(1)
+    expect(await menu.getByRole('option', { name: /policy-user-only только пользовательские · / }).count()).toBe(1)
     expect(await menu.getByRole('option', { name: /policy-model-only/ }).count()).toBe(0)
     expect(await menu.getByRole('option', { name: /policy-trusted-only/ }).count()).toBe(0)
 

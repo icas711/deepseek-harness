@@ -130,7 +130,7 @@ const DEFAULT_MAX_MESSAGES = 50
  * is deferred work.
  */
 const WEB_SETTINGS_NAMESPACES = [
-  'agent-loop', 'shell', 'locale', 'permission', 'ui-conversation', 'ui-theme', 'web-search-deepseek',
+  'agent-loop', 'shell', 'permission', 'ui-conversation', 'ui-theme', 'web-search-deepseek',
   'session-telemetry',
 ] as const
 

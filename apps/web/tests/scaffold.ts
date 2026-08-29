@@ -75,11 +75,9 @@ export const WELCOME_NOTICE_SETTINGS_NAMESPACE = 'ui-onboarding'
 export const WELCOME_NOTICE_ACK_FIELD = 'welcomeNoticeVersion'
 export const WELCOME_NOTICE_VERSION = '2026-08-13.1'
 export const WELCOME_NOTICE_COPY = {
-  zh: {
-    title: '内测声明',
-    body: 'DeepSeek Harness 目前的 0.1 版本仍处在面向 Harness 开发者进行测试的阶段，还有许多地方需要持续改进和打磨，希望听取广大开发者的反馈建议。预计 DeepSeek Harness 的核心插件以及基础 API 都会在接下来的一段时间内快速迭代、持续演化。\n\n我们期待与全球开发者一起，在开源、开放、可复用、可组合的基础设施之上，共同探索智能上限。欢迎全球 Harness 开发者加入 DSH 插件生态。',
-    continueLabel: '继续',
-  },
+  title: 'Уведомление о внутреннем тестировании',
+  body: 'DeepSeek Harness 0.1 находится на стадии тестирования разработчиками Harness. Многое ещё предстоит улучшить, и мы ждём отзывов от сообщества разработчиков. Базовые плагины и фундаментальные API DeepSeek Harness будут быстро развиваться и в ближайшие месяцы.\n\nМы ждём разработчиков со всего мира, чтобы вместе исследовать пределы интеллекта на открытой, переиспользуемой и компонуемой инфраструктуре. Присоединяйтесь к экосистеме плагинов DSH.',
+  continueLabel: 'Продолжить',
 } as const
 
 /** Snapshot mode for the lane, from $DSH_SNAPSHOT (same vocabulary as the other snapshot suites). */
@@ -792,18 +790,22 @@ async function persistSeedSession(
  */
 function normalizeAria(snapshot: string, workspaceCwd: string): string {
   // The session heading renders the workspace's basename, not the full
-  // path, so both spellings must collapse to the token.
-  const base = workspaceCwd.split('/').pop()!
+  // path, so both spellings must collapse to the token. The split accepts
+  // both separators: the host path is native-separator on Windows.
+  const base = workspaceCwd.split(/[\\/]/).pop()!
   return snapshot
     .split(workspaceCwd).join('{{cwd}}')
     .split(base).join('{{workspace}}')
     .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '{{uuid}}')
     // The optional space in `\d+m ?\d+s` covers both minute spellings: the
     // stats line's compact `2m42s` and the message-chrome template's `2m 42s`.
+    // The Cyrillic alternatives cover the russified chrome's `0 с` / `0.1 с` /
+    // `5 мс` forms; the lookahead keeps `с` from swallowing longer words.
     .replace(
       /~\d+(?:y(?: \d+mo)?|mo(?: \d+d)?)|\b(?:\d+d(?: \d+h(?: \d+m \d+s)?)?|\d+h \d+m \d+s|\d+m ?\d+s|\d+(?:\.\d+)?s|\d+(?:\.\d+)?ms)\b/g,
       duration => duration.startsWith('~') ? duration : '{{duration}}',
     )
+    .replace(/\d+(?:[.,]\d+)?\s?(?:мс|с)(?=[\s.,)·]|$)/g, '{{duration}}')
     .replace(
       /约\d+(?:年(?:\d+个月)?|个月(?:\d+天)?)|\d+(?:天(?:\d+小时(?:\d+分\d+秒)?)?|小时\d+分\d+秒|分\d+秒|(?:\.\d+)?秒)/g,
       duration => duration.startsWith('约') ? duration : '{{duration}}',

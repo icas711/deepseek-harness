@@ -34,7 +34,7 @@ import { apiKeyFailure } from './apiKey.ts'
 import { EditorFooter } from './EditorFooter.tsx'
 import { ModelListEditor } from './ModelListEditor.tsx'
 import { deriveKeyRef, messageOf, protocolChoices } from './store.ts'
-import type { en } from './locales.ts'
+import type { ModelsKey } from './locales.ts'
 import styles from './ModelsSection.module.css'
 
 /** Per-adapter-family curated field sets (unknown namespaces get the hint alone). */
@@ -66,7 +66,7 @@ export interface ProviderEditorProps {
   /** Wire faces for writes and for interrogating a provider endpoint. */
   api: Pick<IApiClient, 'settings' | 'credentials' | 'llm'>
   /** Section copy. */
-  t: (key: keyof typeof en) => string
+  t: (key: ModelsKey) => string
   /** Disable writes (read-only settings provider). */
   readOnly: boolean
   /** Render only the credential field and actions, without provider settings. */
@@ -76,11 +76,11 @@ export interface ProviderEditorProps {
   /** Give the credential field initial focus when this editor mounts. */
   autoFocusCredential?: boolean
   /** Override the dismiss action copy. */
-  cancelLabel?: keyof typeof en
+  cancelLabel?: ModelsKey
   /** Override the idle commit action copy. */
-  submitLabel?: keyof typeof en
+  submitLabel?: ModelsKey
   /** Override the in-flight commit action copy. */
-  submitBusyLabel?: keyof typeof en
+  submitBusyLabel?: ModelsKey
   /** Close the editor; `changed` reports whether an Apply committed. */
   onClose: (changed: boolean) => void
 }

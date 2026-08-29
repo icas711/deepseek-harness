@@ -18,7 +18,7 @@ import {
   webSnapshotMode,
   type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, conversationContextKey, newEnglishPage, saveFailureShot } from './support.ts'
+import { connectFreshWorkspace, conversationContextKey, newPage, saveFailureShot } from './support.ts'
 
 const MODE = webSnapshotMode()
 const TURN_COUNT = 12
@@ -192,7 +192,7 @@ describe('web e2e: continuous conversation grown through the composer', () => {
       sessionEvents.push(event)
     })
     browser = await chromium.launch()
-    page = await newEnglishPage(browser, 900)
+    page = await newPage(browser, 900)
     tripwire = watchConsole(page)
     page.on('console', (message) => {
       if (message.type() === 'warning') consoleWarnings.push(message.text())
@@ -228,7 +228,7 @@ describe('web e2e: continuous conversation grown through the composer', () => {
       expect(await composer.inputValue()).toBe(spec.prompt)
 
       const settled = scaffold.whenTurnSettled(60_000)
-      await page.getByRole('button', { name: 'Send message', exact: true }).click()
+      await page.getByRole('button', { name: 'Отправить сообщение', exact: true }).click()
       await page.getByText(spec.userMarker, { exact: false }).last().waitFor({ timeout: 15_000 })
       await expect.poll(() => sessionEvents.slice(eventStart).some(event => (
         event.type === 'user/message'

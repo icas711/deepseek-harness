@@ -52,7 +52,7 @@ import {
   assertFixtureInventory, compareOrRefreshGolden, launchWebScaffold, seedSession, watchConsole,
   webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { newEnglishPage, saveFailureShot } from './support.ts'
+import { newPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/composer-tab-geometry', import.meta.url))
 /**
@@ -189,9 +189,9 @@ function measureTab(page: Page): Promise<TabMetrics> {
  * @param page - the page under test.
  * @param tab - the tab to show.
  */
-async function showTab(page: Page, tab: 'Chat' | 'Trajectory'): Promise<void> {
+async function showTab(page: Page, tab: 'Беседа' | 'Траектория'): Promise<void> {
   await page.getByRole('tab', { name: tab, exact: true }).click()
-  if (tab === 'Trajectory') await page.getByLabel('Trajectory timeline').waitFor({ timeout: 30_000 })
+  if (tab === 'Траектория') await page.getByLabel('Trajectory timeline').waitFor({ timeout: 30_000 })
   else await page.locator('[data-conversation-scroll] [data-chat-anchor-key]').first().waitFor({ timeout: 30_000 })
   // Both measurements are taken after a paint, so a rectangle read mid-transition
   // cannot be reported as a shift the cascade did not cause.
@@ -206,11 +206,11 @@ async function showTab(page: Page, tab: 'Chat' | 'Trajectory'): Promise<void> {
  * @returns each tab's metrics and the card's displacement between them.
  */
 async function compareTabs(page: Page): Promise<TabComparison> {
-  await showTab(page, 'Chat')
+  await showTab(page, 'Беседа')
   const chat = await measureTab(page)
-  await showTab(page, 'Trajectory')
+  await showTab(page, 'Траектория')
   const trajectory = await measureTab(page)
-  await showTab(page, 'Chat')
+  await showTab(page, 'Беседа')
   return {
     chat,
     trajectory,
@@ -252,11 +252,11 @@ async function compareTabsWithoutCompensation(page: Page): Promise<TabComparison
  */
 async function openSeededSession(page: Page): Promise<void> {
   // Search collapsed into a header action; expand it before filling.
-  const searchButton = page.getByRole('button', { name: 'Search sessions' })
+  const searchButton = page.getByRole('button', { name: 'Поиск по сессиям' })
   if (await searchButton.getAttribute('aria-expanded') !== 'true') await searchButton.click()
-  const search = page.getByRole('textbox', { name: 'Search sessions...', exact: true })
+  const search = page.getByRole('textbox', { name: 'Поиск сессий…', exact: true })
   await search.fill(FIXTURE.markers.user(1))
-  const results = page.getByRole('tree', { name: 'Search results' }).getByRole('treeitem')
+  const results = page.getByRole('tree', { name: 'Результаты поиска' }).getByRole('treeitem')
   const deadline = Date.now() + 60_000
   for (;;) {
     if (await results.count() === 1) break
@@ -309,12 +309,12 @@ describe('web e2e: input card position across view tabs', () => {
     // Scrollbars must take layout space here or the scenario proves nothing;
     // see the file header for the measurement behind dropping this argument.
     browser = await chromium.launch({ ignoreDefaultArgs: ['--hide-scrollbars'] })
-    page = await newEnglishPage(browser, WIDE_VIEWPORT.height)
+    page = await newPage(browser, WIDE_VIEWPORT.height)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await openSeededSession(page)
-    await page.getByRole('tab', { name: 'Chat', exact: true }).waitFor({ timeout: 30_000 })
+    await page.getByRole('tab', { name: 'Беседа', exact: true }).waitFor({ timeout: 30_000 })
     await page.getByText(FIXTURE.markers.assistant(FIXTURE.turns), { exact: false }).last()
       .waitFor({ timeout: 30_000 })
   }, 180_000)

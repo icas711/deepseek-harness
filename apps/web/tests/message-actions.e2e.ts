@@ -13,7 +13,7 @@ import {
   assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
   launchWebScaffold, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { newEnglishPage, saveFailureShot } from './support.ts'
+import { newPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/message-actions', import.meta.url))
 // Borrowed read-only: this scenario needs any settled user+assistant pair, not
@@ -84,7 +84,7 @@ describe('web e2e: message IconActions and clocks on settled history', () => {
     expect(fixtureUserPrompts(raw), 'adapted seed must carry both prompts').toEqual([PROMPT, SECOND_PROMPT])
     await seedSession(scaffold, raw, SEED_ID)
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -109,10 +109,10 @@ describe('web e2e: message IconActions and clocks on settled history', () => {
     // Focus-reveal the footers (hover:hover keeps them opacity-hidden until
     // hover/focus-within). Branch renders only under assistant answers — user
     // bubbles carry none — and only a completed transcript tail enables it.
-    const copyButtons = page.getByRole('button', { name: 'Copy' })
+    const copyButtons = page.getByRole('button', { name: 'Копировать' })
     await expect.poll(() => copyButtons.count(), { timeout: 10_000 }).toBeGreaterThanOrEqual(4)
     await copyButtons.first().focus()
-    const branchButtons = page.getByRole('button', { name: 'Branch into a new conversation' })
+    const branchButtons = page.getByRole('button', { name: 'Создать ветку в новой беседе' })
     await expect.poll(() => branchButtons.count(), { timeout: 5_000 }).toBe(2)
     await expect.poll(
       () => branchButtons.evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-disabled'))),
@@ -120,18 +120,18 @@ describe('web e2e: message IconActions and clocks on settled history', () => {
     ).toEqual(['true', null])
     await branchButtons.first().focus()
     await expect.poll(() => page.getByRole('tooltip').textContent(), { timeout: 5_000 })
-      .toBe('Available only on the last message of a completed turn')
-    await expect.poll(() => page.getByRole('button', { name: 'Edit' }).count(), { timeout: 5_000 }).toBe(0)
+      .toBe('Доступно только на последнем сообщении завершённого хода')
+    await expect.poll(() => page.getByRole('button', { name: 'Редактировать' }).count(), { timeout: 5_000 }).toBe(0)
   }, 60_000)
 
   it.skipIf(MODE === 'record')('matches the conversation aria golden with IconActions and clocks', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-message-actions-aria'))
-    await page.getByRole('button', { name: /^Select model, current/ })
+    await page.getByRole('button', { name: /^Выбор модели, текущая/ })
       .waitFor({ timeout: 10_000 })
-    await page.getByText(/Cache hit \d+%/u).first().waitFor({ timeout: 10_000 })
+    await page.getByText(/Попадания в кэш \d+%/u).first().waitFor({ timeout: 10_000 })
     // Keep a footer focused so opacity-hidden actions stay in the a11y tree
     // as an active/focused control during the capture.
-    await page.getByRole('button', { name: 'Copy' }).first().focus()
+    await page.getByRole('button', { name: 'Копировать' }).first().focus()
     const snapshot = (await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd))
       .split(SEED_ID).join('{{seededId}}')
     await compareOrRefreshGolden(UI_EXPECTED, snapshot, MODE)
@@ -140,7 +140,7 @@ describe('web e2e: message IconActions and clocks on settled history', () => {
   it.skipIf(MODE === 'record')('forks through the settled-message and session-row actions', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-message-fork'))
     // The last message action belongs to the completed second-turn assistant.
-    await page.getByRole('button', { name: 'Branch into a new conversation' }).last().click()
+    await page.getByRole('button', { name: 'Создать ветку в новой беседе' }).last().click()
     await expect.poll(
       () => scaffold.ctx.agents.list().find(agent => agent.session.header.parentSession === SessionId(SEED_ID)),
       { timeout: 15_000 },
@@ -158,13 +158,13 @@ describe('web e2e: message IconActions and clocks on settled history', () => {
     const sourceRow = page.locator('[role="treeitem"][aria-selected="true"]')
     const rowBox = await sourceRow.boundingBox()
     if (rowBox === null) throw new Error('fork source row has no layout box')
-    const actionButton = sourceRow.locator('button[aria-label^="Session actions for "]')
+    const actionButton = sourceRow.locator('button[aria-label^="Действия с сессией "]')
     await sourceRow.hover({ position: { x: rowBox.width - 16, y: rowBox.height / 2 } })
     await expect.poll(() => actionButton.isVisible(), { timeout: 2_000 }).toBe(true)
     const buttonBox = await actionButton.boundingBox()
     if (buttonBox === null) throw new Error('fork source row action has no layout box')
     await page.mouse.click(buttonBox.x + buttonBox.width / 2, buttonBox.y + buttonBox.height / 2)
-    await page.getByRole('menuitem', { name: 'Fork session' }).click()
+    await page.getByRole('menuitem', { name: 'Форкнуть сессию' }).click()
     await expect.poll(
       () => scaffold.ctx.agents.list().filter(agent => agent.session.header.parentSession !== undefined).length,
       { timeout: 15_000 },
@@ -185,7 +185,7 @@ describe('web e2e: message IconActions and clocks on settled history', () => {
     ).toContain('Use the read tool twice (2)')
     const tree = await captureStableAria(
       page,
-      '[role="tree"][aria-label="Sessions"]',
+      '[role="tree"][aria-label="Сессии"]',
       scaffold.workspaceCwd,
     )
     await compareOrRefreshGolden(FORK_EXPECTED, tree, MODE)

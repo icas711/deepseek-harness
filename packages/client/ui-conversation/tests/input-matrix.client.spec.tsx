@@ -14,11 +14,11 @@ import {
 import type { ClientContext, ConversationSnapshot, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SubmitOutcome } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
-import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
+import { ru as commonRu } from '@deepseek-ai/dsh-client-locale/src/locales/ru.ts'
 import { SessionInputShell } from '../src/client/input/facade.ts'
 import { InputBar } from '../src/client/skeleton/InputBar.tsx'
 import type { InputBarProps } from '../src/client/skeleton/InputBar.tsx'
-import { zh } from '../src/client/locales.ts'
+import { ru } from '../src/client/locales.ts'
 
 afterEach(cleanup)
 
@@ -62,7 +62,7 @@ function mountBar(shell: SessionInputShell, over?: { running?: boolean; disabled
     stop: vi.fn(),
     command: () => Promise.resolve(true),
     // Mirrors the real lookup chain (conversation namespace, then common).
-    t: makeTranslate(zh, commonZh),
+    t: makeTranslate(ru, commonRu),
     variant: 'composer',
   }
   return render(<InputBar {...props} />)
@@ -106,8 +106,8 @@ describe('matrix row: claimed', () => {
     claim()
     expect(shell.snapshot.claim).toEqual({ token: '/goal ', hint: '目标' })
     expect(view.container.querySelector('[data-decoration="token"]')?.textContent).toBe('/goal ')
-    // The zh dictionary owns a hint.goal entry, which overrides the raw claim hint (production behavior).
-    expect(view.container.querySelector('[data-decoration="hint"]')?.textContent).toBe('输入目标，智能体将持续执行')
+    // The ru dictionary owns a hint.goal entry, which overrides the raw claim hint (production behavior).
+    expect(view.container.querySelector('[data-decoration="hint"]')?.textContent).toBe('опишите цель для длительной задачи')
     expect((textarea).readOnly).toBe(false)
     // Free editing beyond the token: hint drops, claim holds.
     fireEvent.change(textarea, { target: { value: '/goal 发布版本' } })
@@ -185,7 +185,7 @@ describe('matrix row: locked (session disabled)', () => {
   it('disables the textarea and chrome; the machine currency is untouched', () => {
     const { view, textarea, shell } = bench({ disabled: true })
     expect((textarea).disabled).toBe(true)
-    expect((view.getByLabelText('命令') as HTMLButtonElement).disabled).toBe(true)
+    expect((view.getByLabelText('Команды') as HTMLButtonElement).disabled).toBe(true)
     expect(shell.snapshot.phase).toBe('plain')
   })
 

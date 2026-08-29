@@ -21,7 +21,7 @@ import {
   acknowledgeReloadConnectionLoss, assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
   launchWebScaffold, recordFixture, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
+import { connectFreshWorkspace, newPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/lifecycle-chrome', import.meta.url))
 const FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
@@ -48,7 +48,7 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
     scaffold = await launchWebScaffold(MODE === 'record' ? {} : { replayFixture: FIXTURE, paceMs: REPLAY_PACE_MS })
     scaffold.ctx.on('session/event', (_session, event: SessionEvent) => { sessionEvents.push(event) })
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -63,9 +63,9 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
 
   it.skipIf(MODE === 'record')('opens the shared slash menu from plus with only Command candidates', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-command-menu-launcher'))
-    const launcher = page.getByRole('button', { name: 'Commands' })
+    const launcher = page.getByRole('button', { name: 'Команды' })
     await launcher.click()
-    const menu = page.getByRole('listbox', { name: 'Trigger suggestions' })
+    const menu = page.getByRole('listbox', { name: 'Подсказки триггеров' })
     await menu.waitFor({ timeout: 10_000 })
     const snapshot = await captureStableAria(page, '[role="listbox"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(COMMAND_MENU_EXPECTED, snapshot, MODE)
@@ -97,20 +97,20 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
 
   it.skipIf(MODE === 'record')('shows active Plan as the warn-state status action', async () => {
     const activeScaffold = await launchWebScaffold()
-    const activePage = await newEnglishPage(browser)
+    const activePage = await newPage(browser)
     const activeTripwire = watchConsole(activePage)
     try {
       await activePage.goto(activeScaffold.baseUrl, { waitUntil: 'load' })
       await activePage.waitForSelector('[class*="frame"]', { timeout: 30_000 })
       await connectFreshWorkspace(activePage, activeScaffold.workspaceCwd)
       const input = activePage.locator('textarea').first()
-      await activePage.getByRole('button', { name: 'Commands' }).click()
-      const menu = activePage.getByRole('listbox', { name: 'Trigger suggestions' })
+      await activePage.getByRole('button', { name: 'Команды' }).click()
+      const menu = activePage.getByRole('listbox', { name: 'Подсказки триггеров' })
       await menu.waitFor({ timeout: 10_000 })
       await menu.getByRole('option', { name: 'plan Enter or leave plan mode' }).click()
       await expect.poll(() => input.inputValue()).toBe('/plan ')
       await input.press('Enter')
-      const planButton = activePage.getByRole('button', { name: 'Plan mode on, press to turn off' })
+      const planButton = activePage.getByRole('button', { name: 'Режим плана включён, нажмите, чтобы выключить' })
       await planButton.waitFor({ timeout: 10_000 })
       // The golden encodes an empty composer, and the button arriving does not
       // mean the submitted text is gone yet: under load the capture can catch
@@ -160,7 +160,7 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
     }
     // The blank frame renders the hero, not the resident composer: the
     // headline plus the guidance placeholder are the empty state's anchors.
-    await expect.poll(() => page.getByText('Into the Unknown', { exact: false }).count(), { timeout: 15_000 }).toBe(1)
+    await expect.poll(() => page.getByText('Поехали', { exact: false }).count(), { timeout: 15_000 }).toBe(1)
     const input = page.locator('textarea').first()
     await input.waitFor({ timeout: 10_000 })
     if (MODE !== 'record') {

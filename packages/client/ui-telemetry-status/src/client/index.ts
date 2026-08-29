@@ -17,7 +17,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 // Type-only: pulls the ctx.remote merge and the forwarded-event key face
 // (the settings invalidation rides the allowlist) into this program.
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
-import { en, ru, zh } from './locales.ts'
+import { ru } from './locales.ts'
 import { TelemetryStatusRow } from './TelemetryStatusRow.tsx'
 import type { TelemetryStatusRowInjected } from './TelemetryStatusRow.tsx'
 import { TELEMETRY_SETTINGS_NS, TelemetryStatusController } from './store.ts'
@@ -37,7 +37,7 @@ export const inject = ['slots', 'locale', 'connection', 'remote']
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
-  ctx.effect(() => ctx.locale.register(NS, { zh, en, ru }), 'ui-telemetry-status: dictionaries')
+  ctx.effect(() => ctx.locale.register(NS, ru), 'ui-telemetry-status: dictionaries')
 
   const connection = ctx.get('connection') as ConnectionHandle
   const controller = new TelemetryStatusController(connection.api)
@@ -59,7 +59,7 @@ export function apply(ctx: ClientContext): void {
   const injected = (): TelemetryStatusRowInjected => ({
     hooks: { telemetryStatus: controller.store },
     load: () => controller.load(),
-    select: (mode) => controller.select(mode),
+    select: mode => controller.select(mode),
   })
 
   ctx.slots.inject('settings.general.item', () =>

@@ -28,6 +28,20 @@ function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' }, ...init })
 }
 
+/** The web_search request fields the request-mapping assertions read. */
+interface WebSearchRequestBody {
+  search_engine: string
+  search_query: string
+  count: number
+}
+
+/** Parse the JSON body the provider posted to the mocked fetch call. */
+function requestBodyOf(call: readonly unknown[] | undefined): WebSearchRequestBody {
+  if (call === undefined) throw new Error('the mocked fetch call is absent')
+  const [, init] = call as unknown as [string, RequestInit]
+  return JSON.parse(init.body as string) as WebSearchRequestBody
+}
+
 afterEach(() => {
   vi.unstubAllGlobals()
 })
@@ -129,8 +143,8 @@ describe('ZaiSearchProvider request mapping', () => {
     const provider = new ZaiSearchProvider(options)
     await provider.search({ query: 'q', maxResults: 3 })
     await provider.search({ query: 'q', maxResults: 100 })
-    const first = JSON.parse((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body as string)
-    const second = JSON.parse((fetchMock.mock.calls[1] as unknown as [string, RequestInit])[1].body as string)
+    const first = requestBodyOf(fetchMock.mock.calls[0])
+    const second = requestBodyOf(fetchMock.mock.calls[1])
     expect(first.count).toBe(3)
     expect(second.count).toBe(50)
   })
@@ -173,7 +187,7 @@ describe('ZaiSearchProvider error handling', () => {
     await expect(new ZaiSearchProvider({ ...keylessOptions, resolveApiKey: async () => undefined }).search({ query: 'q' }))
       .rejects.toThrow(expect.objectContaining({
         code: 'WEB_PROVIDER_ERROR',
-        message: expect.stringContaining('"ZAI_API_KEY"'),
+        message: expect.stringContaining('"ZAI_API_KEY"') as string,
       }))
   })
 
@@ -281,7 +295,7 @@ describe('web-search-zai plugin registration', () => {
       await expect(ctx.web.search({ query: 'q' }))
         .rejects.toThrow(expect.objectContaining({
           code: 'WEB_PROVIDER_ERROR',
-          message: expect.stringContaining('no API key for "ZAI_API_KEY"'),
+          message: expect.stringContaining('no API key for "ZAI_API_KEY"') as string,
         }))
       await fiber.dispose()
     } finally {

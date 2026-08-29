@@ -6,7 +6,7 @@ import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import { SessionLogDownloadController } from '../src/client/controller.ts'
 import { SessionLogDownloadDialog } from '../src/client/Dialog.tsx'
 import type { SessionLogDownloadDialogProps } from '../src/client/Dialog.tsx'
-import { en } from '../src/client/locales.ts'
+import { ru } from '../src/client/locales.ts'
 
 const SID = 'session-export-dialog' as SessionId
 
@@ -22,7 +22,7 @@ function bench(
       () => selector(controller.store.getSnapshot()),
     )
   }
-  const t = (key: keyof typeof en): string => en[key]
+  const t = (key: keyof typeof ru): string => ru[key]
   const props = { sessionId: SID, useSessionLogDownload, dismiss, t } as unknown as SessionLogDownloadDialogProps
   const view = render(<SessionLogDownloadDialog {...props} />)
   return { controller, dismiss, view }
@@ -38,9 +38,9 @@ describe('SessionLogDownloadDialog', () => {
         bySession: { [SID]: { open: true, status: 'error', error: 'toolbar failed' } },
       })
     })
-    const dialog = await b.view.findByRole('dialog', { name: 'Session export failed' })
+    const dialog = await b.view.findByRole('dialog', { name: 'Не удалось экспортировать сессию' })
     expect(dialog.textContent).toContain('toolbar failed')
-    const close = b.view.getAllByRole('button', { name: 'Close' })[0]
+    const close = b.view.getAllByRole('button', { name: 'Закрыть' })[0]
     if (close === undefined) throw new Error('Session export dialog has no close button')
     fireEvent.click(close)
     await waitFor(() => { expect(b.dismiss).toHaveBeenCalledWith(SID) })
@@ -53,10 +53,10 @@ describe('SessionLogDownloadDialog', () => {
     const b = bench(controller)
 
     const download = controller.download(SID)
-    expect(await b.view.findByRole('dialog', { name: 'Exporting Session' })).toBeTruthy()
+    expect(await b.view.findByRole('dialog', { name: 'Экспорт сессии' })).toBeTruthy()
     release(new Response('zip', { status: 200 }))
     await download
-    expect(await b.view.findByRole('dialog', { name: 'Session download started' })).toBeTruthy()
+    expect(await b.view.findByRole('dialog', { name: 'Загрузка сессии началась' })).toBeTruthy()
   })
 
   it('uses fallback copy when a failure has no detail', async () => {
@@ -66,9 +66,9 @@ describe('SessionLogDownloadDialog', () => {
         bySession: { [SID]: { open: true, status: 'error', error: '' } },
       })
     })
-    const dialog = await b.view.findByRole('dialog', { name: 'Session export failed' })
-    expect(dialog.textContent).toContain('Could not start the Session export.')
-    const close = b.view.getAllByRole('button', { name: 'Close' }).at(-1)
+    const dialog = await b.view.findByRole('dialog', { name: 'Не удалось экспортировать сессию' })
+    expect(dialog.textContent).toContain('Не удалось запустить экспорт сессии.')
+    const close = b.view.getAllByRole('button', { name: 'Закрыть' }).at(-1)
     if (close === undefined) throw new Error('Session export dialog has no footer action')
     fireEvent.click(close)
     await waitFor(() => { expect(b.dismiss).toHaveBeenCalledWith(SID) })

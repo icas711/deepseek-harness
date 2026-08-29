@@ -1,4 +1,4 @@
-- row "Load earlier history":
-  - cell "Load earlier history":
-    - button "Load earlier history":
+- row "Загрузить предыдущую историю":
+  - cell "Загрузить предыдущую историю":
+    - button "Загрузить предыдущую историю":
       - status

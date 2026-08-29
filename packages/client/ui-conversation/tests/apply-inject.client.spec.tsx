@@ -15,7 +15,7 @@
 // chat-toolview-slot.spec.tsx.
 
 import { describe, expect, it, vi } from 'vitest'
-import { SlotTestRuntime, usePinnedBrowserLanguages, stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
+import { SlotTestRuntime, stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SessionBehaviorOverrides } from '@deepseek-ai/dsh-client-test-runtime'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import type { ISession, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
@@ -25,10 +25,6 @@ import type {
   ConversationSessionInjected, DetailsInjected,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { createChatStore } from '../src/client/stores.ts'
-
-// The service reads its initial locale from the browser; these specs assert
-// the shipped Chinese copy, so they state the browser they assume.
-usePinnedBrowserLanguages('zh-CN')
 
 const ROOT = 'root-1' as SessionId
 
@@ -59,7 +55,7 @@ async function bench() {
   })
   const layoutFake = { openDetails: vi.fn(), closeDetails: vi.fn() }
   runtime.provide('layout', layoutFake)
-  const locale = new LocaleRuntime(runtime.ctx)
+  const locale = new LocaleRuntime()
   runtime.provide('locale', locale)
   runtime.slots.installLocale(locale)
 
@@ -327,7 +323,7 @@ describe('conversation slot inject API', () => {
     // Label falls back to the id when a rider declares none.
     const off2 = b.slots.register(
       { name: 'conversation.view', id: 'bare', order: 6 } as never, (() => null) as never)
-    expect(injected.views.list().map(v => v.label)).toEqual(['对话', 'X', 'bare'])
+    expect(injected.views.list().map(v => v.label)).toEqual(['Беседа', 'X', 'bare'])
     off()
     off2()
     unsub()

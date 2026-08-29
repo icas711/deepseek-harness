@@ -1,45 +1,45 @@
-- dialog "设置":
+- dialog "Настройки":
   - navigation:
-    - text: 设置
-    - button "通用设置":
+    - text: Настройки
+    - button "Общие":
       - img
-      - text: 通用设置
-    - button "模型":
+      - text: Общие
+    - button "Модели":
       - img
-      - text: 模型
-    - button "插件":
+      - text: Модели
+    - button "Плагины":
       - img
-      - text: 插件
-    - button "Agent 预设":
+      - text: Плагины
+    - button "Пресеты агентов":
       - img
-      - text: Agent 预设
-  - button "打开配置文件"
-  - button "关闭":
+      - text: Пресеты агентов
+  - button "Открыть файл конфигурации"
+  - button "Закрыть":
     - img
-    - text: 关闭
-  - text: Agent 预设 对此后新建的会话生效。运行中的会话保持它开始时的预设。
-  - button "标准模式":
-    - text: 标准模式
+    - text: Закрыть
+  - text: Пресет агента Применяется к сессиям, которые вы создадите с этого момента. Уже запущенные сессии сохраняют свой исходный пресет.
+  - button "Стандартный режим":
+    - text: Стандартный режим
     - img
-  - text: 权限 选择新会话的默认权限模式
+  - text: Права Режим прав по умолчанию для новых сессий
   - button "Workspace Write":
     - text: Workspace Write
     - img
-  - text: 语言
-  - button "中文":
-    - text: 中文
+  - text: Внешний вид
+  - button "Светлая":
     - img
-  - text: 外观
-  - button "浅色":
+    - text: Светлая
+  - button "Тёмная":
     - img
-    - text: 浅色
-  - button "深色":
+    - text: Тёмная
+  - button "Системная" [pressed]:
     - img
-    - text: 深色
-  - button "跟随系统" [pressed]:
+    - text: Системная
+  - text: Поведение Enter во время выполнения Только когда агент занят; Cmd/Ctrl+Enter использует другое поведение
+  - button "В очередь":
+    - text: В очередь
     - img
-    - text: 跟随系统
-  - text: 繁忙时 Enter 键行为 仅在智能体运行时生效；Cmd/Ctrl+Enter 使用另一行为
-  - button "排队发送":
-    - text: 排队发送
+  - text: Телеметрия
+  - alert: "[ { \"code\": \"invalid_union\", \"errors\": [ [ { \"code\": \"invalid_value\", \"values\": [ true ], \"path\": [ \"ok\" ], \"message\": \"Invalid input\" } ], [ { \"code\": \"invalid_union\", \"errors\": [], \"note\": \"No matching discriminator\", \"discriminator\": \"code\", \"options\": [ \"bad-request\", \"cancelled\", \"session-not-found\", \"model-unavailable\", \"session-conflict\", \"invalid-time-zone\", \"workspace-attach-failed\", \"workspace-not-found\", \"workspace-invalid-path\", \"workspace-name-conflict\", \"workspace-move-invalid\", \"directory-unreadable\", \"directory-exists\", \"directory-create-failed\", \"directory-picker-unavailable\", \"agent-preset-read-only\", \"agent-preset-locked\", \"agent-preset-conflict\", \"agent-preset-not-found\", \"agent-preset-invalid\", \"agent-busy\", \"attachment-error\", \"queue-item-not-found\", \"steer-unavailable\", \"command-error\", \"unknown-command\", \"settings-rejected\", \"settings-not-exposed\", \"settings-conflict\", \"credential-rejected\", \"model-discovery-failed\", \"title-invalid\", \"fork-unavailable\", \"subagent-parent-unavailable\", \"subagent-not-found\", \"subagent-catalog-diagnostic\", \"subagent-not-resumable\", \"subagent-unauthorized\", \"subagent-delivery-unavailable\", \"session-ownership\", \"internal\" ], \"path\": [ \"error\", \"code\" ], \"message\": \"Invalid input\" } ] ], \"path\": [ \"result\" ], \"message\": \"Invalid input\" } ]"
+  - button "Обновить":
     - img

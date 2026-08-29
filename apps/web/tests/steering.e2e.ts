@@ -14,7 +14,7 @@ import {
   assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
   launchWebScaffold, recordFixture, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
+import { connectFreshWorkspace, newPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/steering', import.meta.url))
 const FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
@@ -76,7 +76,7 @@ describe('web e2e: mid-turn steering lands durably and visibly', () => {
       : { replayFixture: FIXTURE, paceMs: REPLAY_PACE_MS })
     scaffold.ctx.on('session/event', (_session, event) => { sessionEvents.push(event) })
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -109,7 +109,7 @@ describe('web e2e: mid-turn steering lands durably and visibly', () => {
     const queued = page.getByText(STEER, { exact: true })
     await queued.waitFor({ timeout: 10_000 })
     const queuedRow = page.getByRole('listitem').filter({ hasText: STEER })
-    const steerButton = queuedRow.getByRole('button', { name: 'Steer queued message' })
+    const steerButton = queuedRow.getByRole('button', { name: 'Встроить сообщение из очереди' })
     await expect.poll(() => steerButton.isEnabled(), { timeout: 10_000 }).toBe(true)
     await steerButton.click({ timeout: 10_000 })
     const pendingSteering = page.locator('[data-pending-steering]').filter({ hasText: STEER })
@@ -125,7 +125,7 @@ describe('web e2e: mid-turn steering lands durably and visibly', () => {
     if (MODE !== 'record') {
       expect(await page.getByText(STEER, { exact: true }).count()).toBe(1)
       expect(await pendingSteering.count()).toBe(1)
-      expect(await page.getByRole('button', { name: 'Edit queued message' }).count()).toBe(0)
+      expect(await page.getByRole('button', { name: 'Редактировать сообщение из очереди' }).count()).toBe(0)
       const snapshot = await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)
       await compareOrRefreshGolden(MID_EXPECTED, snapshot, MODE)
     }
@@ -186,7 +186,7 @@ describe('web e2e: composer shortcut steers directly', () => {
     scaffold = await launchWebScaffold({ replayFixture: FIXTURE, paceMs: REPLAY_PACE_MS })
     scaffold.ctx.on('session/event', (_session, event) => { sessionEvents.push(event) })
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -206,7 +206,7 @@ describe('web e2e: composer shortcut steers directly', () => {
     const settled = scaffold.whenTurnSettled(30_000)
     await input.fill(PROMPT)
     await input.press('Enter')
-    await page.getByRole('button', { name: 'Stop generating' }).waitFor({ timeout: 10_000 })
+    await page.getByRole('button', { name: 'Остановить генерацию' }).waitFor({ timeout: 10_000 })
 
     await input.fill(STEER)
     await input.press('Meta+Enter')
@@ -243,7 +243,7 @@ describe('web e2e: composer shortcut follows the swapped busy behavior', () => {
     scaffold = await launchWebScaffold({ replayFixture: FIXTURE, paceMs: REPLAY_PACE_MS })
     scaffold.ctx.on('session/event', (_session, event) => { sessionEvents.push(event) })
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -257,18 +257,18 @@ describe('web e2e: composer shortcut follows the swapped busy behavior', () => {
 
   it.skipIf(MODE === 'record')('queues Cmd+Enter when plain Enter is configured to Steer', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-composer-swapped-shortcut'))
-    await page.getByRole('button', { name: 'Settings', exact: true }).click()
-    const dialog = page.getByRole('dialog', { name: 'Settings' })
-    await dialog.getByRole('button', { name: 'Queue' }).click()
-    await page.getByRole('menuitem', { name: 'Steer' }).click()
-    await dialog.getByRole('button', { name: 'Steer' }).waitFor({ timeout: 10_000 })
+    await page.getByRole('button', { name: 'Настройки', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: 'Настройки' })
+    await dialog.getByRole('button', { name: 'В очередь' }).click()
+    await page.getByRole('menuitem', { name: 'Встроить' }).click()
+    await dialog.getByRole('button', { name: 'Встроить' }).waitFor({ timeout: 10_000 })
     await page.keyboard.press('Escape')
 
     const input = page.locator('textarea').first()
     const settled = scaffold.whenTurnSettled(30_000)
     await input.fill(PROMPT)
     await input.press('Enter')
-    await page.getByRole('button', { name: 'Stop generating' }).waitFor({ timeout: 10_000 })
+    await page.getByRole('button', { name: 'Остановить генерацию' }).waitFor({ timeout: 10_000 })
 
     const queuedText = 'Queued by the complementary Cmd+Enter shortcut.'
     await input.fill(queuedText)
@@ -280,7 +280,7 @@ describe('web e2e: composer shortcut follows the swapped busy behavior', () => {
 
     // Remove the asserted Queue row, then finish the recorded question turn
     // so replay teardown still proves that every fixture call was consumed.
-    await queuedRow.getByRole('button', { name: 'Remove queued message' }).click()
+    await queuedRow.getByRole('button', { name: 'Удалить сообщение из очереди' }).click()
     const composer = page.locator('[data-question-key]')
     await composer.waitFor({ timeout: 30_000 })
     await composer.getByRole('radio', { name: 'Yes' }).click()
@@ -309,12 +309,12 @@ describe('web e2e: empty-draft Cmd+Enter steers the whole queue', () => {
     })
     scaffold.ctx.on('session/event', (_session, event) => { sessionEvents.push(event) })
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
-    await page.getByText('Standard mode', { exact: true }).waitFor({ timeout: 10_000 })
+    await page.getByText('Стандартный режим', { exact: true }).waitFor({ timeout: 10_000 })
   }, 120_000)
 
   afterAll(async () => {
@@ -340,7 +340,7 @@ describe('web e2e: empty-draft Cmd+Enter steers the whole queue', () => {
     // Both messages queued: the two-row dock shows a collapsed count header,
     // and Playwright text matching skips the hidden rows — expand the list,
     // then assert each row's content.
-    await dock.getByText('2 queued messages').waitFor({ timeout: 10_000 })
+    await dock.getByText('Сообщений в очереди: 2').waitFor({ timeout: 10_000 })
     await dock.getByRole('button').click()
     await dock.getByText(STEER_ONE, { exact: true }).waitFor({ timeout: 10_000 })
     await dock.getByText(STEER_TWO, { exact: true }).waitFor({ timeout: 10_000 })

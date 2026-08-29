@@ -84,7 +84,11 @@ function assertNever(value: never): never {
   throw new Error(`session-telemetry-otel: unsupported mode ${JSON.stringify(value)}`)
 }
 
-/** Map the serialized mode onto the seam's backend-independent sharing vocabulary. */
+/**
+ * Map the serialized mode onto the seam's backend-independent sharing vocabulary.
+ * @param mode - the resolved session-telemetry sharing mode.
+ * @returns the sharing status the seam reports for that mode.
+ */
 export function sharingStatusFor(mode: SessionTelemetryMode): SessionTelemetrySharingStatus {
   switch (mode) {
     case SessionTelemetryMode.FULL: return 'full'

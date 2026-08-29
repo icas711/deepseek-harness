@@ -124,27 +124,11 @@ describe('apply', () => {
     expect(entry?.component).toBe(SkillToolRow)
     expect(presentation.dictionaries).toEqual([{
       namespace: 'skill', dictionaries: {
-        zh: {
-          'row.running': '正在加载 skill',
-          'row.failed': 'skill 加载失败',
-          'row.stopped': 'skill 加载已中止',
-          'row.instructions': '说明',
-          'menu.userOnly': '仅用户',
-        },
-        en: {
-          'row.running': 'Loading skill',
-          'row.failed': 'Skill load failed',
-          'row.stopped': 'Skill load stopped',
-          'row.instructions': 'Instructions',
-          'menu.userOnly': 'user-only',
-        },
-        ru: {
-          'row.running': 'Загрузка скилла',
-          'row.failed': 'Не удалось загрузить скилл',
-          'row.stopped': 'Загрузка скилла остановлена',
-          'row.instructions': 'Инструкции',
-          'menu.userOnly': 'только пользовательские',
-        },
+        'row.running': 'Загрузка скилла',
+        'row.failed': 'Не удалось загрузить скилл',
+        'row.stopped': 'Загрузка скилла остановлена',
+        'row.instructions': 'Инструкции',
+        'menu.userOnly': 'только пользовательские',
       },
     }])
   })

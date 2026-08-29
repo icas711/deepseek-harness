@@ -12,7 +12,7 @@ import {
   compareOrRefreshGolden, launchWebScaffold, watchConsole, webSnapshotMode,
   type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
+import { connectFreshWorkspace, newPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/goal-command-presentation', import.meta.url))
 const UI_EXPECTED = fileURLToPath(new URL(
@@ -31,7 +31,7 @@ describe('web e2e: /goal human transcript presentation', () => {
     scaffold = await launchWebScaffold()
     scaffold.ctx.on('session/event', (_session, event: SessionEvent) => { events.push(event) })
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -45,7 +45,7 @@ describe('web e2e: /goal human transcript presentation', () => {
 
   it('shows the bare input and result from a fresh session without a model turn', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-goal-command-presentation'))
-    await expect.poll(() => page.getByText('Into the Unknown', { exact: false }).count(), {
+    await expect.poll(() => page.getByText('Поехали', { exact: false }).count(), {
       timeout: 15_000,
     }).toBe(1)
     const input = page.locator('textarea').first()
@@ -58,7 +58,7 @@ describe('web e2e: /goal human transcript presentation', () => {
     await commandInput.waitFor({ timeout: 10_000 })
     await expect.poll(() => commandInput.textContent()).toBe('/goal')
     expect(await commandInput.getAttribute('role')).toBe('group')
-    expect(await commandInput.getAttribute('aria-label')).toBe('Command input')
+    expect(await commandInput.getAttribute('aria-label')).toBe('Поле ввода команды')
     expect(await commandInput.getByRole('button').count()).toBe(0)
     const typography = await commandInput.evaluate((element) => {
       const bubble = element.firstElementChild?.firstElementChild
@@ -78,7 +78,7 @@ describe('web e2e: /goal human transcript presentation', () => {
     await expect.poll(() => resultRow.count(), { timeout: 10_000 }).toBe(1)
     expect(await resultRow.getByText('goal', { exact: true }).count()).toBe(1)
     await expect.poll(() => page.locator('[data-phase="active"]').count()).toBe(1)
-    expect(await page.getByText('Into the Unknown', { exact: false }).count()).toBe(0)
+    expect(await page.getByText('Поехали', { exact: false }).count()).toBe(0)
 
     const run = events.find(event => event.type === 'command/run')
     expect(run).toMatchObject({

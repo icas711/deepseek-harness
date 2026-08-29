@@ -15,7 +15,11 @@ Telemetry status surface for the General settings section, browser half of a dua
 
 ## Model Experience
 
-Browser-side settings control only; nothing here enters the Session log, model context, or telemetry.
+None, as the row renders the backend's sharing disclosure and mode field in the browser; nothing here enters the Session log, model context, or telemetry.
+
+#### KV Cache effect
+
+None: the surface registers no prompt, schema, or request field.
 
 ## Known Limitations and Deferred Work
 

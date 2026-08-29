@@ -1,3 +1,3 @@
-- listbox "Trigger suggestions":
-  - text: Commands
+- listbox "Подсказки триггеров":
+  - text: Команды
   - option "compact Compact older conversation history" [selected]

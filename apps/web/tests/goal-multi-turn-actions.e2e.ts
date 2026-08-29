@@ -14,7 +14,7 @@ import {
   assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
   launchWebScaffold, recordFixture, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
+import { connectFreshWorkspace, newPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/goal-multi-turn-actions', import.meta.url))
 const FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
@@ -115,7 +115,7 @@ describe('web e2e: Goal keeps one assistant action row per completed turn', () =
     await seedPackageInventory(scaffold.workspaceCwd)
     scaffold.ctx.on('session/event', (_session, event: SessionEvent) => { sessionEvents.push(event) })
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -151,7 +151,7 @@ describe('web e2e: Goal keeps one assistant action row per completed turn', () =
     expect(sessionEvents.flatMap(event => event.type === 'turn/end' ? [event.data.turn] : []))
       .toEqual([1, 2])
     expect(goalRounds(sessionEvents)).toEqual([1, 2])
-    const branchButtons = page.getByRole('button', { name: 'Branch into a new conversation' })
+    const branchButtons = page.getByRole('button', { name: 'Создать ветку в новой беседе' })
     await expect.poll(() => branchButtons.count(), { timeout: 15_000 }).toBe(2)
     expect(await branchButtons.evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-disabled'))))
       .toEqual([null, null])

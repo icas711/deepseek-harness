@@ -3,7 +3,9 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import { TrajectoryTable } from '../src/client/TrajectoryTable.tsx'
+import { ru, type TrajectoryKey } from '../src/client/locales.ts'
 import type { TrajectoryTurnModel } from '../src/client/layout.ts'
 
 afterEach(() => {
@@ -58,6 +60,7 @@ const TURNS: readonly TrajectoryTurnModel[] = [{
 }]
 
 const FOLD_PROPS = {
+  t: ((key: TrajectoryKey) => ru[key]) as TranslateNS<'trajectory'>,
   collapsedTurns: new Set<number>(),
   onToggleTurn: () => {},
   collapsedAssistants: new Set<string>(),
@@ -416,7 +419,7 @@ describe('TrajectoryTable', () => {
     fireEvent.scroll(tablePane)
 
     await waitFor(() => { expect(onLoadOlder).toHaveBeenCalledOnce() })
-    expect(screen.getByRole('status').textContent).toContain('Loading earlier history…')
+    expect(screen.getByRole('status').textContent).toContain('Загрузка предыдущей истории…')
     resolveOlder?.(true)
     await waitFor(() => {
       expect(screen.getByRole('status').textContent).toBe('')
@@ -459,7 +462,7 @@ describe('TrajectoryTable', () => {
     )
 
     const table = screen.getByRole('table')
-    const loadButton = screen.getByRole('button', { name: 'Load earlier history' })
+    const loadButton = screen.getByRole('button', { name: 'Загрузить предыдущую историю' })
     const loadRow = table.querySelector('tbody > tr:first-child')
     expect(loadRow?.contains(loadButton)).toBe(true)
     expect(loadRow?.getAttribute('aria-rowindex')).toBe('1')
@@ -471,18 +474,18 @@ describe('TrajectoryTable', () => {
     fireEvent.click(loadButton)
     expect(onLoadOlder).toHaveBeenCalledOnce()
     expect(loadButton.hasAttribute('disabled')).toBe(true)
-    expect(screen.getByRole('status').textContent).toBe('Loading earlier history…')
+    expect(screen.getByRole('status').textContent).toBe('Загрузка предыдущей истории…')
 
     resolveOlder?.(false)
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Load earlier history' })
+      expect(screen.getByRole('button', { name: 'Загрузить предыдущую историю' })
         .hasAttribute('disabled')).toBe(false)
     })
 
     view.rerender(
       <TrajectoryTable turns={TURNS} {...FOLD_PROPS} />,
     )
-    expect(screen.queryByRole('button', { name: 'Load earlier history' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Загрузить предыдущую историю' })).toBeNull()
     expect(table.getAttribute('aria-rowcount')).toBe('3')
   })
 
@@ -497,9 +500,9 @@ describe('TrajectoryTable', () => {
       />,
     )
 
-    expect(screen.getByRole('button', { name: 'Loading earlier history…' })
+    expect(screen.getByRole('button', { name: 'Загрузка предыдущей истории…' })
       .hasAttribute('disabled')).toBe(true)
-    expect(screen.getByRole('status').textContent).toBe('Loading earlier history…')
+    expect(screen.getByRole('status').textContent).toBe('Загрузка предыдущей истории…')
   })
 
   it('covers the ledger while the initial tail is loading', () => {

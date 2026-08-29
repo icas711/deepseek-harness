@@ -14,23 +14,23 @@
  */
 
 import type { ReactNode } from 'react'
-import type { en } from './locales.ts'
+import type { ModelsKey } from './locales.ts'
 import styles from './ModelsSection.module.css'
 
 /** Props of {@link EditorFooter}. */
 export interface EditorFooterProps {
   /** Localizer for the row's own labels. */
-  t: (key: keyof typeof en) => string
+  t: (key: ModelsKey) => string
   /** Whether a commit is in flight; holds Cancel and swaps the commit label. */
   busy: boolean
   /** Whether the commit is refused, as judged by the owning card. */
   submitDisabled: boolean
   /** Commit label while idle. */
-  submitLabel: keyof typeof en
+  submitLabel: ModelsKey
   /** Commit label while a commit is in flight. */
-  submitBusyLabel: keyof typeof en
+  submitBusyLabel: ModelsKey
   /** Dismiss label; defaults to the settings editor copy. */
-  cancelLabel?: keyof typeof en
+  cancelLabel?: ModelsKey
   /** Dismiss the card without committing. */
   onCancel: () => void
   /** Run the card's commit. */

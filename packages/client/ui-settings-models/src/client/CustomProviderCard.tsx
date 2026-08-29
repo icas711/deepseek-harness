@@ -30,7 +30,7 @@ import { validateDeepSeekModels } from './DeepSeekModelsEditor.tsx'
 import { ModelListEditor } from './ModelListEditor.tsx'
 import type { ModelDraft } from './ModelListEditor.tsx'
 import { deriveKeyRef, messageOf } from './store.ts'
-import type { en } from './locales.ts'
+import type { ModelsKey } from './locales.ts'
 import styles from './ModelsSection.module.css'
 
 /** The settings namespace a hand-declared provider is written into. */
@@ -61,7 +61,7 @@ export interface CustomProviderCardProps {
   /** Wire faces for the write and for interrogating the endpoint. */
   api: Pick<IApiClient, 'settings' | 'credentials' | 'llm'>
   /** Section copy. */
-  t: (key: keyof typeof en) => string
+  t: (key: ModelsKey) => string
   /** Disable writes (read-only settings provider). */
   readOnly: boolean
   /** Close the card; `changed` reports whether a provider was created. */

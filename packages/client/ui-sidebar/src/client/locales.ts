@@ -1,28 +1,12 @@
-/** `sidebar` namespace dictionaries: shell controls (brand row, New Session, fold toggle). */
-
-/** Simplified Chinese dictionary (the key-set source of truth). */
-export const zh = {
-  'session.new': '新会话',
-  'session.new.label': '新建会话',
-  'toggle.open': '打开侧边栏',
-  'toggle.collapse': '收起侧边栏',
-} satisfies Record<string, string>
+/** `sidebar` namespace dictionary: shell controls (brand row, New Session, fold toggle). */
 
 /** The sidebar namespace key union. */
-export type SidebarKey = keyof typeof zh
+export type SidebarKey = keyof typeof ru
 
-/** English dictionary, checked complete against the zh key set. */
-export const en = {
-  'session.new': 'New Session',
-  'session.new.label': 'New session',
-  'toggle.open': 'Open sidebar',
-  'toggle.collapse': 'Collapse sidebar',
-} satisfies Record<SidebarKey, string>
-
-/** Russian dictionary, checked complete against the zh key set. */
+/** Russian dictionary (the key-set source of truth; the only shipped locale). */
 export const ru = {
   'session.new': 'Новая сессия',
   'session.new.label': 'Создать сессию',
   'toggle.open': 'Открыть боковую панель',
   'toggle.collapse': 'Свернуть боковую панель',
-} satisfies Record<SidebarKey, string>
+} satisfies Record<string, string>

@@ -1,9 +1,9 @@
-- listbox "Trigger suggestions":
-  - text: Commands
+- listbox "Подсказки триггеров":
+  - text: Команды
   - option "compact Compact older conversation history" [selected]
   - option "export Download this Session log as a ZIP archive"
   - option "feedback record feedback about this session"
   - option "goal set or view the goal for a long-running task"
   - option "permission Switch the permission preset (sandbox mode + approval policy)"
   - option "plan Enter or leave plan mode"
-  - option "model Select the model for this conversation"
+  - option "model Выбрать модель для этой беседы"

@@ -1,4 +1,4 @@
-- listbox "Trigger suggestions":
-  - text: Skills
+- listbox "Подсказки триггеров":
+  - text: Скиллы
   - option "policy-shared Available to both model and user invocation" [selected]
-  - option "policy-user-only user-only · Available only to user invocation"
+  - option "policy-user-only только пользовательские · Available only to user invocation"

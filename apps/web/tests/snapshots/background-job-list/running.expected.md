@@ -1,2 +1,2 @@
-- list "Background jobs":
-  - listitem: bash sleep 45 running {{duration}}
+- list "Фоновые задачи":
+  - listitem: bash sleep 45 выполняется {{duration}}

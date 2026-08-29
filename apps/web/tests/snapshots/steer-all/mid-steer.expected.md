@@ -1,37 +1,37 @@
 - banner:
-  - navigation "Session hierarchy":
+  - navigation "Иерархия сессий":
     - button "Use the ask_user_question tool to" [disabled]
   - img
-  - text: Standard mode
+  - text: Стандартный режим
   - button "Session log":
     - text: Session log
     - img
   - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
+    - tab "Беседа" [selected]
+    - tab "Траектория"
 - text: Use the ask_user_question tool to ask me exactly one question with id "checkpoint", question "Ready to continue?", header "Checkpoint", and options labeled "Yes" and "No". After I answer, reply with one short sentence acknowledging my answer and stop. {{clock}}
-- button "Copy":
+- button "Копировать":
   - img
-- button "Context injection @deepseek-ai/dsh-system-prompt":
+- button "Внедрение контекста @deepseek-ai/dsh-system-prompt":
   - img
   - img
-  - text: Context injection @deepseek-ai/dsh-system-prompt
+  - text: Внедрение контекста @deepseek-ai/dsh-system-prompt
 - button "Think The user wants me to ask them a checkpoint question first, then continue with whatever they interject. Let me do exactly that.":
   - img
   - img
   - text: Think The user wants me to ask them a checkpoint question first, then continue with whatever they interject. Let me do exactly that.
 - status: Deep diving...
 - text: "Interjection: include the word BANANA in your final reply."
-- button "Copy":
+- button "Копировать":
   - img
 - text: "Interjection: include the word ORANGE in your final reply."
-- button "Copy":
+- button "Копировать":
   - img
-- textbox "Message the agent"
-- button "Commands":
+- textbox "Написать агенту"
+- button "Команды":
   - img
-- 'button "Access mode, current: Workspace Write"': Workspace Write
-- button "Select model, current DeepSeek-V4-Flash":
+- 'button "Режим доступа, текущий: Workspace Write"': Workspace Write
+- button "Выбор модели, текущая DeepSeek-V4-Flash":
   - text: DeepSeek-V4-Flash
   - img
-- button "Stop generating"
+- button "Остановить генерацию"

@@ -1,7 +1,5 @@
 # @deepseek-ai/dsh-client-ui-user-questions
 
-English | [中文](README.zh.md)
-
 Web question feature plugin: its browser half registers the `question` entry in the conversation-owned `conversation.composer` keyed slot. Its host half is empty on purpose — mounting `dsh-tool-ask-user` there put the tool in the registry's GLOBAL layer, which merges into every agent regardless of the preset that composed it, so a two-tool benchmark preset really presented three. Rendering a question is a host UI capability; having the tool is an agent capability, so the `tool-ask-user` row belongs to the presets that want it (and to the TUI composition, which has no presets).
 
 The component renders one question at a time with progress navigation, single- and multi-select choices, recommendation badges derived from label suffixes, and custom answers. A multi-select draft keeps its selected labels while the user opens or edits the custom answer, so its submitted item may carry both `selected` and `custom`; a single-select custom answer remains exclusive. Question detail reuses the assistant-output `MarkdownText` primitive, including its GFM rendering and untrusted-content policy. The capped card keeps its title, navigation, and submission actions fixed while long detail and choices share an internal scroll region. Single-select choices advance immediately, and Enter submits once every question is answered or skipped; Enter during IME composition confirms the input candidate without advancing. It submits one structured answer batch for the whole request: “Skip this question” retains other drafts and emits the existing blank `{ selected: [] }` shape for that item, while close rejects the whole wait as `ASK_CANCELLED`.
@@ -10,7 +8,7 @@ A request whose single question declares a presentation intent renders as that i
 
 Selection state is local to a component keyed by the request rpcId. A replay with the same id preserves a still-mounted draft, while `question/resolved` from the host removes the composer. The host remains authoritative: successful HTTP delivery does not remove pending state locally.
 
-Composer chrome copy (pager, buttons, placeholders, validation feedback) ships in all three locales: the plugin registers zh/en/ru dictionaries under the `question` namespace of `dsh-client-locale` and hands the entry its bound translator plus the locale snapshot source through the inject face, so a locale switch re-renders a mounted composer. Question and option text arrives from the model and renders verbatim; carrier failure messages also display untranslated.
+Composer chrome copy (pager, buttons, placeholders, validation feedback) ships in the single ru dictionary: the plugin registers the `question` namespace dictionary of `dsh-client-locale` and hands the entry its bound translator plus the locale snapshot source through the inject face. Question and option text arrives from the model and renders verbatim; carrier failure messages also display untranslated.
 
 ## Model Experience
 

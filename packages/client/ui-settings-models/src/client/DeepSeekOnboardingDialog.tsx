@@ -14,7 +14,7 @@ import type { InjectFace, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ModelsSettingsState, ModelsSettingsStore } from './store.ts'
 import { onboardingReadiness } from './store.ts'
 import { ProviderEditor } from './ProviderEditor.tsx'
-import type { en } from './locales.ts'
+import type { ModelsKey } from './locales.ts'
 import { OnboardingModal } from './OnboardingModal.tsx'
 import styles from './DeepSeekOnboardingDialog.module.css'
 
@@ -29,7 +29,7 @@ export interface DeepSeekOnboardingInjected {
   /** Existing wire face reused by the Models credential editor. */
   api: Pick<IApiClient, 'settings' | 'credentials' | 'llm'>
   /** Feature copy. */
-  t: (key: keyof typeof en) => string
+  t: (key: ModelsKey) => string
 }
 
 /** Slot owner props plus the feature's injected dependencies. */

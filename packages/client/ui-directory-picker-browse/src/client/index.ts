@@ -27,64 +27,26 @@ export const inject = ['slots', 'workspaces', 'locale']
  */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => {
-    // The dictionaries land as a unit: if a later registration hits a rival
-    // owner of the namespace, the earlier ones roll back before the throw —
-    // a failed activation must not squat the namespace's other locales.
-    const disposers: (() => void)[] = []
-    const dictionaries: [locale: string, dict: Record<string, string>][] = [
-      ['zh', {
-        'browser.title': '选择工作区目录',
-        'browser.home': '主目录',
-        'browser.newFolder': '新建文件夹',
-        'browser.folderName': '文件夹名称',
-        'browser.createIn': '在"{name}"中新建文件夹',
-        'browser.untitledFolder': '未命名文件夹',
-        'browser.create': '创建',
-        'browser.cancel': '取消',
-        'browser.open': '打开',
-        'browser.editPath': '编辑路径',
-        'browser.loading': '加载中…',
-        'browser.truncated': '文件夹过多，仅显示开头部分。',
-        'browser.showHidden': '显示隐藏文件',
-      }],
-      ['en', {
-        'browser.title': 'Select Workspace Directory',
-        'browser.home': 'Home',
-        'browser.newFolder': 'New folder',
-        'browser.folderName': 'Folder name',
-        'browser.createIn': 'New folder in "{name}"',
-        'browser.untitledFolder': 'Untitled folder',
-        'browser.create': 'Create',
-        'browser.cancel': 'Cancel',
-        'browser.open': 'Open',
-        'browser.editPath': 'Edit path',
-        'browser.loading': 'Loading…',
-        'browser.truncated': 'Too many folders to list; only the beginning is shown.',
-        'browser.showHidden': 'Show hidden files',
-      }],
-      ['ru', {
-        'browser.title': 'Выберите каталог рабочей области',
-        'browser.home': 'Домашний каталог',
-        'browser.newFolder': 'Новая папка',
-        'browser.folderName': 'Имя папки',
-        'browser.createIn': 'Новая папка в «{name}»',
-        'browser.untitledFolder': 'Безымянная папка',
-        'browser.create': 'Создать',
-        'browser.cancel': 'Отмена',
-        'browser.open': 'Открыть',
-        'browser.editPath': 'Изменить путь',
-        'browser.loading': 'Загрузка…',
-        'browser.truncated': 'Слишком много папок; показано только начало.',
-        'browser.showHidden': 'Показывать скрытые файлы',
-      }],
-    ]
-    try {
-      for (const [locale, dict] of dictionaries) disposers.push(ctx.locale.register(LOCALE_NS, locale, dict))
-    } catch (error) {
-      for (const dispose of disposers.reverse()) dispose()
-      throw error
+    // The dialog's copy: registration is transactional — a rival owner of
+    // the namespace makes the register throw, and the failed activation
+    // leaves no half-installed dictionary behind.
+    const ruDict = {
+      'browser.title': 'Выберите каталог рабочей области',
+      'browser.home': 'Домашний каталог',
+      'browser.newFolder': 'Новая папка',
+      'browser.folderName': 'Имя папки',
+      'browser.createIn': 'Новая папка в «{name}»',
+      'browser.untitledFolder': 'Безымянная папка',
+      'browser.create': 'Создать',
+      'browser.cancel': 'Отмена',
+      'browser.open': 'Открыть',
+      'browser.editPath': 'Изменить путь',
+      'browser.loading': 'Загрузка…',
+      'browser.truncated': 'Слишком много папок; показано только начало.',
+      'browser.showHidden': 'Показывать скрытые файлы',
     }
-    return () => { for (const dispose of disposers) dispose() }
+    const dispose = ctx.locale.register(LOCALE_NS, ruDict)
+    return () => { dispose() }
   }, 'directory-picker-browse: dialog dictionaries')
 
   const injected = (): BrowseFlowInjected => ({

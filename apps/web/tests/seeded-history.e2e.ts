@@ -25,7 +25,7 @@ import {
   assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
   launchWebScaffold, realizeSeedFixture, recordFixture, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { newEnglishPage, saveFailureShot } from './support.ts'
+import { newPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/seeded-history', import.meta.url))
 const SEED = fileURLToPath(new URL('./snapshots/seeded-history/seed.jsonl', import.meta.url))
@@ -202,7 +202,7 @@ describe('web e2e: seeded history renders through cold resume', () => {
       await seedSession(scaffold, realizedWithCompaction, SEED_ID)
     }
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -277,10 +277,10 @@ describe('web e2e: seeded history renders through cold resume', () => {
     // Settled barrier for history: the recorded final assistant text renders.
     await expect.poll(() => page.getByText('DONE', { exact: true }).count(), { timeout: 15_000 }).toBe(1)
     await expect.poll(() => page.getByText('compact', { exact: true }).count(), { timeout: 10_000 }).toBe(1)
-    await expect.poll(() => page.getByText(/^Compacted \d+ history items \(~\d+ tokens\)$/).count(), {
+    await expect.poll(() => page.getByText(/^Сжато \d+ записей истории \(~\d+ токенов\)$/).count(), {
       timeout: 10_000,
     }).toBe(1)
-    expect(await page.getByText('Context compacted', { exact: true }).count()).toBe(0)
+    expect(await page.getByText('Контекст сжат', { exact: true }).count()).toBe(0)
     // Tool cards render from logged tool/call + tool/result alone (views are
     // host-recomputed per page; the generic card is the documented default).
     const toolRows = page.locator('[data-variant], [data-sample]')
@@ -315,7 +315,7 @@ describe('web e2e: seeded history renders through cold resume', () => {
     }), { surfaceOp: 'append' })
     // The header names the producer the durable source records, so the
     // reconciled instruction file is readable without expanding the row.
-    await page.getByRole('button', { name: 'Context injection AGENTS.md', exact: true })
+    await page.getByRole('button', { name: 'Внедрение контекста AGENTS.md', exact: true })
       .waitFor({ timeout: 10_000 })
   }, 60_000)
 
@@ -324,7 +324,7 @@ describe('web e2e: seeded history renders through cold resume', () => {
     // This scenario issues zero model calls — the scaffold's route-only
     // adapter serves the catalog and refuses to stream — so history restores
     // the routed id and the seat resolves it against an advertised row.
-    await page.getByRole('button', { name: /^Select model, current/ })
+    await page.getByRole('button', { name: /^Выбор модели, текущая/ })
       .waitFor({ timeout: 10_000 })
     const snapshot = (await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd))
       .split(SEED_ID).join('{{seededId}}')
@@ -333,7 +333,7 @@ describe('web e2e: seeded history renders through cold resume', () => {
 
   it.skipIf(MODE === 'record')('matches the Figma context disclosure geometry', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-context-injection'))
-    const disclosure = page.getByRole('button', { name: 'Context injection AGENTS.md', exact: true })
+    const disclosure = page.getByRole('button', { name: 'Внедрение контекста AGENTS.md', exact: true })
     expect(await disclosure.getAttribute('aria-expanded')).toBe('false')
     const collapsedIcon = disclosure.locator('svg').first()
     const collapsedIconBox = await collapsedIcon.boundingBox()
@@ -346,7 +346,7 @@ describe('web e2e: seeded history renders through cold resume', () => {
     await body.waitFor({ timeout: 5_000 })
     // The instructions form names the file it reconciled above the text, and
     // the text keeps the framing the model read rather than a cleaned excerpt.
-    expect(await body.locator('[data-context-files] li').allInnerTexts()).toEqual(['AGENTS.md\nloaded'])
+    expect(await body.locator('[data-context-files] li').allInnerTexts()).toEqual(['AGENTS.md\nзагружено'])
     expect(await body.locator('[data-context-text]').innerText()).toContain('<system-reminder>')
     const headerBox = await disclosure.boundingBox()
     const bodyBox = await body.boundingBox()
@@ -404,7 +404,7 @@ describe('web e2e: seeded history renders through cold resume', () => {
 
   it.skipIf(MODE === 'record')('expands the cold-resumed compact summary', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-seeded-compaction'))
-    const marker = page.getByRole('button', { name: /compact Compacted \d+ history items/ })
+    const marker = page.getByRole('button', { name: /compact Сжато \d+ записей истории/ })
     await marker.waitFor({ timeout: 10_000 })
     expect(await marker.getAttribute('aria-expanded')).toBe('false')
     await marker.click()
@@ -426,9 +426,9 @@ describe('web e2e: seeded history renders through cold resume', () => {
     // where neither half repeats the other (the dispatched `/` and its
     // argument stay out of the title, and the settlement text never restates
     // the command's own name).
-    await page.getByRole('button', { name: 'Access mode, current: Workspace Write' }).click()
+    await page.getByRole('button', { name: 'Режим доступа, текущий: Workspace Write' }).click()
     await page.getByRole('menuitem', { name: 'Read Only' }).click()
-    await page.getByRole('button', { name: 'Access mode, current: Read Only' }).waitFor({ timeout: 10_000 })
+    await page.getByRole('button', { name: 'Режим доступа, текущий: Read Only' }).waitFor({ timeout: 10_000 })
     // Scoped to the row itself, so unrelated page text that happens to read
     // `permission` (a future resident slash menu) cannot satisfy or break it.
     const row = page.locator('[data-variant="others"]').filter({ hasText: 'preset read-only' })
@@ -486,7 +486,7 @@ describe('web e2e: seeded history renders through cold resume', () => {
       source: { kind: 'plugin', plugin: 'fixture' },
     }), { surfaceOp: 'append' })
 
-    const disclosure = page.getByRole('button', { name: 'Context injection fixture', exact: true })
+    const disclosure = page.getByRole('button', { name: 'Внедрение контекста fixture', exact: true })
     await disclosure.waitFor({ timeout: 10_000 })
     await disclosure.click()
     await expect.poll(() => disclosure.getAttribute('aria-expanded')).toBe('true')

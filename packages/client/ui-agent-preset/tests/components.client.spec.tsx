@@ -19,7 +19,7 @@ import { AgentPresetSeat } from '../src/client/AgentPresetSeat.tsx'
 import type { AgentPresetSeatProps } from '../src/client/AgentPresetSeat.tsx'
 import type { AgentPresetSettingsState } from '../src/client/settings-store.ts'
 import type { AgentPresetSeatState } from '../src/client/seat-store.ts'
-import { en } from '../src/client/locales.ts'
+import { ru } from '../src/client/locales.ts'
 
 afterEach(cleanup)
 
@@ -50,7 +50,7 @@ function renderRow(state: Partial<AgentPresetSettingsState> = {}) {
   render(<AgentPresetRow {...({
     ...actions,
     useAgentPreset: bindSnapshotSelector(store),
-    t: (key: keyof typeof en) => en[key],
+    t: (key: keyof typeof ru) => ru[key],
   } as unknown as AgentPresetRowProps)} />)
   return actions
 }
@@ -65,7 +65,7 @@ function renderSeat(state: Partial<AgentPresetSeatState> = {}) {
   render(<AgentPresetSeat {...({
     ...actions,
     useAgentPresetSeat: bindSnapshotSelector(store),
-    t: (key: keyof typeof en) => en[key],
+    t: (key: keyof typeof ru) => ru[key],
   } as unknown as AgentPresetSeatProps)} />)
   return actions
 }
@@ -85,7 +85,7 @@ function renderLabel(
     sessionId: 's1',
     useSessions: bindSnapshotSelector(sessions),
     useAgentPresets: bindSnapshotSelector(store),
-    t: (key: keyof typeof en) => en[key],
+    t: (key: keyof typeof ru) => ru[key],
   } as unknown as AgentPresetLabelProps)} />)
   return { load, view }
 }
@@ -95,7 +95,7 @@ describe('the General-settings row', () => {
     const actions = renderRow()
 
     await waitFor(() => { expect(actions.load).toHaveBeenCalledTimes(1) })
-    expect(screen.getByRole('button').textContent).toContain(en.presetStandardName)
+    expect(screen.getByRole('button').textContent).toContain(ru.presetStandardName)
   })
 
   it('marks a locally authored option as local', () => {
@@ -105,9 +105,9 @@ describe('the General-settings row', () => {
 
     // A local preset is exactly as privileged as the plugins it names, so the
     // list says which rows are local rather than presenting all as vetted.
-    expect(screen.getByText(`mine · ${en.userTrust}`)).toBeTruthy()
+    expect(screen.getByText(`mine · ${ru.userTrust}`)).toBeTruthy()
     // The shipped one carries no marker; only local rows are called out.
-    expect(screen.getAllByText(en.presetStandardName)).toHaveLength(2)
+    expect(screen.getAllByText(ru.presetStandardName)).toHaveLength(2)
   })
 
   it('falls back to the id for a preset that published no name', () => {
@@ -127,8 +127,8 @@ describe('the General-settings row', () => {
     fireEvent.click(screen.getByRole('button'))
 
     // A locally authored preset is marked whether or not it named itself.
-    expect(screen.getByText(`团队模式 · ${en.userTrust}`)).toBeTruthy()
-    expect(screen.getByText(`mine · ${en.userTrust}`)).toBeTruthy()
+    expect(screen.getByText(`团队模式 · ${ru.userTrust}`)).toBeTruthy()
+    expect(screen.getByText(`mine · ${ru.userTrust}`)).toBeTruthy()
     // A shipped preset with no metadata is listed by id and carries no mark.
     expect(screen.getByText('bare')).toBeTruthy()
   })
@@ -143,7 +143,7 @@ describe('the General-settings row', () => {
     const actions = renderRow()
     fireEvent.click(screen.getByRole('button'))
 
-    fireEvent.click(screen.getByText(`mine · ${en.userTrust}`))
+    fireEvent.click(screen.getByText(`mine · ${ru.userTrust}`))
 
     expect(actions.select).toHaveBeenCalledWith('mine')
     expect(screen.getByRole('button').getAttribute('aria-expanded')).toBe('false')
@@ -161,7 +161,7 @@ describe('the General-settings row', () => {
   it('says it is loading before the roster answers', () => {
     renderRow({ status: 'loading', currentValue: '' })
 
-    expect(screen.getByRole('button').textContent).toContain(en.loading)
+    expect(screen.getByRole('button').textContent).toContain(ru.loading)
     expect(screen.getByRole('button')).toHaveProperty('disabled', true)
   })
 
@@ -177,7 +177,7 @@ describe('the General-settings row', () => {
       select: vi.fn(() => Promise.resolve()),
       useAgentPreset: bindSnapshotSelector(
         createSnapshotStore<AgentPresetSettingsState>({ ...ROW_READY, status: 'unavailable', options: [] })),
-      t: (key: keyof typeof en) => en[key],
+      t: (key: keyof typeof ru) => ru[key],
     } as unknown as AgentPresetRowProps)} />)
 
     expect(container.firstChild).toBeNull()
@@ -189,7 +189,7 @@ describe('the General-settings row', () => {
       load: vi.fn(() => Promise.resolve()),
       select: vi.fn(() => Promise.resolve()),
       useAgentPreset: bindSnapshotSelector(store),
-      t: (key: keyof typeof en) => en[key],
+      t: (key: keyof typeof ru) => ru[key],
     } as unknown as AgentPresetRowProps)} />)
     fireEvent.click(screen.getByRole('button'))
 
@@ -205,8 +205,8 @@ describe('the new-session chip', () => {
     const actions = renderSeat()
 
     await waitFor(() => { expect(actions.load).toHaveBeenCalledTimes(1) })
-    expect(screen.getByRole('button').textContent).toContain(en.presetStandardName)
-    expect(screen.getByRole('button').getAttribute('title')).toBe(en.seatHint)
+    expect(screen.getByRole('button').textContent).toContain(ru.presetStandardName)
+    expect(screen.getByRole('button').getAttribute('title')).toBe(ru.seatHint)
   })
 
   it('offers each preset with what it is for', () => {
@@ -216,10 +216,10 @@ describe('the new-session chip', () => {
 
     // The id alone never said what a preset does; the description is the
     // whole reason a preset can publish metadata at all.
-    expect(screen.getByText(en.presetStandardDescription)).toBeTruthy()
+    expect(screen.getByText(ru.presetStandardDescription)).toBeTruthy()
     // A preset that published none still reads as a row, with its id standing
     // in for the name.
-    expect(screen.getByText(en.noDescription)).toBeTruthy()
+    expect(screen.getByText(ru.noDescription)).toBeTruthy()
     expect(screen.getByText('mine')).toBeTruthy()
   })
 
@@ -372,13 +372,13 @@ describe('the session-header label', () => {
     await waitFor(() => { expect(load).toHaveBeenCalledTimes(1) })
     // A control here would promise a switch the host refuses outright.
     expect(screen.queryByRole('button')).toBeNull()
-    expect(screen.getByTitle(en.presetStandardDescription).textContent).toBe(en.presetStandardName)
+    expect(screen.getByTitle(ru.presetStandardDescription).textContent).toBe(ru.presetStandardName)
   })
 
   it('falls back to the id, and to the generic hint, when metadata is absent', () => {
     renderLabel({ blank: true, agentPreset: 'mine' })
 
-    expect(screen.getByTitle(en.headerHint).textContent).toBe('mine')
+    expect(screen.getByTitle(ru.headerHint).textContent).toBe('mine')
   })
 
   it('shows the id until the roster resolves it', () => {
@@ -386,7 +386,7 @@ describe('the session-header label', () => {
 
     // The session's own summary is the authority on which preset it runs; the
     // roster only supplies the display name, and its arrival is a later frame.
-    expect(screen.getByTitle(en.headerHint).textContent).toBe('standard')
+    expect(screen.getByTitle(ru.headerHint).textContent).toBe('standard')
   })
 
   it('renders nothing, and reads no roster, when the session records no preset', async () => {

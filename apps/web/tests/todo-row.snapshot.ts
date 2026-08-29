@@ -44,7 +44,7 @@ describe('assembled todo surfaces', () => {
   it('renders the parallel plan as a row summary, a separate active count, and the dock plan strip', async () => {
     mountAssembledApp()
 
-    const tree = await screen.findByRole('tree', { name: 'Sessions' }, { timeout: 10_000 })
+    const tree = await screen.findByRole('tree', { name: 'Сессии' }, { timeout: 10_000 })
     fireEvent.click(await within(tree).findByText('Fixture 历史会话'))
     // The todo turn is the fixture's last, so wait for its keyed row rather
     // than for chat content in general.

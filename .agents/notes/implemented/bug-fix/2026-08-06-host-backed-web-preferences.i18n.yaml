@@ -1,6 +1,0 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
-#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-08-06-host-backed-web-preferences.md
-2026-08-06-host-backed-web-preferences.md: 5b6fb3a1aae090424bee85338a3f0f27e6dc5c19
-2026-08-06-host-backed-web-preferences.zh.md: 2922b30f8ea782586e2f06c2d1f8865e7b843264

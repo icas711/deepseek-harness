@@ -166,10 +166,6 @@ describe('payload change judgement', () => {
   it('ignores paths no tarball carries', () => {
     expect(reachesPayload(sourceShipping, 'vendor/cosmokit/tests/unit.spec.ts')).toBe(false)
     expect(reachesPayload(sourceShipping, 'vendor/cosmokit/CHANGELOG.md')).toBe(false)
-    // The README pattern is deliberately loose: over-reporting a change costs one
-    // unnecessary patch bump, while under-reporting fails the next publish on a
-    // version whose bytes moved.
-    expect(reachesPayload(sourceShipping, 'vendor/cosmokit/README.i18n.yaml')).toBe(true)
     expect(reachesPayload(member('packages/a/library', '@deepseek-ai/dsh-library', { files: ['lib/index.js'] }),
       'packages/a/library/tests/library.spec.ts')).toBe(false)
   })

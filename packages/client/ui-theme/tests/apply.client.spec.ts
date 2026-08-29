@@ -5,17 +5,13 @@ import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it, vi } from 'vitest'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { TestRemote, usePinnedBrowserLanguages } from '@deepseek-ai/dsh-client-test-runtime'
+import { TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
 import { SettingsScopeBinder } from '@deepseek-ai/dsh-client-ui-settings/client'
 import { apply, inject, SETTINGS_NS } from '@deepseek-ai/dsh-client-ui-theme/client'
 import type { AppearanceRowInjected, ThemeRuntime } from '@deepseek-ai/dsh-client-ui-theme/client'
 import { THEME_SETTINGS_NAMESPACE, ThemeSettingsSchema } from '../src/theme-settings.ts'
 import { AppearanceRow } from '../src/client/AppearanceRow.tsx'
 import type { createAppearanceRowStore } from '../src/client/settings-store.ts'
-
-// The service reads its initial locale from the browser; these specs assert
-// the shipped Chinese copy, so they state the browser they assume.
-usePinnedBrowserLanguages('zh-CN')
 
 const SLOT = 'settings.general.item'
 
@@ -28,7 +24,7 @@ function deferred<T>() {
 async function bench(isLoopback = true) {
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
-  const locale = new LocaleRuntime(ctx)
+  const locale = new LocaleRuntime()
   ctx.provide('locale', locale)
   let preference = 'system'
   const namespace = () => ({
@@ -90,9 +86,7 @@ describe('ui-theme apply', () => {
     const before = await bench()
     declareItems(before.slots)
     await before.ctx.plugin({ inject: [...inject], apply }).await()
-    expect(before.locale.bind(SETTINGS_NS)('appearance.title')).toBe('外观')
-    before.locale.setLocale('en')
-    expect(before.locale.bind(SETTINGS_NS)('appearance.title')).toBe('Appearance')
+    expect(before.locale.bind(SETTINGS_NS)('appearance.title')).toBe('Внешний вид')
     const entry = before.slots.entries(SLOT).find(e => e.component === AppearanceRow)!
     expect(entry.options).toMatchObject({ id: 'appearance', order: 10 })
 

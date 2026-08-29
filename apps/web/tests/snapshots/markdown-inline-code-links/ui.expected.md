@@ -1,14 +1,14 @@
 - banner:
-  - navigation "Session hierarchy":
+  - navigation "Иерархия сессий":
     - button "Inline code links" [disabled]
   - button "Session log":
     - text: Session log
     - img
   - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
+    - tab "Беседа" [selected]
+    - tab "Траектория"
 - text: Show the local preview URL. {{clock}}
-- button "Copy":
+- button "Копировать":
   - img
 - heading "Inline code links" [level=2]
 - paragraph:
@@ -27,21 +27,21 @@
   - text: "Unsafe:"
   - code: javascript:alert(1)
 - paragraph: INLINE_CODE_LINK_DONE
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: {{clock}} Ran for {{duration}}
-- textbox "Message the agent"
-- button "Commands":
+- text: {{clock}} Выполнялось {{duration}}
+- textbox "Написать агенту"
+- button "Команды":
   - img
-- 'button "Access mode, current: Workspace Write"': Workspace Write
-- button "Select model, current DeepSeek-V4-Flash":
+- 'button "Режим доступа, текущий: Workspace Write"': Workspace Write
+- button "Выбор модели, текущая DeepSeek-V4-Flash":
   - text: DeepSeek-V4-Flash
   - img
-- button "Send message" [disabled]
-- text: 1 turns · 1 steps LLM {{duration}}
+- button "Отправить сообщение" [disabled]
+- text: 1 ход(ов) · 1 шаг(ов) LLM {{duration}}

@@ -1,43 +1,52 @@
-- button "New session"
-- button "Collapse sidebar":
+- button "Создать сессию"
+- button "Свернуть боковую панель":
   - img
-- button "New session":
+- button "Создать сессию":
   - img
-  - text: New Session
-- text: Workspaces
-- button "Search sessions":
+  - text: Новая сессия
+- text: Рабочие области
+- button "Поиск по сессиям":
   - img
-- textbox "Search sessions..."
-- button "View options":
+- textbox "Поиск сессий…"
+- button "Параметры просмотра":
   - img
-- button "Add workspace":
+- button "Добавить рабочую область":
   - img
-- tree "Sessions":
+- tree "Сессии":
   - treeitem "workspace" [expanded]:
     - img
     - text: workspace
-  - treeitem "New Session" [selected]
-- button "Settings":
+  - treeitem "Новая сессия" [selected]
+- button "Настройки":
   - img
-  - text: Settings
-- text: Into the Unknown Preview
-- button "Choose workspace":
+  - text: Настройки
+- text: Поехали Превью
+- button "Выбрать рабочую область":
   - img
   - text: workspace
   - img
-- button "Standard mode":
+- button "Стандартный режим":
   - img
-  - text: Standard mode
+  - text: Стандартный режим
   - img
-- textbox "Describe what you want to build"
-- button "Commands":
+- listbox "Подсказки триггеров":
+  - text: Команды
+  - option "compact Compact older conversation history" [selected]
+  - option "export Download this Session log as a ZIP archive"
+  - option "feedback record feedback about this session"
+  - option "goal set or view the goal for a long-running task"
+  - option "permission Switch the permission preset (sandbox mode + approval policy)"
+  - option "plan Enter or leave plan mode"
+  - option "model Выбрать модель для этой беседы"
+- textbox "Опишите, что хотите создать"
+- button "Команды" [expanded]:
   - img
-- tooltip "Commands"
-- 'button "Access mode, current: Workspace Write"': Workspace Write
-- button "Select model, current DeepSeek-V4-Flash":
+- tooltip "Команды"
+- 'button "Режим доступа, текущий: Workspace Write"': Workspace Write
+- button "Выбор модели, текущая DeepSeek-V4-Flash":
   - text: DeepSeek-V4-Flash
   - img
-- button "Send message" [disabled]
-- text: Details
-- button "Close details"
-- text: Click a tool row in the message flow to view its details
+- button "Отправить сообщение" [disabled]
+- text: Детали
+- button "Закрыть детали"
+- text: Нажмите на строку инструмента в потоке сообщений, чтобы посмотреть детали

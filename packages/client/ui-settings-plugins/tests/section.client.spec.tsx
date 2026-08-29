@@ -23,11 +23,11 @@ import type { AgentLoopCardState } from '../src/client/agent-loop-card-controlle
 import type { BashCardState } from '../src/client/bash-card-controller.ts'
 import type { CardFieldState, CardShell } from '../src/client/card-form.ts'
 import type { WebSearchCardState } from '../src/client/web-search-card-controller.ts'
-import { en } from '../src/client/locales.ts'
+import { ru } from '../src/client/locales.ts'
 
 afterEach(cleanup)
 
-const t = (key: keyof typeof en) => en[key]
+const t = (key: keyof typeof ru) => ru[key]
 
 /** A settled form: nothing staged, everything served. */
 const settled: CardShell = {
@@ -85,18 +85,18 @@ describe('PluginsSettingsSection', () => {
   it('says so when no plugin contributed a tab', () => {
     renderSection([])
 
-    expect(screen.getByText(en.empty)).toBeTruthy()
+    expect(screen.getByText(ru.empty)).toBeTruthy()
     expect(screen.queryByRole('tab')).toBeNull()
   })
 
   it('defaults to the first ordered tab and mounts another only after selection', () => {
     renderSection([
-      { id: 'configurable', order: 0, label: en.configurableTab },
-      { id: 'all', order: 10, label: 'Plugin list' },
+      { id: 'configurable', order: 0, label: ru.configurableTab },
+      { id: 'all', order: 10, label: 'Список плагинов' },
     ])
 
-    const configurable = screen.getByRole('tab', { name: en.configurableTab })
-    const all = screen.getByRole('tab', { name: 'Plugin list' })
+    const configurable = screen.getByRole('tab', { name: ru.configurableTab })
+    const all = screen.getByRole('tab', { name: 'Список плагинов' })
     expect(configurable.getAttribute('aria-selected')).toBe('true')
     expect(screen.getByText('configurable')).toBeTruthy()
     expect(screen.queryByText('all')).toBeNull()
@@ -112,21 +112,21 @@ describe('PluginsSettingsSection', () => {
   })
 
   it('leads with its own heading and intro', () => {
-    renderSection([{ id: 'configurable', order: 0, label: en.configurableTab }])
+    renderSection([{ id: 'configurable', order: 0, label: ru.configurableTab }])
 
-    expect(screen.getByRole('heading', { name: en.title })).toBeTruthy()
-    expect(screen.getByText(en.intro)).toBeTruthy()
+    expect(screen.getByRole('heading', { name: ru.title })).toBeTruthy()
+    expect(screen.getByText(ru.intro)).toBeTruthy()
   })
 
   it('moves focus and selection with standard horizontal tab keys', () => {
     renderSection([
-      { id: 'configurable', order: 0, label: en.configurableTab },
-      { id: 'all', order: 10, label: 'Plugin list' },
+      { id: 'configurable', order: 0, label: ru.configurableTab },
+      { id: 'all', order: 10, label: 'Список плагинов' },
       { id: 'diagnostics', order: 20, label: 'Diagnostics' },
     ])
 
-    const configurable = screen.getByRole('tab', { name: en.configurableTab })
-    const all = screen.getByRole('tab', { name: 'Plugin list' })
+    const configurable = screen.getByRole('tab', { name: ru.configurableTab })
+    const all = screen.getByRole('tab', { name: 'Список плагинов' })
     const diagnostics = screen.getByRole('tab', { name: 'Diagnostics' })
     expect(configurable.getAttribute('tabindex')).toBe('0')
     expect(all.getAttribute('tabindex')).toBe('-1')
@@ -155,7 +155,7 @@ describe('ConfigurablePluginsTab', () => {
   it('says so when no plugin contributed a card', () => {
     renderConfigurable(0)
 
-    expect(screen.getByText(en.empty)).toBeTruthy()
+    expect(screen.getByText(ru.empty)).toBeTruthy()
     expect(screen.queryByText('cards')).toBeNull()
   })
 
@@ -163,7 +163,7 @@ describe('ConfigurablePluginsTab', () => {
     renderConfigurable(1)
 
     expect(screen.getByText('cards')).toBeTruthy()
-    expect(screen.queryByText(en.empty)).toBeNull()
+    expect(screen.queryByText(ru.empty)).toBeNull()
   })
 })
 
@@ -173,25 +173,25 @@ describe('BashCard', () => {
     renderBash({ available: false })
 
     expect(container.textContent).toBe('')
-    expect(screen.queryByText(en.bashTitle)).toBeNull()
+    expect(screen.queryByText(ru.bashTitle)).toBeNull()
   })
 
   it('shows the plugin and reveals its fields only once expanded', () => {
     renderBash()
-    expect(screen.getByText(en.bashTitle)).toBeTruthy()
-    expect(screen.queryByLabelText(en.bashTimeoutMs)).toBeNull()
+    expect(screen.getByText(ru.bashTitle)).toBeTruthy()
+    expect(screen.queryByLabelText(ru.bashTimeoutMs)).toBeNull()
 
-    fireEvent.click(screen.getByText(en.bashTitle))
+    fireEvent.click(screen.getByText(ru.bashTitle))
 
-    expect(screen.getByLabelText(en.bashTimeoutMs)).toBeTruthy()
-    expect(screen.getByLabelText(en.bashMaxOutputBytes)).toBeTruthy()
+    expect(screen.getByLabelText(ru.bashTimeoutMs)).toBeTruthy()
+    expect(screen.getByLabelText(ru.bashMaxOutputBytes)).toBeTruthy()
   })
 
   it('stages an edit instead of writing it', () => {
     const actions = renderBash()
-    fireEvent.click(screen.getByText(en.bashTitle))
+    fireEvent.click(screen.getByText(ru.bashTitle))
 
-    fireEvent.change(screen.getByLabelText(en.bashTimeoutMs), { target: { value: '9000' } })
+    fireEvent.change(screen.getByLabelText(ru.bashTimeoutMs), { target: { value: '9000' } })
 
     expect(actions.edit).toHaveBeenCalledWith('timeoutMs', '9000')
     expect(actions.save).not.toHaveBeenCalled()
@@ -199,21 +199,21 @@ describe('BashCard', () => {
 
   it('offers the reset for an overridden field only', () => {
     const actions = renderBash({ timeoutMs: field('9000', { overridden: true }) })
-    fireEvent.click(screen.getByText(en.bashTitle))
+    fireEvent.click(screen.getByText(ru.bashTitle))
 
     // One badge and one reset: the output cap is still inherited.
-    expect(screen.getAllByText(en.overridden)).toHaveLength(1)
-    fireEvent.click(screen.getByRole('button', { name: en.reset }))
+    expect(screen.getAllByText(ru.overridden)).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: ru.reset }))
 
     expect(actions.resetField).toHaveBeenCalledWith('timeoutMs')
   })
 
   it('addresses each of its two fields separately', () => {
     const actions = renderBash({ maxOutputBytes: field('64000', { overridden: true }) })
-    fireEvent.click(screen.getByText(en.bashTitle))
+    fireEvent.click(screen.getByText(ru.bashTitle))
 
-    fireEvent.change(screen.getByLabelText(en.bashMaxOutputBytes), { target: { value: '1024' } })
-    fireEvent.click(screen.getByRole('button', { name: en.reset }))
+    fireEvent.change(screen.getByLabelText(ru.bashMaxOutputBytes), { target: { value: '1024' } })
+    fireEvent.click(screen.getByRole('button', { name: ru.reset }))
 
     expect(actions.edit).toHaveBeenCalledWith('maxOutputBytes', '1024')
     expect(actions.resetField).toHaveBeenCalledWith('maxOutputBytes')
@@ -221,19 +221,19 @@ describe('BashCard', () => {
 
   it('keeps save and discard inert until something is staged', () => {
     renderBash()
-    fireEvent.click(screen.getByText(en.bashTitle))
+    fireEvent.click(screen.getByText(ru.bashTitle))
 
-    expect(screen.getByRole('button', { name: en.save })).toHaveProperty('disabled', true)
-    expect(screen.getByRole('button', { name: en.discard })).toHaveProperty('disabled', true)
-    expect(screen.queryByText(en.unsaved)).toBeNull()
+    expect(screen.getByRole('button', { name: ru.save })).toHaveProperty('disabled', true)
+    expect(screen.getByRole('button', { name: ru.discard })).toHaveProperty('disabled', true)
+    expect(screen.queryByText(ru.unsaved)).toBeNull()
   })
 
   it('writes the staged edits when saved, and drops them when discarded', () => {
     const actions = renderBash({ dirty: true, timeoutMs: field('9000', { overridden: true }) })
-    fireEvent.click(screen.getByText(en.bashTitle))
+    fireEvent.click(screen.getByText(ru.bashTitle))
 
-    fireEvent.click(screen.getByRole('button', { name: en.save }))
-    fireEvent.click(screen.getByRole('button', { name: en.discard }))
+    fireEvent.click(screen.getByRole('button', { name: ru.save }))
+    fireEvent.click(screen.getByRole('button', { name: ru.discard }))
 
     expect(actions.save).toHaveBeenCalledOnce()
     expect(actions.discard).toHaveBeenCalledOnce()
@@ -242,49 +242,49 @@ describe('BashCard', () => {
   it('marks a card holding unsaved edits, collapsed or not', () => {
     renderBash({ dirty: true })
 
-    expect(screen.getByText(en.unsaved)).toBeTruthy()
+    expect(screen.getByText(ru.unsaved)).toBeTruthy()
   })
 
   it('blocks the save while a draft is invalid, and says why', () => {
     renderBash({ dirty: true, invalid: true, timeoutMs: field('soon', { invalid: true }) })
-    fireEvent.click(screen.getByText(en.bashTitle))
+    fireEvent.click(screen.getByText(ru.bashTitle))
 
-    expect(screen.getByRole('button', { name: en.save })).toHaveProperty('disabled', true)
-    expect(screen.getByRole('button', { name: en.discard })).toHaveProperty('disabled', false)
-    expect(screen.getByText(en.invalidNumber)).toBeTruthy()
+    expect(screen.getByRole('button', { name: ru.save })).toHaveProperty('disabled', true)
+    expect(screen.getByRole('button', { name: ru.discard })).toHaveProperty('disabled', false)
+    expect(screen.getByText(ru.invalidNumber)).toBeTruthy()
   })
 
   it('reports a save in flight and refuses another', () => {
     renderBash({ dirty: true, saving: true })
-    fireEvent.click(screen.getByText(en.bashTitle))
+    fireEvent.click(screen.getByText(ru.bashTitle))
 
-    expect(screen.getByRole('button', { name: en.saving })).toHaveProperty('disabled', true)
-    expect(screen.getByRole('button', { name: en.discard })).toHaveProperty('disabled', true)
+    expect(screen.getByRole('button', { name: ru.saving })).toHaveProperty('disabled', true)
+    expect(screen.getByRole('button', { name: ru.discard })).toHaveProperty('disabled', true)
   })
 
   it('reports a save the deployment did not accept', () => {
     renderBash({ dirty: true, failed: true })
-    fireEvent.click(screen.getByText(en.bashTitle))
+    fireEvent.click(screen.getByText(ru.bashTitle))
 
-    expect(screen.getByText(en.saveFailed)).toBeTruthy()
+    expect(screen.getByText(ru.saveFailed)).toBeTruthy()
   })
 
   it('says the document is read-only and disables its controls', () => {
     renderBash({ writable: false })
-    fireEvent.click(screen.getByText(en.bashTitle))
+    fireEvent.click(screen.getByText(ru.bashTitle))
 
-    expect(screen.getByRole('status')).toHaveProperty('textContent', en.readOnly)
-    expect(screen.getByLabelText(en.bashTimeoutMs)).toHaveProperty('disabled', true)
+    expect(screen.getByRole('status')).toHaveProperty('textContent', ru.readOnly)
+    expect(screen.getByLabelText(ru.bashTimeoutMs)).toHaveProperty('disabled', true)
   })
 
   it('collapses again on a second click', () => {
     renderBash()
-    fireEvent.click(screen.getByText(en.bashTitle))
-    expect(screen.getByLabelText(en.bashTimeoutMs)).toBeTruthy()
+    fireEvent.click(screen.getByText(ru.bashTitle))
+    expect(screen.getByLabelText(ru.bashTimeoutMs)).toBeTruthy()
 
-    fireEvent.click(screen.getByText(en.bashTitle))
+    fireEvent.click(screen.getByText(ru.bashTitle))
 
-    expect(screen.queryByLabelText(en.bashTimeoutMs)).toBeNull()
+    expect(screen.queryByLabelText(ru.bashTimeoutMs)).toBeNull()
   })
 })
 
@@ -303,9 +303,9 @@ describe('AgentLoopCard', () => {
     } as unknown as AgentLoopCardProps
     render(<AgentLoopCard {...props} />)
 
-    fireEvent.click(screen.getByText(en.agentLoopTitle))
-    fireEvent.change(screen.getByLabelText(en.agentLoopMaxParallel), { target: { value: '2' } })
-    fireEvent.click(screen.getByRole('button', { name: en.save }))
+    fireEvent.click(screen.getByText(ru.agentLoopTitle))
+    fireEvent.change(screen.getByLabelText(ru.agentLoopMaxParallel), { target: { value: '2' } })
+    fireEvent.click(screen.getByRole('button', { name: ru.save }))
 
     expect(actions.edit).toHaveBeenCalledWith('maxParallelToolCalls', '2')
     expect(actions.save).toHaveBeenCalledOnce()
@@ -324,8 +324,8 @@ describe('AgentLoopCard', () => {
     } as unknown as AgentLoopCardProps
     render(<AgentLoopCard {...props} />)
 
-    fireEvent.click(screen.getByText(en.agentLoopTitle))
-    fireEvent.click(screen.getByRole('button', { name: en.reset }))
+    fireEvent.click(screen.getByText(ru.agentLoopTitle))
+    fireEvent.click(screen.getByRole('button', { name: ru.reset }))
 
     expect(actions.resetField).toHaveBeenCalledWith('maxParallelToolCalls')
   })
@@ -350,19 +350,19 @@ describe('WebSearchCard', () => {
 
   it('reports whether a key is configured without ever showing one', () => {
     renderWebSearch({ apiKeyConfigured: true })
-    fireEvent.click(screen.getByText(en.webSearchTitle))
+    fireEvent.click(screen.getByText(ru.webSearchTitle))
 
-    expect(screen.getByText(en.webSearchApiKeySet)).toBeTruthy()
-    expect(screen.getByLabelText(en.webSearchApiKey)).toHaveProperty('type', 'password')
+    expect(screen.getByText(ru.webSearchApiKeySet)).toBeTruthy()
+    expect(screen.getByLabelText(ru.webSearchApiKey)).toHaveProperty('type', 'password')
   })
 
   it('keeps the key control usable while the settings document is read-only', () => {
     const actions = renderWebSearch({ writable: false })
-    fireEvent.click(screen.getByText(en.webSearchTitle))
+    fireEvent.click(screen.getByText(ru.webSearchTitle))
 
-    const key = screen.getByLabelText(en.webSearchApiKey)
+    const key = screen.getByLabelText(ru.webSearchApiKey)
     expect(key).toHaveProperty('disabled', false)
-    expect(screen.getByLabelText(en.webSearchBaseUrl)).toHaveProperty('disabled', true)
+    expect(screen.getByLabelText(ru.webSearchBaseUrl)).toHaveProperty('disabled', true)
 
     fireEvent.change(key, { target: { value: 'ds-secret' } })
 
@@ -373,10 +373,10 @@ describe('WebSearchCard', () => {
     // A key coming from the process environment: the settings document is
     // writable, the credential is not.
     renderWebSearch({ apiKeyConfigured: true, apiKeyWritable: false })
-    fireEvent.click(screen.getByText(en.webSearchTitle))
+    fireEvent.click(screen.getByText(ru.webSearchTitle))
 
-    expect(screen.getByLabelText(en.webSearchApiKey)).toHaveProperty('disabled', true)
-    expect(screen.getByLabelText(en.webSearchBaseUrl)).toHaveProperty('disabled', false)
+    expect(screen.getByLabelText(ru.webSearchApiKey)).toHaveProperty('disabled', true)
+    expect(screen.getByLabelText(ru.webSearchBaseUrl)).toHaveProperty('disabled', false)
   })
 
   it('stages the endpoint, the search budget, and their resets', () => {
@@ -384,11 +384,11 @@ describe('WebSearchCard', () => {
       baseURL: field('https://search.test/v1', { overridden: true }),
       maxUses: field('3', { overridden: true }),
     })
-    fireEvent.click(screen.getByText(en.webSearchTitle))
+    fireEvent.click(screen.getByText(ru.webSearchTitle))
 
-    fireEvent.change(screen.getByLabelText(en.webSearchBaseUrl), { target: { value: 'https://other.test' } })
-    fireEvent.change(screen.getByLabelText(en.webSearchMaxUses), { target: { value: '4' } })
-    const resets = screen.getAllByRole('button', { name: en.reset })
+    fireEvent.change(screen.getByLabelText(ru.webSearchBaseUrl), { target: { value: 'https://other.test' } })
+    fireEvent.change(screen.getByLabelText(ru.webSearchMaxUses), { target: { value: '4' } })
+    const resets = screen.getAllByRole('button', { name: ru.reset })
     expect(resets).toHaveLength(2)
     for (const reset of resets) fireEvent.click(reset)
 

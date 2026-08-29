@@ -28,13 +28,11 @@ describe('Typert-backed Cordis catalog', () => {
         [...model.events].filter(e => EVENT_SCOPE_PAGE[e.scope] === page),
         CORDIS_CATALOG_POLICY,
       )
-      for (const side of [page, page.replace(/\.md$/, '.zh.md')]) {
-        const committed = expected(`docs/subsystems/${side}`)
-        const begin = committed.indexOf(REGION_BEGIN)
-        const end = committed.indexOf(REGION_END)
-        expect(begin, `docs/subsystems/${side} carries the region`).toBeGreaterThanOrEqual(0)
-        expect(committed.slice(begin, end + REGION_END.length)).toBe(region)
-      }
+      const committed = expected(`docs/subsystems/${page}`)
+      const begin = committed.indexOf(REGION_BEGIN)
+      const end = committed.indexOf(REGION_END)
+      expect(begin, `docs/subsystems/${page} carries the region`).toBeGreaterThanOrEqual(0)
+      expect(committed.slice(begin, end + REGION_END.length)).toBe(region)
     }
     expect(projector.renderRuntimeApi(model)).toBe(
       expected('packages/extensions/tool-cordis/src/api-catalog.ts'),

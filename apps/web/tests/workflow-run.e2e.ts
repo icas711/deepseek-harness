@@ -15,7 +15,7 @@ import {
   type WebScaffold,
 } from './scaffold.ts'
 import {
-  connectFreshWorkspace, newEnglishPage, REPO_ROOT, saveFailureShot,
+  connectFreshWorkspace, newPage, REPO_ROOT, saveFailureShot,
 } from './support.ts'
 
 const MODE = webSnapshotMode()
@@ -55,7 +55,7 @@ describe.skipIf(MODE === 'record')('web e2e: durable workflow run in Chat', () =
       paceMs: 25,
     })
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -140,7 +140,7 @@ describe.skipIf(MODE === 'record')('web e2e: durable workflow run in Chat', () =
     await member.click()
     await page.getByText(CHILD_PROMPT, { exact: true }).waitFor({ timeout: 15_000 })
 
-    const sessions = page.getByRole('tree', { name: 'Sessions' })
+    const sessions = page.getByRole('tree', { name: 'Сессии' })
     await sessions.getByRole('treeitem', { name: /Use the workflow tool exactly/ }).click()
     await settled
     await page.locator('[data-workflow-run][data-run-status="completed"]').waitFor()

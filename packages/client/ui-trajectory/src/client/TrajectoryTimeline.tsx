@@ -13,6 +13,8 @@ import {
   type TrajectoryTimelineMode,
   type TrajectoryTimeRange,
 } from './timeline.ts'
+import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
+import type { NS } from './locales.ts'
 import css from './TrajectoryTimeline.module.css'
 
 const MINIMUM_DRAG_PX = 3
@@ -144,6 +146,8 @@ export interface TrajectoryTimelineProps {
   onRecordSelect?: (index: number) => void
   /** Bring the nearest record into view after clicking timeline whitespace. */
   onRecordFocus?: (index: number) => void
+  /** Translate a history-loader dictionary key. */
+  t: TranslateNS<typeof NS>
 }
 
 function orderedRange(left: number, right: number): FractionRange {
@@ -199,14 +203,16 @@ function EarlierHistoryBoundary({
   loading,
   onHover,
   onLoad,
+  t,
 }: {
   loading: boolean
   onHover: () => void
   onLoad: (() => void) | undefined
+  t: TranslateNS<typeof NS>
 }) {
   return (
     <Tooltip
-      label={loading ? 'Loading earlier history…' : 'Click to load earlier history'}
+      label={loading ? t('history.loadingEarlier') : t('history.loadEarlierHint')}
       side="right"
       delayMs={TIMELINE_TOOLTIP_DELAY_MS}
     >
@@ -215,7 +221,7 @@ function EarlierHistoryBoundary({
         className={css.earlierHistory}
         data-earlier-history
         data-loading={loading || undefined}
-        aria-label={loading ? 'Loading earlier history' : 'Load earlier history'}
+        aria-label={loading ? t('history.loadingEarlier') : t('history.loadEarlier')}
         aria-disabled={loading || onLoad === undefined}
         onClick={onLoad}
         onPointerEnter={(event) => {
@@ -243,6 +249,7 @@ export const TrajectoryTimeline = memo(function TrajectoryTimeline({
   onRangeChange,
   onRecordSelect,
   onRecordFocus,
+  t,
 }: TrajectoryTimelineProps) {
   const model = useMemo(() => deriveTrajectoryTimeline(turns, mode), [mode, turns])
   const detailByIndex = useMemo(
@@ -390,6 +397,7 @@ export const TrajectoryTimeline = memo(function TrajectoryTimeline({
                 loading={loadingEarlier}
                 onHover={() => { setHover(null) }}
                 onLoad={loadEarlier}
+                t={t}
               />
             )}
           </div>
@@ -605,6 +613,7 @@ export const TrajectoryTimeline = memo(function TrajectoryTimeline({
               loading={loadingEarlier}
               onHover={() => { setHover(null) }}
               onLoad={loadEarlier}
+              t={t}
             />
           )}
           {hover !== null && hover.recordIndex === null && draft === null && (

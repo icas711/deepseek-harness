@@ -1,5 +1,5 @@
 - banner:
-  - navigation "Session hierarchy":
+  - navigation "Иерархия сессий":
     - button "Ask a research subagent to"
     - text: /
     - button "event-sourcing researcher"
@@ -9,11 +9,11 @@
     - text: Session log
     - img
   - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
+    - tab "Беседа" [selected]
+    - tab "Траектория"
 - text: Give one concrete event sourcing example. {{clock}}
-- button "Copy":
+- button "Копировать":
   - img
 - status:
-  - strong: This subagent is read-only for now
-  - text: The parent session is offline; reopen it to continue sending messages.
+  - strong: Этот субагент пока доступен только для чтения
+  - text: Родительская сессия не подключена; откройте её заново, чтобы продолжить отправку сообщений.

@@ -6,7 +6,7 @@ import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import { SessionLogDownloadController } from '../src/client/controller.ts'
 import { SessionLogDownloadHeaderAction } from '../src/client/HeaderAction.tsx'
 import type { SessionLogDownloadDialogProps } from '../src/client/Dialog.tsx'
-import { en } from '../src/client/locales.ts'
+import { ru } from '../src/client/locales.ts'
 
 const SID = 'session-export-header' as SessionId
 
@@ -29,7 +29,7 @@ function bench() {
     useSessionLogDownload,
     request,
     dismiss,
-    t: (key: keyof typeof en): string => en[key],
+    t: (key: keyof typeof ru): string => ru[key],
   } as unknown as SessionLogDownloadDialogProps
   const view = render(<SessionLogDownloadHeaderAction {...props} />)
   return { controller, request, view }
@@ -44,7 +44,7 @@ describe('Session export Header action', () => {
     expect(button.querySelector('svg')).not.toBeNull()
     fireEvent.click(button)
     await waitFor(() => { expect(b.request).toHaveBeenCalledWith(SID) })
-    expect(await b.view.findByRole('dialog', { name: 'Session download started' })).toBeTruthy()
+    expect(await b.view.findByRole('dialog', { name: 'Загрузка сессии началась' })).toBeTruthy()
   })
 
   it('disables the capsule while either entry path downloads this Session', async () => {
@@ -58,7 +58,7 @@ describe('Session export Header action', () => {
       useSessionLogDownload,
       request: (sessionId: SessionId) => controller.download(sessionId),
       dismiss: (sessionId: SessionId) => { controller.dismiss(sessionId) },
-      t: (key: keyof typeof en): string => en[key],
+      t: (key: keyof typeof ru): string => ru[key],
     } as unknown as SessionLogDownloadDialogProps)} />)
 
     const download = controller.download(SID)

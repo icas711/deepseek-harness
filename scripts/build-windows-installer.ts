@@ -339,13 +339,13 @@ class InstallerBuild {
         clearTimeout(timer)
         resolvePromise(`http://127.0.0.1:${match[1]}/`)
       })
-      child.once('exit', code => {
+      child.once('exit', (code) => {
         if (settled) return
         settled = true
         clearTimeout(timer)
         reject(new Error(`build-windows-installer: staged app exited with code ${code} before serving.`))
       })
-      child.once('error', error => {
+      child.once('error', (error) => {
         if (settled) return
         settled = true
         clearTimeout(timer)
@@ -389,8 +389,8 @@ class InstallerBuild {
   }
 
   /** Resolve ISCC.exe: `--iscc`, then the standard Inno Setup 6/7 locations. */
-  private async resolveIscc(): Promise<string> {
-    if (this.cli.iscc !== undefined) return resolve(this.cli.iscc)
+  private resolveIscc(): Promise<string> {
+    if (this.cli.iscc !== undefined) return Promise.resolve(resolve(this.cli.iscc))
     const candidates = [
       process.env['ProgramFiles(x86)'],
       process.env.ProgramFiles,
@@ -398,7 +398,7 @@ class InstallerBuild {
     ].filter((base): base is string => base !== undefined)
       .flatMap(base => [join(base, 'Inno Setup 6', 'ISCC.exe'), join(base, 'Inno Setup 7', 'ISCC.exe')])
     const found = candidates.find(candidate => existsSync(candidate))
-    if (found !== undefined) return found
+    if (found !== undefined) return Promise.resolve(found)
     throw new Error(
       'build-windows-installer: ISCC.exe not found in standard Inno Setup locations; install Inno Setup or pass --iscc <path>.',
     )
@@ -521,11 +521,11 @@ async function stopServerOn(url: string): Promise<void> {
   const killer = spawn('powershell.exe', [
     '-NoProfile', '-Command',
     `Get-NetTCPConnection -LocalPort ${port} -State Listen -ErrorAction SilentlyContinue`
-    + ` | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }`,
+    + ' | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }',
   ], { stdio: 'ignore' })
-  await new Promise<void>(resolvePromise => {
-    killer.once('exit', () => resolvePromise())
-    killer.once('error', () => resolvePromise())
+  await new Promise<void>((resolvePromise) => {
+    killer.once('exit', () => { resolvePromise() })
+    killer.once('error', () => { resolvePromise() })
   })
 }
 

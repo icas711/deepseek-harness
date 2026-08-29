@@ -1,38 +1,38 @@
 - banner:
-  - navigation "Session hierarchy":
+  - navigation "Иерархия сессий":
     - button "Reply with a one-sentence description" [disabled]
   - img
-  - text: Standard mode
+  - text: Стандартный режим
   - button "Session log":
     - text: Session log
     - img
   - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
+    - tab "Беседа" [selected]
+    - tab "Траектория"
 - text: Reply with a one-sentence description of event sourcing, then stop. {{clock}}
-- button "Copy":
+- button "Копировать":
   - img
-- button "Context injection @deepseek-ai/dsh-system-prompt":
+- button "Внедрение контекста @deepseek-ai/dsh-system-prompt":
   - img
   - img
-  - text: Context injection @deepseek-ai/dsh-system-prompt
+  - text: Внедрение контекста @deepseek-ai/dsh-system-prompt
 - paragraph: partial
 - status: Deep diving...
 - list:
   - listitem:
     - text: Edited queue item
-    - button "Edit queued message":
+    - button "Редактировать сообщение из очереди":
       - img
-    - tooltip "Edit queued message"
-    - button "Remove queued message":
+    - tooltip "Редактировать сообщение из очереди"
+    - button "Удалить сообщение из очереди":
       - img
-    - button "Steer queued message":
+    - button "Встроить сообщение из очереди":
       - img
-- textbox "Cmd/Ctrl+Enter steers all queued messages"
-- button "Commands":
+- textbox "Cmd/Ctrl+Enter — встроить все сообщения из очереди"
+- button "Команды":
   - img
-- 'button "Access mode, current: Workspace Write"': Workspace Write
-- button "Select model, current DeepSeek-V4-Flash":
+- 'button "Режим доступа, текущий: Workspace Write"': Workspace Write
+- button "Выбор модели, текущая DeepSeek-V4-Flash":
   - text: DeepSeek-V4-Flash
   - img
-- button "Stop generating"
+- button "Остановить генерацию"

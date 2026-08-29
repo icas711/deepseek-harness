@@ -12,7 +12,7 @@ import {
   fixtureUserPrompts, launchWebScaffold, seedSession, watchConsole, webSnapshotMode,
   type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
+import { connectFreshWorkspace, newPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/details-session-lifecycle', import.meta.url))
 const HANDLES_EXPECTED = join(SNAPSHOT_DIR, 'handles.expected.md')
@@ -76,7 +76,7 @@ describe.skipIf(MODE === 'record')('web e2e: details panel follows the current S
     scaffold = await launchWebScaffold({ replayFixture: FIXTURE, paceMs: 5 })
     await seedSession(scaffold, await readFile(SEED_FIXTURE, 'utf8'), 'details-session-lifecycle-seed')
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await appFrame(page).waitFor({ timeout: 30_000 })
@@ -98,7 +98,7 @@ describe.skipIf(MODE === 'record')('web e2e: details panel follows the current S
     await page.getByText('LIGHTHOUSE', { exact: true }).waitFor({ timeout: 15_000 })
 
     await expect.poll(() => detailsTrack(page), { timeout: 5_000 }).toBe(0)
-    expect(await page.getByText('Details', { exact: true }).isVisible()).toBe(false)
+    expect(await page.getByText('Детали', { exact: true }).isVisible()).toBe(false)
     await compareOrRefreshGolden(HANDLES_EXPECTED, await handleSnapshot(page), MODE)
 
     const sidebarBefore = await sidebarTrack(page)
@@ -118,20 +118,20 @@ describe.skipIf(MODE === 'record')('web e2e: details panel follows the current S
     await appFrame(page).waitFor({ timeout: 30_000 })
     await page.getByText('LIGHTHOUSE', { exact: true }).waitFor({ timeout: 15_000 })
     await expect.poll(() => detailsTrack(page), { timeout: 5_000 }).toBe(0)
-    expect(await page.getByText('Details', { exact: true }).isVisible()).toBe(false)
+    expect(await page.getByText('Детали', { exact: true }).isVisible()).toBe(false)
 
-    await page.getByRole('button', { name: /^(?:New session|新.*会话)$/ }).last().click()
-    await page.getByText('Into the Unknown', { exact: false }).waitFor({ timeout: 15_000 })
+    await page.getByRole('button', { name: 'Создать сессию' }).last().click()
+    await page.getByText('Поехали', { exact: false }).waitFor({ timeout: 15_000 })
     await expect.poll(() => detailsTrack(page), { timeout: 5_000 }).toBe(0)
-    expect(await page.getByText('Details', { exact: true }).isVisible()).toBe(false)
+    expect(await page.getByText('Детали', { exact: true }).isVisible()).toBe(false)
 
     const original = page.locator('[role=treeitem]').filter({ hasText: 'Reply with the single word' }).first()
     await original.click()
     await page.getByText('LIGHTHOUSE', { exact: true }).waitFor({ timeout: 15_000 })
     await expect.poll(() => detailsTrack(page), { timeout: 5_000 }).toBe(0)
-    expect(await page.getByText('Details', { exact: true }).isVisible()).toBe(false)
+    expect(await page.getByText('Детали', { exact: true }).isVisible()).toBe(false)
 
-    const ungrouped = page.getByText('Ungrouped', { exact: true })
+    const ungrouped = page.getByText('Без группы', { exact: true })
     const ungroupedRow = ungrouped.locator('..').locator('..')
     const ungroupedSection = ungroupedRow.locator('..')
     await expect.poll(async () => {

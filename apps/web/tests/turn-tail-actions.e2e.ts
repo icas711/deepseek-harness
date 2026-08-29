@@ -20,7 +20,7 @@ import {
   assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
   launchWebScaffold, recordFixture, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
+import { connectFreshWorkspace, newPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/turn-tail-actions', import.meta.url))
 const FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
@@ -74,7 +74,7 @@ describe('web e2e: assistant IconActions wait for the turn to end', () => {
     )
     scaffold.ctx.on('session/event', (_session, event: SessionEvent) => { sessionEvents.push(event) })
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -124,9 +124,9 @@ describe('web e2e: assistant IconActions wait for the turn to end', () => {
     ).toBe(true)
     // Only the user bubble owns a footer (clock + copy; user bubbles carry no
     // branch action): the narration is not the answer yet.
-    const copyButtons = page.getByRole('button', { name: 'Copy' })
+    const copyButtons = page.getByRole('button', { name: 'Копировать' })
     await expect.poll(() => copyButtons.count(), { timeout: 10_000 }).toBe(1)
-    expect(await page.getByRole('button', { name: 'Branch into a new conversation' }).count()).toBe(0)
+    expect(await page.getByRole('button', { name: 'Создать ветку в новой беседе' }).count()).toBe(0)
     await copyButtons.first().focus()
     const running = await captureStableAria(page, '[class*="centerCol"]', scaffold!.workspaceCwd)
     await compareOrRefreshGolden(RUNNING_EXPECTED, running, MODE)
@@ -134,7 +134,7 @@ describe('web e2e: assistant IconActions wait for the turn to end', () => {
     // Closing the turn from the park is the state change under test: an
     // aborted turn is durably closed, so its transcript tail (the frozen
     // partial) takes the seat while the mid-turn narration keeps none.
-    await page.getByRole('button', { name: 'Stop generating' }).click()
+    await page.getByRole('button', { name: 'Остановить генерацию' }).click()
     await settled
     expect(sessionEvents.filter(e => e.type === 'turn/end').map(e => e.data.reason.kind)).toEqual(['aborted'])
     await expect.poll(() => copyButtons.count(), { timeout: 10_000 }).toBe(2)

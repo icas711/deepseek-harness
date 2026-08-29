@@ -15,7 +15,7 @@ import type {} from '@deepseek-ai/dsh-session-title'
 import {
   launchWebScaffold, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { newEnglishPage, saveFailureShot } from './support.ts'
+import { newPage, saveFailureShot } from './support.ts'
 
 const MODE = webSnapshotMode()
 const SEED_ID = 'produced-file-mentions-web-e2e'
@@ -125,7 +125,7 @@ describe('web e2e: inline-code mentions of produced files', () => {
     scaffold = await launchWebScaffold({})
     await seedSession(scaffold, mentionFixture(), SEED_ID)
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -151,10 +151,10 @@ describe('web e2e: inline-code mentions of produced files', () => {
     const mentions = page.locator('[class*="markdown"] code button')
     await expect.poll(() => mentions.count(), { timeout: 10_000 }).toBe(1)
     expect(await mentions.first().innerText()).toBe('report.html')
-    expect(await mentions.first().getAttribute('aria-label')).toBe('Open site/report.html')
+    expect(await mentions.first().getAttribute('aria-label')).toBe('Открыть site/report.html')
     expect(await mentions.first().getAttribute('title')).toBe('site/report.html')
     // The turn still ends with its produced-files row (all three writes).
-    expect(await page.getByText('Produced', { exact: true }).count()).toBe(1)
+    expect(await page.getByText('Готовые файлы', { exact: true }).count()).toBe(1)
 
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])

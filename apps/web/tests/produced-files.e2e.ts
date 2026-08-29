@@ -13,7 +13,7 @@ import type {} from '@deepseek-ai/dsh-session-title'
 import {
   launchWebScaffold, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { newEnglishPage, saveFailureShot } from './support.ts'
+import { newPage, saveFailureShot } from './support.ts'
 
 const MODE = webSnapshotMode()
 const OVERLAY = fileURLToPath(new URL('./produced-files.overlay.yml', import.meta.url))
@@ -113,7 +113,7 @@ describe('web e2e: a finished turn ends with the files it produced', () => {
     scaffold = await launchWebScaffold({ extraOverlayPath: OVERLAY })
     await seedSession(scaffold, producedFixture(), SEED_ID)
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     // Keep the responsive sidebar available while selecting the cold seed;
     // the assertion itself narrows the conversation after navigation.
     await page.setViewportSize({ width: 1280, height: 900 })
@@ -144,10 +144,10 @@ describe('web e2e: a finished turn ends with the files it produced', () => {
     await expect.poll(() => chips.count()).toBe(2)
     expect(await chips.nth(0).innerText()).toBe('关于我.md')
     expect(await chips.nth(1).innerText()).toBe('index.html')
-    expect(await row.getByText('+ 8 files', { exact: true }).count()).toBe(1)
-    const showFolder = page.getByRole('button', { name: 'Show in folder', exact: true })
+    expect(await row.getByText('+ 8 файлов', { exact: true }).count()).toBe(1)
+    const showFolder = page.getByRole('button', { name: 'Показать в папке', exact: true })
     expect(await showFolder.count()).toBe(1)
-    expect(await page.getByText('Produced', { exact: true }).count()).toBe(1)
+    expect(await page.getByText('Готовые файлы', { exact: true }).count()).toBe(1)
 
     const openPath = vi.spyOn(scaffold.ctx.apiProxy.host, 'openPath')
       .mockImplementation(async (request, _signal) => ({

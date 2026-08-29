@@ -21,7 +21,7 @@ import {
   webSnapshotMode,
   type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
+import { connectFreshWorkspace, newPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/skill-user-invoke', import.meta.url))
 const UI_EXPECTED = join(SNAPSHOT_DIR, 'ui.expected.md')
@@ -77,7 +77,7 @@ describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation thro
     })
     await seedUserOnlySkill(scaffold.workspaceCwd)
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -103,7 +103,7 @@ describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation thro
 
     // The menu lists the user-only skill (its only entry point) before enter.
     await composer.fill(`/${SKILL_NAME}`)
-    const menu = page.getByRole('listbox', { name: 'Trigger suggestions' })
+    const menu = page.getByRole('listbox', { name: 'Подсказки триггеров' })
     await expect.poll(
       () => menu.getByRole('option', { name: new RegExp(SKILL_NAME) }).count(),
       { timeout: 10_000 },
@@ -122,7 +122,7 @@ describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation thro
     // The rendered body arrives as a context-injection row named after the
     // skill; expanding it reveals the canonical <skill_content> block, and
     // the user's text is NOT folded into it.
-    const injectionRow = page.getByRole('button', { name: `Context injection ${SKILL_NAME}` })
+    const injectionRow = page.getByRole('button', { name: `Внедрение контекста ${SKILL_NAME}` })
     await injectionRow.waitFor({ timeout: 15_000 })
     await injectionRow.click()
     const injectionBody = page

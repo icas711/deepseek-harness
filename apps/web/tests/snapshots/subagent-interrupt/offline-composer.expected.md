@@ -1,28 +1,28 @@
 - banner:
-  - navigation "Session hierarchy":
+  - navigation "Иерархия сессий":
     - button "Ask a research subagent to"
     - text: /
     - button "event-sourcing researcher" [disabled]
   - img
-  - text: Standard mode
+  - text: Стандартный режим
   - button "Session log":
     - text: Session log
     - img
   - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
+    - tab "Беседа" [selected]
+    - tab "Траектория"
 - text: Explain event sourcing in one sentence. {{clock}}
-- button "Copy":
+- button "Копировать":
   - img
-- button "Context injection @deepseek-ai/dsh-system-prompt":
+- button "Внедрение контекста @deepseek-ai/dsh-system-prompt":
   - img
   - img
-  - text: Context injection @deepseek-ai/dsh-system-prompt
+  - text: Внедрение контекста @deepseek-ai/dsh-system-prompt
 - paragraph: partial
 - status: Deep diving...
-- textbox "Parent session offline; sending is unavailable but you can still stop the run" [disabled]
-- button "Commands" [disabled]:
+- textbox "Родительская сессия не в сети; отправка недоступна, но текущий запуск ещё можно остановить" [disabled]
+- button "Команды" [disabled]:
   - img
-- 'button "Access mode, current: Custom" [disabled]': Custom
-- button "Stop generating"
-- button "Send message" [disabled]
+- 'button "Режим доступа, текущий: Custom" [disabled]': Custom
+- button "Остановить генерацию"
+- button "Отправить сообщение" [disabled]

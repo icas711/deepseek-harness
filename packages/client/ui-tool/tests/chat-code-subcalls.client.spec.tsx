@@ -162,7 +162,7 @@ async function bench(snapshot: ConversationSnapshot) {
   // ui-theme's Appearance row binds a durable scope through these two.
   ctx.provide('remote', { $on: () => () => {} } as never)
   ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
-  const locale = new LocaleRuntime(ctx)
+  const locale = new LocaleRuntime()
   ctx.provide('locale', locale)
   slots.installLocale(locale)
 

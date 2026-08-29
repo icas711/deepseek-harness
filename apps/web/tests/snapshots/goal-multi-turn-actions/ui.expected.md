@@ -1,35 +1,34 @@
 - banner:
-  - navigation "Session hierarchy":
+  - navigation "Иерархия сессий":
     - button "workspace" [disabled]
   - img
-  - text: Standard mode
+  - text: Стандартный режим
   - button "Session log":
     - text: Session log
     - img
   - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-- group "Command input": /goal 做两个turn，每个turn输出随机一个包的文件结构。注意你做完一个turn之后，直接输出内容，停止，我们的系统会帮你再开一个turn，你看着做一个类似的
+    - tab "Беседа" [selected]
+    - tab "Траектория"
+- group "Поле ввода команды": /goal 做两个turn，每个turn输出随机一个包的文件结构。注意你做完一个turn之后，直接输出内容，停止，我们的系统会帮你再开一个turn，你看着做一个类似的
 - 'button "goal Goal created Status: active Objective: 做两个turn，每个turn输出随机一个包的文件结构。注意你做完一个turn之后，直接输出内容，停止，我们的系统会帮你再开一个turn，你看着做一个类似的 Rounds: 0/256 Activation: armed Commands: /goal edit <objective>, /goal pause, /goal clear"':
   - img
   - img
   - text: "goal Goal created Status: active Objective: 做两个turn，每个turn输出随机一个包的文件结构。注意你做完一个turn之后，直接输出内容，停止，我们的系统会帮你再开一个turn，你看着做一个类似的 Rounds: 0/256 Activation: armed Commands: /goal edit <objective>, /goal pause, /goal clear"
-- button "Context injection goal":
+- button "Внедрение контекста goal":
   - img
   - img
-  - text: Context injection goal
-- button "Context injection @deepseek-ai/dsh-system-prompt":
+  - text: Внедрение контекста goal
+- button "Внедрение контекста @deepseek-ai/dsh-system-prompt":
   - img
   - img
-  - text: Context injection @deepseek-ai/dsh-system-prompt
+  - text: Внедрение контекста @deepseek-ai/dsh-system-prompt
 - 'button "Think The user''s goal is: \"做两个turn，每个turn输出随机一个包的文件结构。注意你做完一个turn之后，直接输出内容，停止，我们的系统会帮你再开一个turn，你看着做一个类似的\" — which translates to: \"Do two turns, each turn output the file structure of a random package. Note that after you finish one turn, directly output the content and stop; our system will help you open another turn, and you just do something similar.\""':
   - img
   - img
   - text: "Think The user's goal is: \"做两个turn，每个turn输出随机一个包的文件结构。注意你做完一个turn之后，直接输出内容，停止，我们的系统会帮你再开一个turn，你看着做一个类似的\" — which translates to: \"Do two turns, each turn output the file structure of a random package. Note that after you finish one turn, directly output the content and stop; our system will help you open another turn, and you just do something similar.\""
-- button "Bash Show working directory and its contents":
+- 'button "Сбой Bash Error: unknown tool \"bash\""':
   - img
-  - img
-  - text: Bash Show working directory and its contents
+  - text: "Сбой Bash Error: unknown tool \"bash\""
 - 'button "Tool call get_goal · {}"':
   - img
   - img
@@ -38,33 +37,30 @@
   - img
   - img
   - text: "Think There's a `packages` directory. Let me look inside to see what packages are available."
-- button "Bash List packages directory contents":
+- 'button "Сбой Bash Error: unknown tool \"bash\""':
   - img
-  - img
-  - text: Bash List packages directory contents
+  - text: "Сбой Bash Error: unknown tool \"bash\""
 - button "Think There are 4 packages:":
   - img
   - img
   - text: "Think There are 4 packages:"
-- button "Failed Bash Randomly pick one package directory":
+- 'button "Сбой Bash Error: unknown tool \"bash\""':
   - img
-  - text: Failed Bash Randomly pick one package directory
+  - text: "Сбой Bash Error: unknown tool \"bash\""
 - 'button "Think shuf is not available on macOS. I''ll use a different approach for random selection. Let me use $RANDOM in bash or use `sort -R` or Python."':
   - img
   - img
   - text: "Think shuf is not available on macOS. I'll use a different approach for random selection. Let me use $RANDOM in bash or use `sort -R` or Python."
-- button "Bash Randomly select one package with Python":
+- 'button "Сбой Bash Error: unknown tool \"bash\""':
   - img
-  - img
-  - text: Bash Randomly select one package with Python
+  - text: "Сбой Bash Error: unknown tool \"bash\""
 - 'button "Think The random pick for turn 1 is `packages/context/session-reference`. Now I''ll output its file structure. Let me get the file tree."':
   - img
   - img
   - text: "Think The random pick for turn 1 is `packages/context/session-reference`. Now I'll output its file structure. Let me get the file tree."
-- button "Bash List all files in session-reference package":
+- 'button "Сбой Bash Error: unknown tool \"bash\""':
   - img
-  - img
-  - text: Bash List all files in session-reference package
+  - text: "Сбой Bash Error: unknown tool \"bash\""
 - 'button "Think Turn 1 is done. Per the objective: \"你做完一个turn之后，直接输出内容，停止\" — after finishing a turn, directly output the content and stop. The system will open another turn."':
   - img
   - img
@@ -74,44 +70,41 @@
   - text: — 随机选中的包：
   - code: packages/context/session-reference
   - text: 📦
-- button "Copy"
+- button "Копировать"
 - code: session-reference ├── README.md ├── package.json ├── src │ ├── index.ts │ └── uri.ts └── tests └── session-reference.spec.ts
-- button "Copy"
+- button "Копировать"
 - code: "session-reference/ ├── README.md # 包说明文档 ├── package.json # 包元数据与依赖声明 ├── src/ │ ├── index.ts # 入口，导出公共 API │ └── uri.ts # 会话引用 URI 相关实现 └── tests/ └── session-reference.spec.ts # 单元测试"
 - paragraph: 这是一个很典型的轻量 TypeScript 包结构：入口 + 实现 + 测试。这一轮到此结束，等系统开启下一个 turn。
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: {{clock}} Ran for {{duration}} TTFT {{duration}} {{throughput}} tok/s
-- button "Context injection goal":
+- text: {{clock}} Выполнялось {{duration}} TTFT {{duration}} {{throughput}} tok/s
+- button "Внедрение контекста goal":
   - img
   - img
-  - text: Context injection goal
+  - text: Внедрение контекста goal
 - 'button "Think This is turn 2 of 2. I need to randomly pick another package and output its file structure. In the first turn I picked `packages/context/session-reference`. Let me pick a different one randomly this time."':
   - img
   - img
   - text: "Think This is turn 2 of 2. I need to randomly pick another package and output its file structure. In the first turn I picked `packages/context/session-reference`. Let me pick a different one randomly this time."
-- button "Bash Randomly select another package with Python":
+- 'button "Сбой Bash Error: unknown tool \"bash\""':
   - img
-  - img
-  - text: Bash Randomly select another package with Python
+  - text: "Сбой Bash Error: unknown tool \"bash\""
 - 'button "Think The random pick returned the same package as turn 1. Since turn 1 already covered `session-reference`, it would be better to pick a different one for variety. Let me re-roll, excluding the already-covered package."':
   - img
   - img
   - text: "Think The random pick returned the same package as turn 1. Since turn 1 already covered `session-reference`, it would be better to pick a different one for variety. Let me re-roll, excluding the already-covered package."
-- button "Bash Re-roll excluding the package from turn 1":
+- 'button "Сбой Bash Error: unknown tool \"bash\""':
   - img
+  - text: "Сбой Bash Error: unknown tool \"bash\""
+- 'button "Сбой Bash Error: unknown tool \"bash\""':
   - img
-  - text: Bash Re-roll excluding the package from turn 1
-- button "Bash List all files in token-meter package":
-  - img
-  - img
-  - text: Bash List all files in token-meter package
+  - text: "Сбой Bash Error: unknown tool \"bash\""
 - 'button "Think This is turn 2 of 2. I''ve output the file structure for `packages/llm/token-meter`. Both turns are done. I should output the content, stop, and then mark the goal as complete since both turns are finished."':
   - img
   - img
@@ -121,9 +114,9 @@
   - text: — 随机选中的包：
   - code: packages/llm/token-meter
   - text: 📦
-- button "Copy"
+- button "Копировать"
 - code: token-meter ├── README.md ├── package.json ├── src │ └── index.ts └── tests └── token-meter.spec.ts
-- button "Copy"
+- button "Копировать"
 - code: "token-meter/ ├── README.md # 包说明文档 ├── package.json # 包元数据与依赖声明 ├── src/ │ └── index.ts # 入口，导出公共 API（token 计量逻辑） └── tests/ └── token-meter.spec.ts # 单元测试"
 - paragraph:
   - text: 两个 turn 都完成了（turn 1：
@@ -140,10 +133,10 @@
   - img
   - img
   - text: Tool call update_goal · goal-{{uuid}}
-- 'button "Context injection tool-goal complete: 做两个turn，每个turn输出随机一个包的文件结构。注意你做完一个turn之后，直接输出内容，停止，我们的系统会帮你再开一个turn，你看着做一个类似的"':
+- 'button "Внедрение контекста tool-goal complete: 做两个turn，每个turn输出随机一个包的文件结构。注意你做完一个turn之后，直接输出内容，停止，我们的系统会帮你再开一个turn，你看着做一个类似的"':
   - img
   - img
-  - text: "Context injection tool-goal complete: 做两个turn，每个turn输出随机一个包的文件结构。注意你做完一个turn之后，直接输出内容，停止，我们的系统会帮你再开一个turn，你看着做一个类似的"
+  - text: "Внедрение контекста tool-goal complete: 做两个turn，每个turn输出随机一个包的文件结构。注意你做完一个turn之后，直接输出内容，停止，我们的系统会帮你再开一个turn，你看着做一个类似的"
 - paragraph: 两个 turn 都完成了 ✅
 - paragraph:
   - strong: 总结：
@@ -153,14 +146,14 @@
     - text: — 随机选中
     - code: packages/context/session-reference
     - text: ，输出了文件结构：
-    - button "Copy"
+    - button "Копировать"
     - code: session-reference/ ├── README.md ├── package.json ├── src/ │ ├── index.ts │ └── uri.ts └── tests/ └── session-reference.spec.ts
   - listitem:
     - strong: Turn 2
     - text: — 随机选中
     - code: packages/llm/token-meter
     - text: ，输出了文件结构：
-    - button "Copy"
+    - button "Копировать"
     - code: token-meter/ ├── README.md ├── package.json ├── src/ │ └── index.ts └── tests/ └── token-meter.spec.ts
 - paragraph:
   - strong: 验证方式：
@@ -192,23 +185,23 @@
   - text: 、
   - code: skill-filesystem
   - text: ）的结构，或者其他格式的输出（比如带文件大小的树形图），随时告诉我。
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- tooltip "Branch into a new conversation"
-- text: {{clock}} Ran for {{duration}} TTFT {{duration}} {{throughput}} tok/s
-- textbox "Message the agent"
-- button "Commands":
+- tooltip "Создать ветку в новой беседе"
+- text: {{clock}} Выполнялось {{duration}} TTFT {{duration}} {{throughput}} tok/s
+- textbox "Написать агенту"
+- button "Команды":
   - img
-- 'button "Access mode, current: Workspace Write"': Workspace Write
-- button "Select model, current DeepSeek-V4-Flash":
+- 'button "Режим доступа, текущий: Workspace Write"': Workspace Write
+- button "Выбор модели, текущая DeepSeek-V4-Flash":
   - text: DeepSeek-V4-Flash
   - img
-- button "9% of context used"
-- button "Send message" [disabled]
-- text: 2 turns · 12 steps LLM {{duration}} · Tool call {{duration}} TTFT avg {{duration}} · {{throughput}} tok/s Cache hit 91% Input 113K tok · Output 2.4K tok
+- button "Использовано 9% контекста"
+- button "Отправить сообщение" [disabled]
+- text: 2 ход(ов) · 12 шаг(ов) LLM {{duration}} · Вызов инструмента {{duration}} Средний TTFT {{duration}} · {{throughput}} tok/s Попадания в кэш 91% Вход 113K tok · Выход 2.4K tok

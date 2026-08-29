@@ -27,7 +27,8 @@
     "**/*.js",
     "**/*.mjs",
     "**/*.config.ts", // Tool and app configs are outside the repository TypeScript programs.
-    "packages/client/tsdown.client.ts" // Shared client build preset, also outside a TypeScript program.
+    "packages/client/tsdown.client.ts", // Shared client build preset, also outside a TypeScript program.
+    "packages/client/ui-primitives/src/FishLogo.tsx" // The exact extracted SVG path data is one long line; the minified-file heuristic rejects it.
   ],
   "overrides": [
     {

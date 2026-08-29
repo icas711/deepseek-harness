@@ -338,9 +338,6 @@ describe('settings domain', () => {
     ctx.settings.register(settingsNamespace('ui-theme'), z.object({
       preference: z.union(['light', 'dark', 'system']).default('system'),
     }))
-    ctx.settings.register(settingsNamespace('locale'), z.object({
-      preference: z.union(['zh', 'en']).required(false),
-    }))
     ctx.settings.register(settingsNamespace('ui-conversation'), z.object({
       busyEnter: z.union(['queue', 'steer']).default('queue'),
     }))
@@ -357,7 +354,7 @@ describe('settings domain', () => {
 
     const value = expectOk(await api.settings.describe(request({})))
     expect(value.namespaces.map(view => view.ns)).toEqual([
-      'llm-deepseek', 'permission', 'ui-theme', 'locale', 'ui-conversation',
+      'llm-deepseek', 'permission', 'ui-theme', 'ui-conversation',
       'shell', 'agent-loop', 'web-search-deepseek',
     ])
     const permission = expectOk(await api.settings.mutate(request({
@@ -370,11 +367,6 @@ describe('settings domain', () => {
       ops: [{ op: 'set', path: ['preference'], value: 'dark' }],
     })))
     expect(theme.value).toEqual({ preference: 'dark' })
-    const locale = expectOk(await api.settings.mutate(request({
-      ns: 'locale',
-      ops: [{ op: 'set', path: ['preference'], value: 'en' }],
-    })))
-    expect(locale.value).toEqual({ preference: 'en' })
     const conversation = expectOk(await api.settings.mutate(request({
       ns: 'ui-conversation',
       ops: [{ op: 'set', path: ['busyEnter'], value: 'steer' }],

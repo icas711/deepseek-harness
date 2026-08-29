@@ -1427,6 +1427,21 @@ Depends on: [`LocalConfig`](#deepseek-aidsh-pwsh-local)
 
 Source: [`packages/shell/pwsh-sandbox/src/index.ts:40`](../packages/shell/pwsh-sandbox/src/index.ts)
 
+<a id="deepseek-aidsh-quota-pause"></a>
+
+## `@deepseek-ai/dsh-quota-pause`
+
+```ts config-catalog
+/**
+ * No configuration keys exist; Schemastery preserves untrusted loader keys on
+ * an empty object schema, so the public type excludes settings while
+ * `validateConfigKeys` rejects them at load.
+ */
+export interface QuotaPauseConfig {}
+```
+
+Source: [`packages/guard/quota-pause/src/index.ts:112`](../packages/guard/quota-pause/src/index.ts)
+
 <a id="deepseek-aidsh-repeat-tool-reminder"></a>
 
 ## `@deepseek-ai/dsh-repeat-tool-reminder`
@@ -1727,7 +1742,9 @@ Requires: `sessions`
 /**
  * Plugin configuration: one sharing policy, two verbatim SDK option objects,
  * and one DSH-owned shutdown bound. Uploading modes validate their endpoint
- * and shutdown deadline at plugin load; `DISABLED` reads neither.
+ * and shutdown deadline at plugin load; `DISABLED` reads neither. When a
+ * settings provider is mounted, the `session-telemetry` section's `mode`
+ * overrides this entry live.
  */
 export interface Config {
   /** Sharing policy; defaults to local-only `DISABLED` behavior. */
@@ -1761,7 +1778,7 @@ export enum SessionTelemetryMode {
 
 Depends on: `BatchLogRecordProcessorOptions` (`@opentelemetry/sdk-logs`) · `OTLPExporterNodeConfigBase` (`@opentelemetry/otlp-exporter-base`)
 
-Source: [`packages/session/session-telemetry-otel/src/index.ts:91`](../packages/session/session-telemetry-otel/src/index.ts)
+Source: [`packages/session/session-telemetry-otel/src/index.ts:109`](../packages/session/session-telemetry-otel/src/index.ts)
 
 <a id="deepseek-aidsh-session-title"></a>
 
@@ -2991,6 +3008,30 @@ export interface Config {
 
 Source: [`packages/web/web-search-perplexity/src/index.ts:32`](../packages/web/web-search-perplexity/src/index.ts)
 
+<a id="deepseek-aidsh-web-search-zai"></a>
+
+## `@deepseek-ai/dsh-web-search-zai`
+
+Requires: `web`
+
+```ts config-catalog
+/** Plugin config (all optional — `apply` fills env-var and constant defaults). */
+export interface Config {
+  /** Literal Z.ai API key; prefer {@link apiKeyEnv} so no secret enters configuration files. */
+  apiKey?: string
+  /** Credential reference resolved for each search; defaults to `ZAI_API_KEY`. */
+  apiKeyEnv?: string
+  /** Endpoint base; `/web_search` is appended. Defaults to the public Z.ai API. */
+  baseURL?: string
+  /** Search engine tier sent as `search_engine`. Defaults to `search-prime`. */
+  searchEngine?: string
+  /** Requested result count when the search sets no `maxResults`; range 1–50. Defaults to 10. */
+  count?: number
+}
+```
+
+Source: [`packages/web/web-search-zai/src/index.ts:52`](../packages/web/web-search-zai/src/index.ts)
+
 <a id="deepseek-aidsh-workflow-worker-thread"></a>
 
 ## `@deepseek-ai/dsh-workflow-worker-thread`
@@ -3054,6 +3095,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-client-ui-sidebar` ([`packages/client/ui-sidebar/src/index.ts`](../packages/client/ui-sidebar/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-skill` ([`packages/client/ui-skill/src/index.ts`](../packages/client/ui-skill/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-subagent` ([`packages/client/ui-subagent/src/index.ts`](../packages/client/ui-subagent/src/index.ts))
+- `@deepseek-ai/dsh-client-ui-telemetry-status` ([`packages/client/ui-telemetry-status/src/index.ts`](../packages/client/ui-telemetry-status/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-theme` ([`packages/client/ui-theme/src/index.ts`](../packages/client/ui-theme/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-tool` ([`packages/client/ui-tool/src/index.ts`](../packages/client/ui-tool/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-trajectory` ([`packages/client/ui-trajectory/src/index.ts`](../packages/client/ui-trajectory/src/index.ts))

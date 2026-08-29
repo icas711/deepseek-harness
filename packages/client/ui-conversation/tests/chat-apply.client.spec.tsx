@@ -6,15 +6,11 @@
 // entries. Tool composition belongs to ui-tool and its machinery spec.
 
 import { describe, expect, it, vi } from 'vitest'
-import { SlotTestRuntime, usePinnedBrowserLanguages, stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
+import { SlotTestRuntime, stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import { apply, inject } from '@deepseek-ai/dsh-client-ui-conversation/client'
-
-// The service reads its initial locale from the browser; these specs assert
-// the shipped Chinese copy, so they state the browser they assume.
-usePinnedBrowserLanguages('zh-CN')
 
 const ROOT = 'root-1' as SessionId
 const CHILD = 'child-1' as SessionId
@@ -29,7 +25,7 @@ async function bench() {
   await runtime.sessions.add(
     { id: CHILD, summary: { title: 'C', displayTitle: 'C', parentId: ROOT } }, { current: false })
   runtime.provide('layout', { openDetails: vi.fn(), closeDetails: vi.fn() })
-  const locale = new LocaleRuntime(runtime.ctx)
+  const locale = new LocaleRuntime()
   runtime.provide('locale', locale)
   runtime.slots.installLocale(locale)
 
@@ -61,8 +57,8 @@ describe('apply wiring', () => {
     const b = await bench()
     const entries = b.slots.entries('conversation.view')
     expect(entries.map(e => e.options.id)).toEqual(['chat'])
-    // Label is a locale thunk resolving through the zh dictionary.
-    expect(resolveSlotLabel(entries[0]?.options.label)).toBe('对话')
+    // Label is a locale thunk resolving through the ru dictionary.
+    expect(resolveSlotLabel(entries[0]?.options.label)).toBe('Беседа')
     expect(entries[0]?.options.order).toBe(0)
     // Declaring is claiming: the chat entry's registration put the hole on
     // the ledger with the contract's kind/scope.

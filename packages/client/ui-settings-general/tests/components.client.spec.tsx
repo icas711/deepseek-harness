@@ -8,13 +8,13 @@ import { CloseLabel, HeaderContent, TriggerContent } from '../src/client/chrome.
 import type { TriggerContentProps } from '../src/client/chrome.tsx'
 import { SettingsDocumentAction } from '../src/client/SettingsDocumentAction.tsx'
 import { SettingsDocumentStore } from '../src/client/settings-document-store.ts'
-import { en } from '../src/client/locales.ts'
+import { ru } from '../src/client/locales.ts'
 
 afterEach(cleanup)
 
 // The seat's key domain is settings ∪ common; the stub answers from the
 // package dictionary and falls back to the key like the real chain.
-const t: TriggerContentProps['t'] = key => (en as Record<string, string>)[key] ?? key
+const t: TriggerContentProps['t'] = key => (ru as Record<string, string>)[key] ?? key
 
 // Global standard kit stubs: none of these components consume the hooks.
 const unusedHook = (() => { throw new Error('unused by settings-general components') }) as never
@@ -24,20 +24,20 @@ describe('chrome content', () => {
   it('TriggerContent renders the icon with the label in the wide column', () => {
     const { container } = render(<TriggerContent {...kit} wide t={t} />)
     expect(container.querySelector('svg')).toBeTruthy()
-    expect(screen.getByText('Settings')).toBeTruthy()
+    expect(screen.getByText('Настройки')).toBeTruthy()
   })
 
   it('TriggerContent drops the label in the rail state', () => {
     const { container } = render(<TriggerContent {...kit} wide={false} t={t} />)
     expect(container.querySelector('svg')).toBeTruthy()
-    expect(screen.queryByText('Settings')).toBeNull()
+    expect(screen.queryByText('Настройки')).toBeNull()
   })
 
   it('HeaderContent and CloseLabel render their translated text', () => {
     render(<HeaderContent {...kit} t={t} />)
     render(<CloseLabel {...kit} t={t} />)
-    expect(screen.getByText('Settings')).toBeTruthy()
-    expect(screen.getByText('Close')).toBeTruthy()
+    expect(screen.getByText('Настройки')).toBeTruthy()
+    expect(screen.getByText('Закрыть')).toBeTruthy()
   })
 })
 
@@ -82,7 +82,7 @@ describe('SettingsDocumentAction', () => {
       controller={controller}
       useSnapshot={bindSnapshotSelector(controller.store)}
     />)
-    const action = await screen.findByRole('button', { name: 'Open configuration file' })
+    const action = await screen.findByRole('button', { name: 'Открыть файл конфигурации' })
     fireEvent.click(action)
     await waitFor(() => { expect(openDocument).toHaveBeenCalledWith({}) })
   })
@@ -110,7 +110,7 @@ describe('SettingsDocumentAction', () => {
       useSnapshot={bindSnapshotSelector(controller.store)}
     />)
     await waitFor(() => { expect(controller.store.getSnapshot().status).toBe('unavailable') })
-    expect(screen.queryByRole('button', { name: 'Open configuration file' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Открыть файл конфигурации' })).toBeNull()
     first.unmount()
     render(<SettingsDocumentAction
       {...kit}
@@ -118,7 +118,7 @@ describe('SettingsDocumentAction', () => {
       controller={controller}
       useSnapshot={bindSnapshotSelector(controller.store)}
     />)
-    expect(await screen.findByRole('button', { name: 'Open configuration file' })).toBeTruthy()
+    expect(await screen.findByRole('button', { name: 'Открыть файл конфигурации' })).toBeTruthy()
     expect(describe).toHaveBeenCalledTimes(2)
   })
 
@@ -144,8 +144,8 @@ describe('SettingsDocumentAction', () => {
       controller={controller}
       useSnapshot={bindSnapshotSelector(controller.store)}
     />)
-    fireEvent.click(await screen.findByRole('button', { name: 'Open configuration file' }))
-    expect((await screen.findByRole('alert')).textContent).toBe('Could not open configuration file')
-    expect(screen.getByRole('button', { name: 'Open configuration file' })).toBeTruthy()
+    fireEvent.click(await screen.findByRole('button', { name: 'Открыть файл конфигурации' }))
+    expect((await screen.findByRole('alert')).textContent).toBe('Не удалось открыть файл конфигурации')
+    expect(screen.getByRole('button', { name: 'Открыть файл конфигурации' })).toBeTruthy()
   })
 })

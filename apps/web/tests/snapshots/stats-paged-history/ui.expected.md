@@ -1,357 +1,357 @@
 - banner:
-  - navigation "Session hierarchy":
+  - navigation "Иерархия сессий":
     - button "{{workspace}}" [disabled]
   - button "Session log":
     - text: Session log
     - img
   - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-- text: m1 7/25 {{clock}}
-- button "Copy":
+    - tab "Беседа" [selected]
+    - tab "Траектория"
+- text: m1 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: r1
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}} m2 7/25 {{clock}}
-- button "Copy":
+- text: 25.7 {{clock}} Выполнялось {{duration}} m2 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: r2
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}} m3 7/25 {{clock}}
-- button "Copy":
+- text: 25.7 {{clock}} Выполнялось {{duration}} m3 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: r3
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}} m4 7/25 {{clock}}
-- button "Copy":
+- text: 25.7 {{clock}} Выполнялось {{duration}} m4 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: r4
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}} m5 7/25 {{clock}}
-- button "Copy":
+- text: 25.7 {{clock}} Выполнялось {{duration}} m5 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: r5
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}} m6 7/25 {{clock}}
-- button "Copy":
+- text: 25.7 {{clock}} Выполнялось {{duration}} m6 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: r6
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}} m7 7/25 {{clock}}
-- button "Copy":
+- text: 25.7 {{clock}} Выполнялось {{duration}} m7 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: r7
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}} m8 7/25 {{clock}}
-- button "Copy":
+- text: 25.7 {{clock}} Выполнялось {{duration}} m8 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: r8
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}} m9 7/25 {{clock}}
-- button "Copy":
+- text: 25.7 {{clock}} Выполнялось {{duration}} m9 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: r9
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}} m10 7/25 {{clock}}
-- button "Copy":
+- text: 25.7 {{clock}} Выполнялось {{duration}} m10 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: r10
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}} m11 7/25 {{clock}}
-- button "Copy":
+- text: 25.7 {{clock}} Выполнялось {{duration}} m11 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: r11
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}} m12 7/25 {{clock}}
-- button "Copy":
+- text: 25.7 {{clock}} Выполнялось {{duration}} m12 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: r12
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}} m13 7/25 {{clock}}
-- button "Copy":
+- text: 25.7 {{clock}} Выполнялось {{duration}} m13 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: r13
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}} m14 7/25 {{clock}}
-- button "Copy":
+- text: 25.7 {{clock}} Выполнялось {{duration}} m14 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: r14
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}} m15 7/25 {{clock}}
-- button "Copy":
+- text: 25.7 {{clock}} Выполнялось {{duration}} m15 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: r15
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}} m16 7/25 {{clock}}
-- button "Copy":
+- text: 25.7 {{clock}} Выполнялось {{duration}} m16 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: r16
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}} m17 7/25 {{clock}}
-- button "Copy":
+- text: 25.7 {{clock}} Выполнялось {{duration}} m17 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: r17
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}} m18 7/25 {{clock}}
-- button "Copy":
+- text: 25.7 {{clock}} Выполнялось {{duration}} m18 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: r18
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}} m19 7/25 {{clock}}
-- button "Copy":
+- text: 25.7 {{clock}} Выполнялось {{duration}} m19 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: r19
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}} m20 7/25 {{clock}}
-- button "Copy":
+- text: 25.7 {{clock}} Выполнялось {{duration}} m20 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: r20
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}} m21 7/25 {{clock}}
-- button "Copy":
+- text: 25.7 {{clock}} Выполнялось {{duration}} m21 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: r21
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}} m22 7/25 {{clock}}
-- button "Copy":
+- text: 25.7 {{clock}} Выполнялось {{duration}} m22 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: r22
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}} m23 7/25 {{clock}}
-- button "Copy":
+- text: 25.7 {{clock}} Выполнялось {{duration}} m23 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: r23
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}} m24 7/25 {{clock}}
-- button "Copy":
+- text: 25.7 {{clock}} Выполнялось {{duration}} m24 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: r24
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}} m25 7/25 {{clock}}
-- button "Copy":
+- text: 25.7 {{clock}} Выполнялось {{duration}} m25 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: r25
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}} m26 7/25 {{clock}}
-- button "Copy":
+- text: 25.7 {{clock}} Выполнялось {{duration}} m26 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: r26
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}} m27 7/25 {{clock}}
-- button "Copy":
+- text: 25.7 {{clock}} Выполнялось {{duration}} m27 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: r27
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}} m28 7/25 {{clock}}
-- button "Copy":
+- text: 25.7 {{clock}} Выполнялось {{duration}} m28 25.7 {{clock}}
+- button "Копировать":
   - img
 - paragraph: r28
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: 7/25 {{clock}} Ran for {{duration}}
-- button "Back to bottom":
+- text: 25.7 {{clock}} Выполнялось {{duration}}
+- button "Вернуться вниз":
   - img
-- textbox "Message the agent"
-- button "Commands":
+- textbox "Написать агенту"
+- button "Команды":
   - img
-- 'button "Access mode, current: Workspace Write"': Workspace Write
-- button "Select model, current DeepSeek-V4-Flash":
+- 'button "Режим доступа, текущий: Workspace Write"': Workspace Write
+- button "Выбор модели, текущая DeepSeek-V4-Flash":
   - text: DeepSeek-V4-Flash
   - img
-- button "Send message" [disabled]
-- text: 28 turns · 28 steps LLM {{duration}}
+- button "Отправить сообщение" [disabled]
+- text: 28 ход(ов) · 28 шаг(ов) LLM {{duration}}

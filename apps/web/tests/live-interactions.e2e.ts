@@ -23,7 +23,7 @@ import {
   assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
   launchWebScaffold, recordFixture, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
+import { connectFreshWorkspace, newPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/live-interactions', import.meta.url))
 const FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
@@ -91,7 +91,7 @@ describe('web e2e: live-turn interactions (cancel / error / retry)', () => {
     })
     scaffold.ctx.on('session/event', (_session, event: SessionEvent) => { sessionEvents.push(event) })
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -140,7 +140,7 @@ describe('web e2e: live-turn interactions (cancel / error / retry)', () => {
     ).toBe(true)
     const loadingSnapshot = await captureStableAria(page, '[class*="centerCol"]', scaffold!.workspaceCwd)
     await compareOrRefreshGolden(LOADING_EXPECTED, loadingSnapshot, MODE)
-    await page.getByRole('button', { name: 'Stop generating' }).click()
+    await page.getByRole('button', { name: 'Остановить генерацию' }).click()
     await settled
     expect(turnEndReasons(sessionEvents).at(-1)).toBe('aborted')
     // Composer recovered; no streaming node lingers. The host settled first
@@ -168,14 +168,14 @@ describe('web e2e: live-turn interactions (cancel / error / retry)', () => {
     expect(sessionEvents.filter(e => e.type === 'llm/retry').length).toBe(0)
     await expect.poll(() => page.locator('textarea').first().isEnabled(), { timeout: 10_000 }).toBe(true)
     expect(await page.locator('[data-streaming="true"]').count()).toBe(0)
-    const errorStatus = page.getByRole('status').filter({ hasText: 'This turn failed' })
+    const errorStatus = page.getByRole('status').filter({ hasText: 'Этот ход завершился ошибкой' })
     await errorStatus.waitFor({ timeout: 10_000 })
     expect(await errorStatus.textContent()).toContain('API key is invalid')
     expect(await errorStatus.textContent()).toContain('AUTH')
     expect(await page.locator('body').textContent()).not.toContain('sk-preview-secret')
     const snapshot = await captureStableAria(page, '[class*="centerCol"]', scaffold!.workspaceCwd)
     await compareOrRefreshGolden(ERROR_EXPECTED, snapshot, MODE)
-    await page.getByRole('tab', { name: 'Trajectory' }).click()
+    await page.getByRole('tab', { name: 'Траектория' }).click()
     const requestMarker = page.locator('tr[data-request-only="true"]').last()
       .getByRole('button', { name: /Request #/ })
     await requestMarker.click()
@@ -191,7 +191,7 @@ describe('web e2e: live-turn interactions (cancel / error / retry)', () => {
     }))
     const { settled } = await sendPrompt()
     await settled
-    await page.getByRole('tab', { name: 'Trajectory' }).click()
+    await page.getByRole('tab', { name: 'Траектория' }).click()
     // The boundary marker row itself is a 0-height hairline except at the
     // table tail; the marker button is absolutely positioned and stays
     // visible, so wait on it directly.

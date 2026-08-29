@@ -20,7 +20,7 @@ it('boots the built plugin graph and renders a fixture session end to end', asyn
   mountAssembledApp()
 
   // The sidebar renders from the boot graph: every inject layer activated.
-  const tree = await screen.findByRole('tree', { name: 'Sessions' }, { timeout: 10_000 })
+  const tree = await screen.findByRole('tree', { name: 'Сессии' }, { timeout: 10_000 })
   // The compact layout dropped group session counts; the fixture workspace
   // group row renders immediately with its sessions beneath it.
   const fixtureGroup = (await within(tree).findAllByText('fixture'))
@@ -36,7 +36,7 @@ it('boots the built plugin graph and renders a fixture session end to end', asyn
   if (waitingRow === null) throw new Error('fixture Session title must belong to a tree row')
   expect(waitingRow.querySelector('[data-state="warning"]')).not.toBeNull()
   expect(waitingRow.querySelector('[data-state="ongoing"]')).toBeNull()
-  within(waitingRow).getByText('Waiting for answer')
+  within(waitingRow).getByText('Ожидает ответа')
 
   // Opening a session reaches chat content through the fixture transport.
   fireEvent.click(waitingTitle)
@@ -46,17 +46,17 @@ it('boots the built plugin graph and renders a fixture session end to end', asyn
   // Resolve the resident approval so the ordinary composer bar (which owns
   // ContextMeter) resumes without replacing the session shell. This minimal
   // boot graph intentionally does not mount the separate question UI plugin.
-  fireEvent.click(await screen.findByRole('button', { name: 'Allow once' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Разрешить один раз' }))
 
   // The fixture mirrors all three token-meter projections, so the assembled
   // ContextMeter reaches its composition panel instead of only the occupancy
   // fallback path.
-  const contextTrigger = await screen.findByRole('button', { name: /of context used/ })
+  const contextTrigger = await screen.findByRole('button', { name: /контекста/ })
   fireEvent.click(contextTrigger)
-  const contextPanel = await screen.findByRole('dialog', { name: 'of context used' })
-  within(contextPanel).getByText('System prompt')
-  within(contextPanel).getByText('Tools')
-  within(contextPanel).getByText('Messages')
+  const contextPanel = await screen.findByRole('dialog', { name: /контекста использовано/ })
+  within(contextPanel).getByText('Системный промпт')
+  within(contextPanel).getByText('Инструменты')
+  within(contextPanel).getByText('Сообщения')
 
   // The write/edit turns render a real diff card through the assembled graph
   // (the keyed FileMutationRow composing ToolRow + DiffBlock), not just the

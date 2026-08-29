@@ -19,7 +19,7 @@ import {
   webSnapshotMode,
   type WebScaffold,
 } from './scaffold.ts'
-import { conversationContextKey, newEnglishPage, saveFailureShot } from './support.ts'
+import { conversationContextKey, newPage, saveFailureShot } from './support.ts'
 
 const MODE = webSnapshotMode()
 const SESSION_ID = 'chat-long-interactions-e2e'
@@ -79,13 +79,13 @@ async function nextPaint(page: Page): Promise<void> {
 async function openSeed(page: Page): Promise<void> {
   // The compact layout dropped group session counts; the seeded baseline is
   // the Ungrouped bucket once cold summaries load.
-  await page.getByText('Ungrouped', { exact: true }).waitFor({ timeout: 30_000 })
+  await page.getByText('Без группы', { exact: true }).waitFor({ timeout: 30_000 })
   // Search collapsed into a header action; expand it before filling.
-  const searchButton = page.getByRole('button', { name: 'Search sessions' })
+  const searchButton = page.getByRole('button', { name: 'Поиск по сессиям' })
   if (await searchButton.getAttribute('aria-expanded') !== 'true') await searchButton.click()
-  const search = page.getByRole('textbox', { name: 'Search sessions...', exact: true })
+  const search = page.getByRole('textbox', { name: 'Поиск сессий…', exact: true })
   await search.fill(FIXTURE.markers.user(1))
-  const results = page.getByRole('tree', { name: 'Search results' }).getByRole('treeitem')
+  const results = page.getByRole('tree', { name: 'Результаты поиска' }).getByRole('treeitem')
   await results.first().waitFor({ timeout: 60_000 })
   const resultCount = await results.count()
   if (resultCount !== 1) throw new Error(`expected one seeded search result, received ${String(resultCount)}`)
@@ -153,7 +153,7 @@ describe('web e2e: long Chat interaction contract', () => {
     })
     await seedSession(scaffold, FIXTURE.log, SESSION_ID)
     browser = await chromium.launch()
-    page = await newEnglishPage(browser, 900)
+    page = await newPage(browser, 900)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -248,12 +248,12 @@ describe('web e2e: long Chat interaction contract', () => {
     expect(await assistantRow.textContent()).toContain(branchAssistantMarker)
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
     await userRow.hover()
-    await userRow.getByRole('button', { name: 'Copy', exact: true }).click()
+    await userRow.getByRole('button', { name: 'Копировать', exact: true }).click()
     await expect.poll(() => page.evaluate(() => navigator.clipboard.readText()), { timeout: 5_000 })
       .toBe(expectedUserText)
 
     await turnTailRow.hover()
-    await turnTailRow.getByRole('button', { name: 'Branch into a new conversation', exact: true }).click()
+    await turnTailRow.getByRole('button', { name: 'Создать ветку в новой беседе', exact: true }).click()
     await expect.poll(
       () => scaffold.ctx.agents.list().find(agent => agent.session.header.parentSession === SessionId(SESSION_ID)),
       { timeout: 15_000 },
@@ -266,7 +266,7 @@ describe('web e2e: long Chat interaction contract', () => {
     expect(child.session.events.some(event => carries(event, FIXTURE.markers.user(BRANCH_TURN + 1)))).toBe(false)
     expect(child.session.events.some(event => carries(event, FIXTURE.markers.user(FIXTURE.turns)))).toBe(false)
 
-    const currentCrumb = page.getByRole('navigation', { name: 'Session hierarchy' })
+    const currentCrumb = page.getByRole('navigation', { name: 'Иерархия сессий' })
       .getByRole('button').last()
     await expect.poll(() => currentCrumb.textContent(), { timeout: 15_000 })
       .toBe(`${FIXTURE.title} (1)`)
@@ -274,7 +274,7 @@ describe('web e2e: long Chat interaction contract', () => {
     const settled = scaffold.whenTurnSettled(60_000)
     const composer = page.locator('textarea:enabled').last()
     await composer.fill(CONTINUE_PROMPT)
-    await page.getByRole('button', { name: 'Send message', exact: true }).click()
+    await page.getByRole('button', { name: 'Отправить сообщение', exact: true }).click()
     await expect.poll(() => page.getByText(CONTINUE_PROMPT, { exact: true }).count(), { timeout: 15_000 }).toBe(1)
     expect(await settled).toBe(child.session.id)
     await page.getByText(CONTINUE_DONE, { exact: false }).last().waitFor({ timeout: 15_000 })

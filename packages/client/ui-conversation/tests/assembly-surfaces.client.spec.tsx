@@ -6,10 +6,8 @@ import { useState } from 'react'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import type { ISession, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
-import { SlotTestRuntime, usePinnedBrowserLanguages, stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
+import { SlotTestRuntime, stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply, inject, type EmptyWorkspaceOwnerProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
-
-usePinnedBrowserLanguages('zh-CN')
 
 const SID = 's1' as SessionId
 
@@ -55,7 +53,7 @@ async function bench(opts?: { blank?: boolean }) {
   runtime.provide('remote', { $on: () => () => {} })
   runtime.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
   runtime.provide('layout', { openDetails: vi.fn(), closeDetails: vi.fn() })
-  const locale = new LocaleRuntime(runtime.ctx)
+  const locale = new LocaleRuntime()
   runtime.provide('locale', locale)
   runtime.slots.installLocale(locale)
   await runtime.sessions.add({
@@ -83,7 +81,7 @@ describe('resident composer', () => {
     runtime.provide('remote', { $on: () => () => {} })
     runtime.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
     runtime.provide('layout', { openDetails: vi.fn(), closeDetails: vi.fn() })
-    const locale = new LocaleRuntime(runtime.ctx)
+    const locale = new LocaleRuntime()
     runtime.provide('locale', locale)
     runtime.slots.installLocale(locale)
     await runtime.root.declare(LAYOUT_CHILDREN, AppRoot)
@@ -99,10 +97,10 @@ describe('resident composer', () => {
     fireEvent.click(textarea!)
     expect(view.getByTestId('workspace-probe').textContent).toBe('true:0')
     expect(textarea!.getAttribute('aria-expanded')).toBe('true')
-    fireEvent.click(view.getByRole('button', { name: '选择工作区' }))
+    fireEvent.click(view.getByRole('button', { name: 'Выбрать рабочую область' }))
     fireEvent.keyDown(textarea!, { key: 'Enter' })
     expect(view.getByTestId('workspace-probe').textContent).toBe('true:0')
-    expect(view.getByRole('button', { name: '选择工作区' })).toBeTruthy()
+    expect(view.getByRole('button', { name: 'Выбрать рабочую область' })).toBeTruthy()
     await runtime.dispose()
   })
 
@@ -113,7 +111,7 @@ describe('resident composer', () => {
     runtime.provide('remote', { $on: () => () => {} })
     runtime.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
     runtime.provide('layout', { openDetails: vi.fn(), closeDetails: vi.fn() })
-    const locale = new LocaleRuntime(runtime.ctx)
+    const locale = new LocaleRuntime()
     runtime.provide('locale', locale)
     runtime.slots.installLocale(locale)
     await runtime.workspaces.update((draft) => {
@@ -128,7 +126,7 @@ describe('resident composer', () => {
     const scrollBody = view.container.querySelector('[data-conversation-scroll]')!
     const composerSeat = view.container.querySelector('[data-composer-seat]')!
     const textarea = view.container.querySelector('textarea')!
-    const workspaceChip = view.getByRole('button', { name: '选择工作区' })
+    const workspaceChip = view.getByRole('button', { name: 'Выбрать рабочую область' })
     const workspaceProbe = view.getByTestId('workspace-probe')
     expect(textarea.disabled).toBe(false)
     expect(textarea.readOnly).toBe(true)
@@ -147,7 +145,7 @@ describe('resident composer', () => {
     expect(view.container.querySelector('[data-conversation-scroll]')).toBe(scrollBody)
     expect(view.container.querySelector('[data-composer-seat]')).toBe(composerSeat)
     expect(view.container.querySelector('textarea')).toBe(textarea)
-    expect(view.getByRole('button', { name: '选择工作区' })).toBe(workspaceChip)
+    expect(view.getByRole('button', { name: 'Выбрать рабочую область' })).toBe(workspaceChip)
     expect(view.getByTestId('workspace-probe')).toBe(workspaceProbe)
     expect(workspaceProbe.textContent).toBe('true:1')
     expect(textarea.disabled).toBe(false)
@@ -182,7 +180,7 @@ describe('prompt rejection through the assembled composer', () => {
     runtime.provide('remote', { $on: () => () => {} })
     runtime.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
     runtime.provide('layout', { openDetails: vi.fn(), closeDetails: vi.fn() })
-    const locale = new LocaleRuntime(runtime.ctx)
+    const locale = new LocaleRuntime()
     runtime.provide('locale', locale)
     runtime.slots.installLocale(locale)
     const prompt = vi.fn<ISession['prompt']>(async () => ({
@@ -221,7 +219,7 @@ describe('title projection across assembled surfaces', () => {
   it('one summary update re-labels the current-session crumb', async () => {
     const runtime = await bench()
     const view = runtime.renderRoot()
-    const hierarchy = view.getByRole('navigation', { name: '会话层级' })
+    const hierarchy = view.getByRole('navigation', { name: 'Иерархия сессий' })
     expect(within(hierarchy).getByRole('button', { name: 'S' }).hasAttribute('disabled')).toBe(true)
 
     await runtime.sessions.updateSummary(SID, { displayTitle: '修订标题', title: '修订标题' })

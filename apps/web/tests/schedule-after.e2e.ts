@@ -230,10 +230,8 @@ describe.skipIf(MODE === 'record')('web e2e: conversational reminders', () => {
     browser = await chromium.launch()
     page = await browser.newPage({
       viewport: { width: 1680, height: 1000 },
-      locale: 'en-US',
       timezoneId: AT_BROWSER_ZONE,
     })
-    await page.addInitScript(() => { localStorage.setItem('dsh.locale', 'en') })
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -360,7 +358,7 @@ describe.skipIf(MODE === 'record')('web e2e: conversational reminders', () => {
     const composer = page.locator('textarea:enabled').last()
     await composer.fill(AT_USER_PROMPT)
     const settled = scaffold.whenTurnSettled(60_000)
-    await page.getByRole('button', { name: 'Send message', exact: true }).click()
+    await page.getByRole('button', { name: 'Отправить сообщение', exact: true }).click()
     expect(await settled).toBe(atHandle.agent.id)
     await page.getByText(AT_ACK, { exact: true }).waitFor({ timeout: 15_000 })
     atAssistantReply = await waitForReply(atHandle, AT_REPLY, 20_000)

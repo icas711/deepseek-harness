@@ -41,7 +41,7 @@ async function bench() {
   ctx.slots.register({
     name: 'root', children: { 'conversation.input.overlay': { kind: 'list', scope: 'session' } },
   } as never, (() => null) as never)
-  ctx.provide('locale', new LocaleRuntime(ctx))
+  ctx.provide('locale', new LocaleRuntime())
   const fiber = ctx.plugin({ inject: [...inject], apply })
   await fiber.await()
   const mint = (key: string) => {

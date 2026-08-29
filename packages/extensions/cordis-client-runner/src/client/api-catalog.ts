@@ -105,15 +105,9 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
   },
   {
     key: 'locale',
-    summary: 'Dictionary registry plus locale preference.',
-    description: 'Dictionary registry plus locale preference. Lookup chain per key: the entry\'s namespace in the active locale -> that namespace\'s zh fallback -> the shared common namespace (active, then zh) -> the key itself (missing text stays visible, fail loud in the UI rather than blank). Reads go through getLocale; writes only through setLocale; continuous sync through the `locale/change` event, or through the LocaleFace getSnapshot/subscribe pair the render machinery consumes (installed via `ctx.slots.installLocale`).',
+    summary: 'Dictionary registry.',
+    description: 'Dictionary registry. Lookup chain per key: the entry\'s namespace, then the shared common namespace, then the key itself (missing text stays visible, fail loud in the UI rather than blank). Continuous sync rides the LocaleFace getSnapshot/subscribe pair the render machinery consumes (installed via `ctx.slots.installLocale`); dictionary registrations bump the revision so already rendered outlets pick up late-arriving or removed dictionaries.',
     methods: [
-      {
-        signature: 'getLocale(): LocaleSnapshot',
-        description: 'Read the current immutable locale snapshot.',
-        parameters: [],
-        returns: 'the current snapshot (stable reference until the next change).',
-      },
       {
         signature: 'getSnapshot(): LocaleSnapshot',
         description: 'LocaleFace getSnapshot: the current snapshot (carries `revision`; stable reference between changes, uSES-safe).',
@@ -122,32 +116,27 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'subscribe(fn: () => void): () => void',
-        description: 'LocaleFace subscribe: notified on every snapshot change (locale switch or dictionary registration — registrations bump the revision so already rendered outlets pick up late-arriving dictionaries).',
+        description: 'LocaleFace subscribe: notified on every snapshot change (dictionary registration or disposal).',
         parameters: [{ name: 'fn', description: 'change callback.' }],
         returns: 'unsubscribe.',
       },
       {
-        signature: 'setLocale(id: string): void',
-        description: 'Switch the active locale — the only user preference write entry.',
-        parameters: [{ name: 'id', description: 'a registered locale id; unknown ids throw.' }],
+        signature: 'register<N extends keyof LocaleNamespaceMap & string>(ns: N, dict: LocaleDictOf<N>): () => void',
+        description: 'Register a namespace\'s dictionary — the typed form: the dictionary is checked against the namespace\'s LocaleNamespaceMap key union (a missing or extra key is a compile error). Duplicate namespace throws (single occupant; a namespace\'s texts have one owner). Registration bumps the revision so mounted outlets pick up the dictionary.',
+        parameters: [{ name: 'ns', description: 'a namespace merged into LocaleNamespaceMap.' }, { name: 'dict', description: 'the namespace\'s complete dictionary.' }],
+        returns: 'disposer removing the dictionary (idempotent).',
       },
       {
-        signature: 'register<N extends keyof LocaleNamespaceMap & string>(ns: N, dicts: Record<LocaleId, LocaleDictOf<N>>): () => void',
-        description: 'Register a declared namespace\'s dictionaries, all locales in one call — the typed form: each dictionary is checked against the namespace\'s LocaleNamespaceMap key union (a missing or extra key is a compile error), and every shipped locale is required (all-locale balance enforced at registration). Duplicate (ns, locale) throws (single occupant; a namespace\'s texts have one owner). Registration bumps the revision so mounted outlets pick up late-arriving dictionaries.',
-        parameters: [{ name: 'ns', description: 'a namespace merged into LocaleNamespaceMap.' }, { name: 'dicts', description: 'complete dictionaries keyed by locale id.' }],
-        returns: 'disposer removing every locale registered by this call (idempotent).',
-      },
-      {
-        signature: 'register(ns: string, locale: string, dict: LocaleDict): () => void',
-        description: 'Single-locale untyped form for namespaces outside the merge table (dynamic composition, tests).',
-        parameters: [{ name: 'ns', description: 'namespace.' }, { name: 'locale', description: 'locale tag.' }, { name: 'dict', description: 'dictionary.' }],
+        signature: 'register(ns: string, dict: LocaleDict): () => void',
+        description: 'Untyped form for namespaces outside the merge table (dynamic composition, tests).',
+        parameters: [{ name: 'ns', description: 'namespace.' }, { name: 'dict', description: 'dictionary.' }],
         returns: 'disposer (idempotent).',
       },
       {
         signature: 'bind<N extends keyof LocaleNamespaceMap & string>(ns: N): TranslateNS<N>',
         description: 'Bind a declared namespace to a translate function typed to its dictionary key union (plus the shared common vocabulary) — the same key domain the framework-injected `t` seat carries. The returned reference is stable per namespace (repeat binds return the same function), so it can ride inject surfaces without breaking memoization.',
         parameters: [{ name: 'ns', description: 'a namespace merged into LocaleNamespaceMap.' }],
-        returns: 'the typed translate function (reads the active locale at call time).',
+        returns: 'the typed translate function.',
       },
       {
         signature: 'bind(ns: string): Translate',
@@ -378,14 +367,6 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [],
   },
   {
-    name: 'locale/change',
-    mode: 'emit',
-    signature: '\'locale/change\'(snapshot: LocaleSnapshot): void',
-    summary: 'The active locale switched.',
-    description: 'The active locale switched. Dictionary registrations do NOT emit this event (listeners may re-register slots in response, and boot registers one namespace per package); continuous render refresh rides the LocaleFace revision instead.',
-    parameters: [{ name: 'snapshot', description: 'Current immutable locale snapshot.' }],
-  },
-  {
     name: 'slots/changed',
     mode: 'emit',
     signature: '\'slots/changed\'(key: string): void',
@@ -586,20 +567,12 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface LegacyConversationSlice {\n    readonly nodes: readonly ConversationNode[];\n    readonly turnTimings: ReadonlyMap<number, {\n        readonly startTime: number;\n        readonly endTime?: number;\n    }>;\n    readonly turnEnds: ReadonlyMap<number, number>;\n    readonly partial: PartialAssistant | null;\n    readonly runningCalls: readonly RunningToolCall[];\n}',
   },
   {
-    name: 'LocaleDefinition',
-    declaration: 'export interface LocaleDefinition {\n    id: LocaleId;\n    label: string;\n}',
-  },
-  {
     name: 'LocaleDict',
     declaration: 'export type LocaleDict = Record<string, string>;',
   },
   {
     name: 'LocaleDictOf',
     declaration: 'export type LocaleDictOf<N extends keyof LocaleNamespaceMap & string> = Record<LocaleNamespaceMap[N] & string, string>;',
-  },
-  {
-    name: 'LocaleId',
-    declaration: 'export type LocaleId = typeof LOCALE_IDS[number];',
   },
   {
     name: 'LocaleKeysOf',
@@ -611,7 +584,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'LocaleSnapshot',
-    declaration: 'export interface LocaleSnapshot {\n    active: LocaleId;\n    locales: readonly LocaleDefinition[];\n    revision: number;\n}',
+    declaration: 'export interface LocaleSnapshot {\n    revision: number;\n}',
   },
   {
     name: 'MatchedShare',

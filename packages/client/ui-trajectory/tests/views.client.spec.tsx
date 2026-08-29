@@ -28,11 +28,12 @@ import {
   type ConversationSessionHeaderProps, type ConversationSessionProps,
 } from '@deepseek-ai/dsh-client-ui-conversation/src/client/skeleton/ConversationSession.tsx'
 import { createChatStore } from '@deepseek-ai/dsh-client-ui-conversation/src/client/stores.ts'
-import { zh as conversationZh } from '@deepseek-ai/dsh-client-ui-conversation/src/client/locales.ts'
+import { ru as conversationRu } from '@deepseek-ai/dsh-client-ui-conversation/src/client/locales.ts'
 import { apply as localeApply, inject as localeInject } from '@deepseek-ai/dsh-client-locale/client'
 import { stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
 import type { LocaleKeysOf } from '@deepseek-ai/dsh-client-ui-slots'
-import { zh, type TrajectoryKey } from '../src/client/locales.ts'
+import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
+import { ru, type TrajectoryKey } from '../src/client/locales.ts'
 import { apply, inject } from '@deepseek-ai/dsh-client-ui-trajectory/client'
 import { apply as nodeApply } from '@deepseek-ai/dsh-client-ui-trajectory'
 import type { TrajectoryTurnModel } from '../src/client/layout.ts'
@@ -47,7 +48,7 @@ import { deriveTrajectoryTimeline } from '../src/client/timeline.ts'
 const SID = 's1' as SessionId
 const sessionSnapshots = new WeakMap<SlotRegistry, SnapshotStore<ConversationSnapshot>>()
 const tConversation: ConversationSessionHeaderProps['t'] =
-  key => (conversationZh as Record<string, string>)[key] ?? key
+  key => (conversationRu as Record<string, string>)[key] ?? key
 
 afterEach(cleanup)
 // The chat store persists under its declared key; clear so one case's active
@@ -167,7 +168,7 @@ function standaloneProps(
     useWorkspaces: emptyWorkspaces(),
     useProjection: (() => undefined) as never,
     // The locale seat the outlet would inject for the declared namespace.
-    t: (key: LocaleKeysOf<'trajectory'>) => zh[key as TrajectoryKey] ?? key,
+    t: (key: LocaleKeysOf<'trajectory'>) => ru[key as TrajectoryKey] ?? key,
   } as unknown as ConvViewProps & { t: (key: LocaleKeysOf<'trajectory'>) => string }
 }
 
@@ -196,9 +197,8 @@ async function bench(snapshot = historySnapshot(NODES)) {
   const chatBody = vi.fn(() => <div data-testid="chat-body" />)
   slots.register(
     { name: 'conversation.view', id: 'chat', order: 0, label: 'Chat' } as never, chatBody as never)
-  // The locale plugin backs the locale-aware view tab label ('locale' in
-  // inject); its settings scope needs a connection handle and the
-  // forwarded-event port.
+  // The locale plugin backs the view tab label's bound translate
+  // ('locale' in inject).
   ctx.provide('connection', { api: { settings: {} }, isLoopback: false } as never)
   ctx.provide('remote', { $on: () => () => {} } as never)
   ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
@@ -248,7 +248,7 @@ function mount(slots: SlotRegistry, nodes: ConversationSnapshot['nodes'] = NODES
           loadOlder: trajectory.loadOlder,
           setActualDuration: trajectory.setActualDuration,
           useDuration: bindSnapshotSelector(trajectory.hooks.duration),
-          t: (key: TrajectoryKey) => zh[key],
+          t: (key: TrajectoryKey) => ru[key],
         }
       })()
       : injected
@@ -303,7 +303,7 @@ describe('plugin registration', () => {
     const b = await bench()
     expect(tabsOf(b.slots)).toEqual([
       { id: 'chat', label: 'Chat' },
-      { id: 'trajectory', label: 'Trajectory' },
+      { id: 'trajectory', label: 'Траектория' },
     ])
   })
 
@@ -362,18 +362,18 @@ describe('tab switching in ConversationRoot', () => {
     const b = await bench()
     const view = mount(b.slots)
     expect(screen.getByTestId('chat-body')).toBeTruthy()
-    expect(screen.getAllByRole('tab').map(t => t.textContent)).toEqual(['Chat', 'Trajectory'])
+    expect(screen.getAllByRole('tab').map(t => t.textContent)).toEqual(['Chat', 'Траектория'])
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Trajectory' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Траектория' }))
     expect(screen.queryByText(/turns ·/)).toBeNull()
     expect(view.container.querySelectorAll('tr[data-turn-start="true"]')).toHaveLength(2)
     expect(screen.queryByRole('columnheader')).toBeNull()
-    expect(screen.getByRole('toolbar', { name: '轨迹工具栏' })).toBeTruthy()
+    expect(screen.getByRole('toolbar', { name: 'Панель инструментов траектории' })).toBeTruthy()
     expect(screen.getByRole('region', { name: 'Trajectory timeline' })).toBeTruthy()
     expect(view.container.querySelector('[data-conversation-composer-overlay]')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse turns' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Свернуть ходы' }))
     expect(view.container.querySelector('[data-collapsed-summary="turn"]')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Expand turns' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Развернуть ходы' }))
     expect(screen.getByRole('row', { name: /USER/ })).toBeTruthy()
     expect(screen.queryByTestId('chat-body')).toBeNull()
     expect(b.loadOlder).not.toHaveBeenCalled()
@@ -381,21 +381,10 @@ describe('tab switching in ConversationRoot', () => {
     expect(b.loadOlder).not.toHaveBeenCalled()
   })
 
-  it('labels the trajectory tab in the active locale', async () => {
-    const b = await bench()
-    const labelOf = () => tabsOf(b.slots).find(tab => tab.id === 'trajectory')?.label
-    expect(labelOf()).toBe('Trajectory')
-    const locale = b.ctx.get('locale') as { setLocale(id: string): void }
-    locale.setLocale('zh')
-    expect(labelOf()).toBe('轨迹')
-    locale.setLocale('en')
-    expect(labelOf()).toBe('Trajectory')
-  })
-
   it('opens a local record inspector and switches payload tabs without opening chat details', async () => {
     const b = await bench()
     mount(b.slots)
-    fireEvent.click(screen.getByRole('tab', { name: 'Trajectory' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Траектория' }))
 
     fireEvent.keyDown(screen.getByRole('row', { name: /TOOL/ }), { key: 'Enter' })
     expect(screen.getByRole('complementary', { name: 'Event details' })).toBeTruthy()
@@ -432,7 +421,7 @@ describe('tab switching in ConversationRoot', () => {
     }
     const b = await bench(historySnapshot(nodes, { requests: [compaction] }))
     const view = mount(b.slots, nodes)
-    fireEvent.click(screen.getByRole('tab', { name: 'Trajectory' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Траектория' }))
 
     expect(screen.getByText('Between turns')).toBeTruthy()
     expect(view.container.textContent).not.toContain('Turn null')
@@ -484,7 +473,7 @@ describe('tab switching in ConversationRoot', () => {
     ]
     const b = await bench(historySnapshot(nodes, { requests: compactions }))
     mount(b.slots, nodes)
-    fireEvent.click(screen.getByRole('tab', { name: 'Trajectory' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Траектория' }))
 
     const firstRequest = screen.getByRole('button', { name: 'Request #2 · Compaction' })
     const secondRequest = screen.getByRole('button', { name: 'Request #4 · Compaction' })
@@ -509,7 +498,7 @@ describe('tab switching in ConversationRoot', () => {
   it('dragging the overview focuses overlapping records without filtering the ledger', async () => {
     const b = await bench()
     mount(b.slots)
-    fireEvent.click(screen.getByRole('tab', { name: 'Trajectory' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Траектория' }))
     const plot = screen.getByLabelText('Timeline overview; drag horizontally to focus events')
     vi.spyOn(plot, 'getBoundingClientRect').mockReturnValue({
       x: 0, y: 0, left: 0, top: 0, right: 100, bottom: 72, width: 100, height: 72,
@@ -541,7 +530,7 @@ describe('tab switching in ConversationRoot', () => {
   it('clicking a timeline block clears the range, selects the record, and opens its inspector', async () => {
     const b = await bench()
     const view = mount(b.slots)
-    fireEvent.click(screen.getByRole('tab', { name: 'Trajectory' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Траектория' }))
     const plot = screen.getByLabelText('Timeline overview; drag horizontally to focus events')
     vi.spyOn(plot, 'getBoundingClientRect').mockReturnValue({
       x: 0, y: 0, left: 0, top: 0, right: 100, bottom: 72, width: 100, height: 72,
@@ -579,14 +568,14 @@ describe('tab switching in ConversationRoot', () => {
   it('empty window keeps the toolbar and reports no timing data', async () => {
     const b = await bench(historySnapshot([]))
     mount(b.slots)
-    fireEvent.click(screen.getByRole('tab', { name: 'Trajectory' }))
-    expect(screen.getByRole('toolbar', { name: '轨迹工具栏' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('tab', { name: 'Траектория' }))
+    expect(screen.getByRole('toolbar', { name: 'Панель инструментов траектории' })).toBeTruthy()
     expect(screen.getByText('No timing data')).toBeTruthy()
     expect(screen.getByRole<HTMLButtonElement>('button', {
-      name: 'Collapse turns',
+      name: 'Свернуть ходы',
     }).disabled).toBe(false)
     expect(screen.getByRole<HTMLButtonElement>('button', {
-      name: 'Collapse calls',
+      name: 'Свернуть вызовы',
     }).disabled).toBe(false)
     expect(screen.queryByRole('row')).toBeNull()
     expect(screen.queryByText(/turns ·/)).toBeNull()
@@ -623,6 +612,7 @@ describe('timeline projection', () => {
     try {
       const view = render(
         <TrajectoryTimeline
+          t={((key: TrajectoryKey) => ru[key]) as TranslateNS<'trajectory'>}
           turns={[{
             turn: 1,
             groups: [{
@@ -673,6 +663,7 @@ describe('timeline projection', () => {
     const onLoadEarlier = vi.fn(() => new Promise<boolean>(() => {}))
     const view = render(
       <TrajectoryTimeline
+        t={((key: TrajectoryKey) => ru[key]) as TranslateNS<'trajectory'>}
         turns={turns}
         mode="sequence"
         range={null}
@@ -682,7 +673,7 @@ describe('timeline projection', () => {
       />,
     )
 
-    const boundary = screen.getByLabelText('Load earlier history')
+    const boundary = screen.getByLabelText('Загрузить предыдущую историю')
     expect(boundary.getAttribute('data-earlier-history')).not.toBeNull()
     const plot = screen.getByLabelText('Timeline overview; drag horizontally to focus events')
     fireEvent.pointerMove(plot, { clientX: 50, pointerId: 1 })
@@ -691,26 +682,28 @@ describe('timeline projection', () => {
     expect(view.container.querySelector('[data-timeline-hover-line]')).toBeNull()
     fireEvent.focus(boundary)
     expect(screen.getByRole('tooltip').textContent)
-      .toContain('Click to load earlier history')
+      .toContain('Нажмите, чтобы загрузить предыдущую историю')
     fireEvent.click(boundary)
     expect(onLoadEarlier).toHaveBeenCalledOnce()
-    expect(screen.getByLabelText('Loading earlier history')).toBeTruthy()
+    expect(screen.getByLabelText('Загрузка предыдущей истории…')).toBeTruthy()
 
     view.rerender(
       <TrajectoryTimeline
+        t={((key: TrajectoryKey) => ru[key]) as TranslateNS<'trajectory'>}
         turns={turns}
         mode="sequence"
         range={null}
         onRangeChange={vi.fn()}
       />,
     )
-    expect(screen.queryByLabelText('Load earlier history')).toBeNull()
-    expect(screen.queryByLabelText('Loading earlier history')).toBeNull()
+    expect(screen.queryByLabelText('Загрузить предыдущую историю')).toBeNull()
+    expect(screen.queryByLabelText('Загрузка предыдущей истории…')).toBeNull()
   })
 
   it('cancels native scrolling across the timeline while zooming', () => {
     render(
       <TrajectoryTimeline
+        t={((key: TrajectoryKey) => ru[key]) as TranslateNS<'trajectory'>}
         turns={longTurns}
         mode="sequence"
         range={null}
@@ -733,6 +726,7 @@ describe('timeline projection', () => {
   it('scales sequence gutters with narrow operation spans', () => {
     const view = render(
       <TrajectoryTimeline
+        t={((key: TrajectoryKey) => ru[key]) as TranslateNS<'trajectory'>}
         turns={longTurns}
         mode="sequence"
         range={null}
@@ -760,6 +754,7 @@ describe('timeline projection', () => {
     }]
     const view = render(
       <TrajectoryTimeline
+        t={((key: TrajectoryKey) => ru[key]) as TranslateNS<'trajectory'>}
         turns={denseTurns}
         mode="sequence"
         range={null}
@@ -777,6 +772,7 @@ describe('timeline projection', () => {
     const onRangeChange = vi.fn()
     const view = render(
       <TrajectoryTimeline
+        t={((key: TrajectoryKey) => ru[key]) as TranslateNS<'trajectory'>}
         turns={longTurns}
         mode="sequence"
         range={{ start: 2, end: 4 }}
@@ -785,13 +781,13 @@ describe('timeline projection', () => {
       />,
     )
     const plot = screen.getByLabelText('Timeline overview; drag horizontally to focus events')
-    expect(screen.getByLabelText('Load earlier history')).toBeTruthy()
+    expect(screen.getByLabelText('Загрузить предыдущую историю')).toBeTruthy()
     vi.spyOn(plot, 'getBoundingClientRect').mockReturnValue({
       x: 0, y: 0, left: 0, top: 0, right: 100, bottom: 72, width: 100, height: 72,
       toJSON: () => ({}),
     })
     fireEvent.wheel(plot, { clientX: 50, deltaY: -1_000 })
-    expect(screen.queryByLabelText('Load earlier history')).toBeNull()
+    expect(screen.queryByLabelText('Загрузить предыдущую историю')).toBeNull()
     const domain = view.container.querySelector<HTMLElement>('[data-timeline-domain]')
     const domainWidth = domain?.style.getPropertyValue('--trajectory-domain-width')
     expect(domainWidth).not.toBe('100%')
@@ -809,6 +805,7 @@ describe('timeline projection', () => {
     const onRangeChange = vi.fn()
     render(
       <TrajectoryTimeline
+        t={((key: TrajectoryKey) => ru[key]) as TranslateNS<'trajectory'>}
         turns={longTurns}
         mode="sequence"
         range={{ start: 2, end: 4 }}
@@ -828,6 +825,7 @@ describe('timeline projection', () => {
     const onRangeChange = vi.fn()
     const view = render(
       <TrajectoryTimeline
+        t={((key: TrajectoryKey) => ru[key]) as TranslateNS<'trajectory'>}
         turns={longTurns}
         mode="sequence"
         range={{ start: 2, end: 4 }}
@@ -858,6 +856,7 @@ describe('timeline projection', () => {
     const onRangeChange = vi.fn()
     const view = render(
       <TrajectoryTimeline
+        t={((key: TrajectoryKey) => ru[key]) as TranslateNS<'trajectory'>}
         turns={longTurns}
         mode="sequence"
         range={null}
@@ -873,6 +872,7 @@ describe('timeline projection', () => {
 
     view.rerender(
       <TrajectoryTimeline
+        t={((key: TrajectoryKey) => ru[key]) as TranslateNS<'trajectory'>}
         turns={longTurns}
         mode="sequence"
         range={null}
@@ -889,6 +889,7 @@ describe('timeline projection', () => {
 
     view.rerender(
       <TrajectoryTimeline
+        t={((key: TrajectoryKey) => ru[key]) as TranslateNS<'trajectory'>}
         turns={longTurns}
         mode="sequence"
         range={null}
@@ -908,6 +909,7 @@ describe('timeline projection', () => {
     const onRangeChange = vi.fn()
     const view = render(
       <TrajectoryTimeline
+        t={((key: TrajectoryKey) => ru[key]) as TranslateNS<'trajectory'>}
         turns={longTurns}
         mode="sequence"
         range={null}
@@ -984,6 +986,7 @@ describe('timeline projection', () => {
     }] satisfies readonly TrajectoryTurnModel[]
     const view = render(
       <TrajectoryTimeline
+        t={((key: TrajectoryKey) => ru[key]) as TranslateNS<'trajectory'>}
         turns={errorTurns}
         mode="sequence"
         range={null}
@@ -1129,7 +1132,7 @@ describe('timeline projection', () => {
         ...standaloneDuration(),
       },
     ))
-    expect(screen.getByRole('toolbar', { name: '轨迹工具栏' })).toBeTruthy()
+    expect(screen.getByRole('toolbar', { name: 'Панель инструментов траектории' })).toBeTruthy()
     expect(screen.queryByRole('row')).toBeNull()
   })
 })
@@ -1148,7 +1151,7 @@ describe('TrajectoryView state', () => {
         setActualDuration={(value) => { firstDuration.set(value) }}
       />,
     )
-    const duration = screen.getByRole('button', { name: 'Use actual duration' })
+    const duration = screen.getByRole('button', { name: 'Фактическая длительность' })
 
     expect(duration.getAttribute('aria-pressed')).toBe('false')
     fireEvent.click(duration)
@@ -1163,7 +1166,7 @@ describe('TrajectoryView state', () => {
         setActualDuration={(value) => { restoredDuration.set(value) }}
       />,
     )
-    expect(screen.getByRole('button', { name: 'Use actual duration' }).getAttribute('aria-pressed'))
+    expect(screen.getByRole('button', { name: 'Фактическая длительность' }).getAttribute('aria-pressed'))
       .toBe('true')
   })
 

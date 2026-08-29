@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-07-13-documentation-site-projection.zh.md)
-
 ## Problem
 
 The repository needs a navigable documentation website without turning the website directory into a second documentation source. Copying package guides, architecture pages, or generated catalogs into a site-specific tree allows the two copies to drift, while pointing VitePress directly at the repository root couples public URLs and navigation to the internal file layout. Repository-relative links also need different destinations on the website: published pages stay inside the site, but source files and unpublished contributor documents belong on GitHub.
@@ -14,15 +12,15 @@ Canonical Markdown remains in the repository tier that owns it. Product-facing g
 
 `website/docs.ts` is an explicit publication manifest. Each entry maps one canonical source file to a stable public route, sidebar, section, and order. Adding or removing a published page is therefore a reviewable manifest change rather than an implicit directory crawl.
 
-`scripts/project-doc-site.ts` projects the manifest into the ignored `website/.generated/` directory before VitePress starts or builds. The generated tree follows public routes so VitePress navigation, locale detection, and local search share the same route vocabulary. Each page receives an `editSource` frontmatter field pointing to its canonical repository file; the edit-link callback reads only that page data, so public URLs remain independent of the source layout.
+`scripts/project-doc-site.ts` projects the manifest into the ignored `website/.generated/` directory before VitePress starts or builds. The generated tree follows public routes so VitePress navigation and local search share the same route vocabulary. Each page receives an `editSource` frontmatter field pointing to its canonical repository file; the edit-link callback reads only that page data, so public URLs remain independent of the source layout.
 
-Locale home projections retain only the canonical YAML frontmatter. The repository-facing body keeps its H1 and bilingual source links, while the frontmatter implements the [locale-preserving quick-start redirect](../simplification/2026-08-11-quickstart-documentation-home.md) and the site navigation owns locale switching.
+The home route retains only canonical YAML frontmatter: the frontmatter implements the [quick-start redirect](../simplification/2026-08-11-quickstart-documentation-home.md), and the single-locale site needs no language switcher ([russian-only single locale](../simplification/2026-08-28-russian-only-single-locale.md)).
 
 The projector parses Markdown links without reserializing the document. A link to another published source becomes a site-relative route; a link to an unpublished repository file becomes a source link under the `deepseek-ai/deepseek-harness` repository home; a repository image is copied into the generated tree and referenced from there ([why](2026-08-06-doc-site-carries-its-images.md)). Missing relative targets fail projection. Unit tests pin these transformations, and `docs:check` runs the projector tests plus a production VitePress build as part of `doc-sync` and the parallel documentation gates.
 
 `verify-public-repository-links` rejects references to the unavailable legacy repository from tracked files. Source and edit links use the current repository home.
 
-`website/AGENTS.md` is the only maintained Markdown file in the website subtree. The projector test enumerates tracked and unignored files and rejects any other website Markdown, so site-specific locale, route, API, or generated source copies cannot bypass the publication manifest.
+`website/AGENTS.md` is the only maintained Markdown file in the website subtree. The projector test enumerates tracked and unignored files and rejects any other website Markdown, so site-specific route, API, or generated source copies cannot bypass the publication manifest.
 
 Mermaid renders the canonical diagrams. The website workspace explicitly declares the five packages that `vitepress-plugin-mermaid` asks Vite to prebundle because pnpm's strict dependency isolation otherwise makes those transitive packages unavailable to the local development server; Knip records this runtime-only use as an intentional dependency exception.
 

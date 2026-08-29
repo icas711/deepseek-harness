@@ -29,7 +29,7 @@ import {
   assertFixtureInventory, compareOrRefreshGolden, launchWebScaffold, watchConsole, webSnapshotMode,
   type WebScaffold,
 } from './scaffold.ts'
-import { newEnglishPage, saveFailureShot } from './support.ts'
+import { newPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/conversation-column-overflow', import.meta.url))
 /**
@@ -206,7 +206,7 @@ describe('web e2e: the conversation column scrolls on one axis', () => {
   beforeAll(async () => {
     scaffold = await launchWebScaffold({})
     browser = await chromium.launch()
-    page = await newEnglishPage(browser, 900)
+    page = await newPage(browser, 900)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[data-conversation-scroll] [class*="heroGlow"]', { timeout: 30_000 })

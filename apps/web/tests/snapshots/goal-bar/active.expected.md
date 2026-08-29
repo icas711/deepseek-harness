@@ -1,8 +1,8 @@
 - img
-- text: Ongoing Goal guard rapid clear clicks
-- button "Pause goal":
+- text: Активная цель guard rapid clear clicks
+- button "Приостановить цель":
   - img
-- button "Edit goal":
+- button "Редактировать цель":
   - img
-- button "Clear goal":
+- button "Очистить цель":
   - img

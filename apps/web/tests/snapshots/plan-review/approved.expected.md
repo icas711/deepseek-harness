@@ -1,22 +1,22 @@
 - banner:
-  - navigation "Session hierarchy":
+  - navigation "Иерархия сессий":
     - 'button "Plan a small change: add" [disabled]'
   - img
-  - text: Standard mode
+  - text: Стандартный режим
   - button "Session log":
     - text: Session log
     - img
   - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
+    - tab "Беседа" [selected]
+    - tab "Траектория"
 - img
 - text: "plan Plan mode on. Use /plan off to leave. Plan a small change: add a --greeting flag to a CLI. Do not read or write any files. Call exit_plan_mode with a short plan of at most five bullet points. Once the plan is approved, reply with the single word DONE and stop. {{clock}}"
-- button "Copy":
+- button "Копировать":
   - img
-- button "Context injection @deepseek-ai/dsh-system-prompt":
+- button "Внедрение контекста @deepseek-ai/dsh-system-prompt":
   - img
   - img
-  - text: Context injection @deepseek-ai/dsh-system-prompt
+  - text: Внедрение контекста @deepseek-ai/dsh-system-prompt
 - 'button "Think The user wants me to plan a small change to add a `--greeting` flag to a CLI. They explicitly told me not to read or write any files, and to call exit_plan_mode with a short plan. Let me do that directly."':
   - img
   - img
@@ -34,22 +34,22 @@
   - img
   - text: "Think The plan was approved. The user's last instruction says: \"Once the plan is approved, reply with the single word DONE and stop.\" So I should just reply with DONE and stop."
 - paragraph: DONE
-- button "Copy":
+- button "Копировать":
   - img
-- button "Good response":
+- button "Хороший ответ":
   - img
-- button "Bad response":
+- button "Проблемный ответ":
   - img
-- button "Branch into a new conversation":
+- button "Создать ветку в новой беседе":
   - img
-- text: {{clock}} Ran for {{duration}} TTFT {{duration}} {{throughput}} tok/s
-- textbox "Message the agent"
-- button "Commands":
+- text: {{clock}} Выполнялось {{duration}} TTFT {{duration}} {{throughput}} tok/s
+- textbox "Написать агенту"
+- button "Команды":
   - img
-- 'button "Access mode, current: Workspace Write"': Workspace Write
-- button "Select model, current DeepSeek-V4-Flash":
+- 'button "Режим доступа, текущий: Workspace Write"': Workspace Write
+- button "Выбор модели, текущая DeepSeek-V4-Flash":
   - text: DeepSeek-V4-Flash
   - img
-- button "4% of context used"
-- button "Send message" [disabled]
-- text: 1 turns · 2 steps LLM {{duration}} · Tool call {{duration}} TTFT avg {{duration}} · {{throughput}} tok/s Cache hit 51% Input 10.2K tok · Output 346 tok
+- button "Использовано 4% контекста"
+- button "Отправить сообщение" [disabled]
+- text: 1 ход(ов) · 2 шаг(ов) LLM {{duration}} · Вызов инструмента {{duration}} Средний TTFT {{duration}} · {{throughput}} tok/s Попадания в кэш 51% Вход 10.2K tok · Выход 346 tok

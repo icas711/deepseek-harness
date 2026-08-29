@@ -1,39 +1,9 @@
-/** `goal` namespace dictionaries. */
-
-/** Simplified Chinese dictionary (the key-set source of truth). */
-export const zh = {
-  'phase.active': '进行中的目标',
-  'phase.paused': '已暂停的目标',
-  'phase.blocked': '受阻的目标',
-  'objective.aria': '目标内容',
-  'commandInput.aria': '命令输入',
-  'action.save': '保存目标',
-  'action.cancel': '取消编辑',
-  'action.pause': '暂停目标',
-  'action.resume': '恢复目标',
-  'action.edit': '编辑目标',
-  'action.clear': '清除目标',
-} satisfies Record<string, string>
+/** `goal` namespace dictionary. */
 
 /** The goal namespace key union. */
-export type GoalKey = keyof typeof zh
+export type GoalKey = keyof typeof ru
 
-/** English dictionary, checked complete against the zh key set. */
-export const en = {
-  'phase.active': 'Ongoing Goal',
-  'phase.paused': 'Paused Goal',
-  'phase.blocked': 'Blocked Goal',
-  'objective.aria': 'Goal objective',
-  'commandInput.aria': 'Command input',
-  'action.save': 'Save goal',
-  'action.cancel': 'Cancel edit',
-  'action.pause': 'Pause goal',
-  'action.resume': 'Resume goal',
-  'action.edit': 'Edit goal',
-  'action.clear': 'Clear goal',
-} satisfies Record<GoalKey, string>
-
-/** Russian dictionary, checked complete against the zh key set. */
+/** Russian dictionary (the key-set source of truth; the only shipped locale). */
 export const ru = {
   'phase.active': 'Активная цель',
   'phase.paused': 'Приостановленная цель',
@@ -46,4 +16,4 @@ export const ru = {
   'action.resume': 'Возобновить цель',
   'action.edit': 'Редактировать цель',
   'action.clear': 'Очистить цель',
-} satisfies Record<GoalKey, string>
+} satisfies Record<string, string>

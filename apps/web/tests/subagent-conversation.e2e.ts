@@ -15,7 +15,7 @@ import {
   launchWebScaffold, watchConsole,
   webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
+import { connectFreshWorkspace, newPage, saveFailureShot } from './support.ts'
 
 const BASE_FIXTURE = fileURLToPath(new URL('./snapshots/live-interactions/session.jsonl', import.meta.url))
 const AVAILABLE_CHILD_EXPECTED = fileURLToPath(new URL('./snapshots/subagent-conversation/ui.expected.md', import.meta.url))
@@ -81,7 +81,7 @@ describe('web e2e: persisted subagent conversation and human continuation', () =
       paceMs: 25,
     })
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     page.on('request', (request) => {
       const path = new URL(request.url()).pathname
       if (path.startsWith('/api/')) apiCalls.push(path)
@@ -224,13 +224,13 @@ describe('web e2e: persisted subagent conversation and human continuation', () =
     const warningStart = tripwire.warnings.length
     await page.reload({ waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
-    const catalogButton = page.getByRole('button', { name: /subagents/ })
+    const catalogButton = page.getByRole('button', { name: /субагент/ })
     await catalogButton.waitFor({ timeout: 15_000 })
     await catalogButton.click()
-    const catalogTree = page.getByRole('tree', { name: 'Subagent sessions' })
+    const catalogTree = page.getByRole('tree', { name: 'Сессии субагентов' })
     await catalogTree.getByRole('treeitem').nth(1).waitFor({ timeout: 15_000 })
     await catalogTree.press('Escape')
-    await page.getByRole('button', { name: '3 subagents' }).waitFor({ timeout: 15_000 })
+    await page.getByRole('button', { name: '3 субагентов' }).waitFor({ timeout: 15_000 })
     acknowledgeReloadConnectionLoss(tripwire, warningStart)
   }, 120_000)
 
@@ -277,17 +277,17 @@ describe('web e2e: persisted subagent conversation and human continuation', () =
       await page.reload({ waitUntil: 'load' })
       await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
       await expect.poll(() => emptyDelivered, { timeout: 15_000 }).toBe(true)
-      await page.getByRole('button', { name: '3 subagents' }).waitFor({ timeout: 15_000 })
+      await page.getByRole('button', { name: '3 субагентов' }).waitFor({ timeout: 15_000 })
       acknowledgeReloadConnectionLoss(tripwire, warningStart)
 
-      await page.getByRole('button', { name: '3 subagents' }).click()
+      await page.getByRole('button', { name: '3 субагентов' }).click()
       await expect.poll(() => trailingRequested, { timeout: 15_000 }).toBe(true)
-      const tree = page.getByRole('tree', { name: 'Subagent sessions' })
-      await tree.getByRole('treeitem', { name: 'Loading subagents' }).first().waitFor()
-      expect(await tree.getByRole('treeitem', { name: 'Loading subagents' }).count()).toBe(2)
+      const tree = page.getByRole('tree', { name: 'Сессии субагентов' })
+      await tree.getByRole('treeitem', { name: 'Загрузка субагентов' }).first().waitFor()
+      expect(await tree.getByRole('treeitem', { name: 'Загрузка субагентов' }).count()).toBe(2)
       await compareOrRefreshGolden(
         STALE_CATALOG_EXPECTED,
-        await captureStableAria(page, '[role="tree"][aria-label="Subagent sessions"]', scaffold.workspaceCwd),
+        await captureStableAria(page, '[role="tree"][aria-label="Сессии субагентов"]', scaffold.workspaceCwd),
         MODE,
       )
       releaseCatalog()
@@ -301,14 +301,14 @@ describe('web e2e: persisted subagent conversation and human continuation', () =
 
   it('expands a persisted grandchild progressively without activating either level', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-subagent-tree'))
-    await page.getByRole('button', { name: '3 subagents' }).click()
+    await page.getByRole('button', { name: '3 субагентов' }).click()
     expect(await page.getByRole('button', {
-      name: `Expand ${ONE_SHOT_LABEL} descendants`,
+      name: `Развернуть потомков ${ONE_SHOT_LABEL}`,
     }).count()).toBe(0)
     const oneShotRow = page.getByRole('treeitem', { name: new RegExp(ONE_SHOT_LABEL) })
-    expect(await oneShotRow.getByText('~6mo 12d', { exact: true }).count()).toBe(1)
-    expect(await oneShotRow.getAttribute('aria-label')).toContain('192d 00h 00m 00s')
-    await page.getByRole('button', { name: `Expand ${LABEL} descendants` }).click()
+    expect(await oneShotRow.getByText('~6 мес 12 д', { exact: true }).count()).toBe(1)
+    expect(await oneShotRow.getAttribute('aria-label')).toContain('192 д 00 ч 00 мин 00 с')
+    await page.getByRole('button', { name: `Развернуть потомков ${LABEL}` }).click()
     const childRow = page.getByRole('treeitem', { name: new RegExp(LABEL) })
     const childLabel = await childRow.getAttribute('aria-label')
     await page.waitForTimeout(1_100)
@@ -318,16 +318,16 @@ describe('web e2e: persisted subagent conversation and human continuation', () =
     expect(scaffold.ctx.agents.get(grandchildId)).toBeUndefined()
     const snapshot = await captureStableAria(
       page,
-      '[role="tree"][aria-label="Subagent sessions"]',
+      '[role="tree"][aria-label="Сессии субагентов"]',
       scaffold.workspaceCwd,
     )
     await compareOrRefreshGolden(TREE_EXPECTED, snapshot, MODE)
-    await page.getByRole('tree', { name: 'Subagent sessions' }).press('Escape')
+    await page.getByRole('tree', { name: 'Сессии субагентов' }).press('Escape')
   })
 
   it('opens the completed child from persistence without activating it', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-subagent-open'))
-    await page.getByRole('button', { name: '3 subagents' }).click()
+    await page.getByRole('button', { name: '3 субагентов' }).click()
     await page.getByRole('treeitem', { name: new RegExp(LABEL) }).click()
     await expect.poll(
       () => page.getByText(INITIAL_PROMPT, { exact: true }).count(),
@@ -336,11 +336,11 @@ describe('web e2e: persisted subagent conversation and human continuation', () =
     if (scaffold.ctx.agents.get(childId) !== undefined) {
       throw new Error(`viewing the child activated it; API calls: ${apiCalls.join(', ')}`)
     }
-    const hierarchy = page.getByRole('navigation', { name: 'Session hierarchy' })
+    const hierarchy = page.getByRole('navigation', { name: 'Иерархия сессий' })
     await hierarchy.getByRole('button', { name: LABEL, disabled: true }).waitFor()
     const sidebar = await captureStableAria(
       page,
-      '[role="tree"][aria-label="Sessions"]',
+      '[role="tree"][aria-label="Сессии"]',
       scaffold.workspaceCwd,
     )
     await compareOrRefreshGolden(SIDEBAR_EXPECTED, sidebar, MODE)
@@ -360,7 +360,7 @@ describe('web e2e: persisted subagent conversation and human continuation', () =
         resolveEnded()
       })
     })
-    const input = page.getByRole('textbox', { name: 'Message the agent' })
+    const input = page.getByRole('textbox', { name: 'Написать агенту' })
     await input.fill(FOLLOWUP)
     await input.press('Enter')
     await expect.poll(
@@ -370,7 +370,7 @@ describe('web e2e: persisted subagent conversation and human continuation', () =
     await ended
     await expect.poll(() => page.getByText(FOLLOWUP, { exact: true }).count(), { timeout: 10_000 }).toBe(1)
     await expect.poll(() => scaffold.ctx.agents.get(childId), { timeout: 10_000 }).toBeUndefined()
-    expect(await page.getByRole('button', { name: 'Stop generating' }).count()).toBe(0)
+    expect(await page.getByRole('button', { name: 'Остановить генерацию' }).count()).toBe(0)
   })
 
   it('matches the settled addressed-conversation aria golden and stays clean', async () => {
@@ -383,8 +383,8 @@ describe('web e2e: persisted subagent conversation and human continuation', () =
 
   it('opens an unavailable persisted grandchild after recording the available child', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-subagent-grandchild'))
-    await page.getByRole('button', { name: '1 subagent' }).click()
-    const tree = page.getByRole('tree', { name: 'Subagent sessions' })
+    await page.getByRole('button', { name: '1 субагент' }).click()
+    const tree = page.getByRole('tree', { name: 'Сессии субагентов' })
     const nestedRow = tree.getByRole('treeitem', { name: new RegExp(NESTED_LABEL) })
     expect(await nestedRow.locator(':scope > *').count()).toBe(1)
     const clickArea = nestedRow.locator(':scope > *')
@@ -401,17 +401,17 @@ describe('web e2e: persisted subagent conversation and human continuation', () =
     ]).toEqual([4, 4])
     await compareOrRefreshGolden(
       BRANCHLESS_EXPECTED,
-      await captureStableAria(page, '[role="tree"][aria-label="Subagent sessions"]', scaffold.workspaceCwd),
+      await captureStableAria(page, '[role="tree"][aria-label="Сессии субагентов"]', scaffold.workspaceCwd),
       MODE,
     )
     await nestedRow.click()
-    await page.getByText('The parent session is offline; reopen it to continue sending messages.').waitFor()
+    await page.getByText('Родительская сессия не подключена; откройте её заново, чтобы продолжить отправку сообщений.').waitFor()
     // The offline banner renders from the descriptor alone, so it says nothing
     // about the transcript below it. The golden pins that transcript, and
     // `captureStableAria` calls two identical polls stable — including two of
     // "Loading history…". Wait for the message the golden asserts.
     await page.getByText(NESTED_PROMPT).waitFor()
-    const hierarchy = page.getByRole('navigation', { name: 'Session hierarchy' })
+    const hierarchy = page.getByRole('navigation', { name: 'Иерархия сессий' })
     const crumbs = await hierarchy.getByRole('button').allTextContents()
     expect(crumbs.slice(-2)).toEqual([LABEL, NESTED_LABEL])
     expect(scaffold.ctx.agents.get(childId)).toBeUndefined()
@@ -425,55 +425,55 @@ describe('web e2e: persisted subagent conversation and human continuation', () =
 
   it('opens a one-shot child as permanently read-only history', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-subagent-one-shot'))
-    const parentSession = page.getByRole('tree', { name: 'Sessions' })
+    const parentSession = page.getByRole('tree', { name: 'Сессии' })
       .getByRole('treeitem')
       .last()
     await parentSession.click()
-    await page.getByRole('button', { name: '3 subagents' }).click()
+    await page.getByRole('button', { name: '3 субагентов' }).click()
     await page.getByRole('treeitem', { name: new RegExp(ONE_SHOT_LABEL) }).click()
-    await page.getByText('One-shot tasks do not accept follow-ups; review the full execution record here.').waitFor()
+    await page.getByText('Однократные задачи не принимают последующие сообщения; полную запись выполнения можно посмотреть здесь.').waitFor()
     expect(scaffold.ctx.agents.get(oneShotId)).toBeUndefined()
   })
 
   it('places an ordinary fork from a subagent beside its workspace-owning ancestor', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-subagent-fork'))
-    await page.getByRole('tree', { name: 'Sessions' })
+    await page.getByRole('tree', { name: 'Сессии' })
       .getByRole('treeitem', { name: /Ask a research subagent to/ })
       .click()
-    await page.getByRole('button', { name: '3 subagents' }).click()
+    await page.getByRole('button', { name: '3 субагентов' }).click()
     await page.getByRole('treeitem', { name: new RegExp(LABEL) }).click()
-    await page.getByRole('textbox', { name: 'Message the agent' }).waitFor()
+    await page.getByRole('textbox', { name: 'Написать агенту' }).waitFor()
     const forkResponse = page.waitForResponse(response =>
       new URL(response.url()).pathname === '/api/session.fork')
-    await page.getByRole('button', { name: 'Branch into a new conversation' }).last().click()
+    await page.getByRole('button', { name: 'Создать ветку в новой беседе' }).last().click()
     const forkReceipt = await (await forkResponse).json() as { result: { ok: boolean } }
     expect(forkReceipt.result).toMatchObject({ ok: true })
     await expect.poll(
-      () => page.getByRole('tree', { name: 'Sessions' }).getByRole('treeitem').count(),
+      () => page.getByRole('tree', { name: 'Сессии' }).getByRole('treeitem').count(),
       { timeout: 15_000 },
     ).toBe(3)
-    expect(await page.getByText('Ungrouped', { exact: true }).count()).toBe(0)
-    const hierarchy = page.getByRole('navigation', { name: 'Session hierarchy' })
+    expect(await page.getByText('Без группы', { exact: true }).count()).toBe(0)
+    const hierarchy = page.getByRole('navigation', { name: 'Иерархия сессий' })
     await expect.poll(() => hierarchy.getByRole('button').count()).toBe(1)
     await compareOrRefreshGolden(
       FORK_EXPECTED,
-      await captureStableAria(page, '[role="tree"][aria-label="Sessions"]', scaffold.workspaceCwd),
+      await captureStableAria(page, '[role="tree"][aria-label="Сессии"]', scaffold.workspaceCwd),
       MODE,
     )
   })
 
   it('cold-resumes the original subagent while its ordinary fork stays active', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-subagent-post-fork-followup'))
-    const sessions = page.getByRole('tree', { name: 'Sessions' })
+    const sessions = page.getByRole('tree', { name: 'Сессии' })
     await sessions.getByRole('treeitem', { name: /Ask a research subagent to/ }).click()
-    await page.getByRole('button', { name: '3 subagents' }).click()
+    await page.getByRole('button', { name: '3 субагентов' }).click()
     await page.getByRole('treeitem', { name: new RegExp(LABEL) }).click()
     await page.locator('textarea:enabled').first().waitFor()
     expect(scaffold.ctx.agents.get(childId)).toBeUndefined()
 
     const forkResponse = page.waitForResponse(response =>
       new URL(response.url()).pathname === '/api/session.fork')
-    await page.getByRole('button', { name: 'Branch into a new conversation' }).last().click()
+    await page.getByRole('button', { name: 'Создать ветку в новой беседе' }).last().click()
     const forkReceipt = await (await forkResponse).json() as {
       result: { ok: true; value: { sessionId: string } } | { ok: false }
     }
@@ -483,7 +483,7 @@ describe('web e2e: persisted subagent conversation and human continuation', () =
     await expect.poll(() => scaffold.ctx.agents.get(forkId)).not.toBeUndefined()
 
     await sessions.getByRole('treeitem', { name: /Ask a research subagent to/ }).click()
-    await page.getByRole('button', { name: '3 subagents' }).click()
+    await page.getByRole('button', { name: '3 субагентов' }).click()
     await page.getByRole('treeitem', { name: new RegExp(LABEL) }).click()
     const input = page.locator('textarea:enabled').first()
     await input.waitFor()

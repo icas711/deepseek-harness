@@ -26,6 +26,8 @@ import {
 import type { TrajectoryVirtualRow } from './trajectory-virtual-rows.ts'
 import type { TrajectoryTurnModel } from './layout.ts'
 import { trajectoryPreviewText } from './trajectory-preview.ts'
+import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
+import type { NS } from './locales.ts'
 import css from './TrajectoryTable.module.css'
 
 const BOTTOM_FOLLOW_THRESHOLD_PX = 2
@@ -387,6 +389,8 @@ export interface TrajectoryTableProps {
   inspectCallId?: string | null
   /** Acknowledge a consumed (or unresolvable) inspect request. */
   onInspectApplied?: (() => void) | undefined
+  /** Translate a history-loader dictionary key. */
+  t: TranslateNS<typeof NS>
 }
 
 /** Request-inspector fields shared by ordinary generation and compaction. */
@@ -1711,6 +1715,7 @@ export function TrajectoryTable({
   collapsedAssistants,
   onToggleAssistant,
   inspectCallId = null,
+  t,
   onInspectApplied,
 }: TrajectoryTableProps) {
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null)
@@ -2238,9 +2243,7 @@ export function TrajectoryTable({
                     type="button"
                     className={css.historyLoadButton}
                     disabled={olderBusy || onLoadOlder === undefined}
-                    aria-label={olderBusy
-                      ? 'Loading earlier history…'
-                      : 'Load earlier history'}
+                    aria-label={olderBusy ? t('history.loadingEarlier') : t('history.loadEarlier')}
                     onClick={() => {
                       const pane = tablePaneRef.current
                       if (pane !== null) requestOlder(pane, false)
@@ -2250,10 +2253,10 @@ export function TrajectoryTable({
                       <span className={css.historyLoadingSpinner} aria-hidden="true" />
                     )}
                     <span aria-hidden="true">
-                      {olderBusy ? 'Loading earlier history…' : 'Load earlier history'}
+                      {olderBusy ? t('history.loadingEarlier') : t('history.loadEarlier')}
                     </span>
                     <span className={css.visuallyHidden} role="status" aria-live="polite">
-                      {olderBusy ? 'Loading earlier history…' : ''}
+                      {olderBusy ? t('history.loadingEarlier') : ''}
                     </span>
                   </button>
                 </td>

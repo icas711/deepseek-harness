@@ -12,13 +12,13 @@ import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-web-react'
 import type { PlanProjection } from '@deepseek-ai/dsh-plan-mode/client'
 import { PlanChip, type PlanChipProps } from '../src/client/PlanModeControl.tsx'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
-import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
-import { zh } from '../src/client/locales.ts'
+import { ru as commonRu } from '@deepseek-ai/dsh-client-locale/src/locales/ru.ts'
+import { ru } from '../src/client/locales.ts'
 
 afterEach(cleanup)
 
-// The framework-injected t seat, stubbed over the zh dictionaries (the default locale).
-const t: PlanChipProps['t'] = makeTranslate(zh, commonZh)
+// The framework-injected t seat, stubbed over the ru dictionaries (the shipped locale).
+const t: PlanChipProps['t'] = makeTranslate(ru, commonRu)
 
 function setup(
   plan: PlanProjection | undefined,
@@ -33,7 +33,7 @@ function setup(
   return { store, exitPlanMode, view }
 }
 
-const chip = () => screen.getByRole('button', { name: 'plan mode 已开启，按下关闭' })
+const chip = () => screen.getByRole('button', { name: 'Режим плана включён, нажмите, чтобы выключить' })
 
 describe('PlanChip', () => {
   it('renders nothing for an absent capability or a default-mode target', () => {
@@ -66,7 +66,7 @@ describe('PlanChip', () => {
     resolve(null)
     store.set({ value: { active: true, pending: true } })
     await waitFor(() => {
-      expect(screen.queryByRole('button', { name: 'plan mode 已开启，按下关闭' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Режим плана включён, нажмите, чтобы выключить' })).toBeNull()
     })
   })
 

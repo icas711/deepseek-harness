@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-web-react'
 import type { SettingsNamespaceView } from '@deepseek-ai/dsh-api-remotes/client'
 import { PermissionRow, type PermissionRowProps } from '../src/client/PermissionRow.tsx'
-import { en } from '../src/client/locales.ts'
+import { ru } from '../src/client/locales.ts'
 import { PermissionPresetSettingsController } from '../src/client/settings-store.ts'
 
 afterEach(cleanup)
@@ -36,7 +36,7 @@ function ok<T>(value: T) {
   return { rpcId: 'test', result: { ok: true as const, value } }
 }
 
-const dictionary: Record<string, string> = en
+const dictionary: Record<string, string> = ru
 const t: PermissionRowProps['t'] = key => dictionary[key] ?? key
 const runtime = {
   useSessions: (() => { throw new Error('unused') }) as never,
@@ -95,12 +95,12 @@ describe('PermissionRow', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Read Only' }))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Full access' }))
     expect(mutate).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-    expect(screen.queryByRole('dialog', { name: 'Enable Full access?' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Отмена' }))
+    expect(screen.queryByRole('dialog', { name: 'Включить Full access?' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Read Only' }))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Full access' }))
-    const dialog = screen.getByRole('dialog', { name: 'Enable Full access?' })
-    const enable = screen.getByRole('button', { name: 'Enable Full access' })
+    const dialog = screen.getByRole('dialog', { name: 'Включить Full access?' })
+    const enable = screen.getByRole('button', { name: 'Включить Full access' })
     expect((enable as HTMLButtonElement).disabled).toBe(true)
     fireEvent.click(screen.getByRole('checkbox'))
     fireEvent.click(enable)
@@ -147,7 +147,7 @@ describe('PermissionRow', () => {
       } as never,
     })
     mount(controller)
-    expect((await screen.findByRole('button', { name: 'Loading' })).hasAttribute('disabled')).toBe(true)
+    expect((await screen.findByRole('button', { name: 'Загрузка' })).hasAttribute('disabled')).toBe(true)
     describe.resolve(ok({ writable: true, hasDocument: false, namespaces: [view('read-only')] }))
     const button = await screen.findByRole('button', { name: 'Read Only' })
     fireEvent.click(button)

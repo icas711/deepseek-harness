@@ -34,7 +34,7 @@ describe('assembled max-tokens turn-end notice', () => {
   it('renders the localized truncation notice after the cut-off answer instead of ending silently', async () => {
     mountAssembledApp()
 
-    const tree = await screen.findByRole('tree', { name: 'Sessions' }, { timeout: 10_000 })
+    const tree = await screen.findByRole('tree', { name: 'Сессии' }, { timeout: 10_000 })
     fireEvent.click(await within(tree).findByText('Fixture 历史会话'))
     // The truncated answer itself stays in the flow: the notice supplements the
     // partial output, it never replaces it.

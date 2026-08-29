@@ -1,45 +1,45 @@
 - banner:
-  - navigation "Session hierarchy":
+  - navigation "Иерархия сессий":
     - button "workspace" [disabled]
   - img
-  - text: Standard mode
+  - text: Стандартный режим
   - button "Session log":
     - text: Session log
     - img
   - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-- group "Command input": /goal Keep the composer context panels aligned
+    - tab "Беседа" [selected]
+    - tab "Траектория"
+- group "Поле ввода команды": /goal Keep the composer context panels aligned
 - 'button "goal Goal created Status: active Objective: Keep the composer context panels aligned Rounds: 0/256 Activation: armed Commands: /goal edit <objective>, /goal pause, /goal clear"':
   - img
   - img
   - text: "goal Goal created Status: active Objective: Keep the composer context panels aligned Rounds: 0/256 Activation: armed Commands: /goal edit <objective>, /goal pause, /goal clear"
-- button "Context injection goal":
+- button "Внедрение контекста goal":
   - img
   - img
-  - text: Context injection goal
-- button "Context injection @deepseek-ai/dsh-system-prompt":
+  - text: Внедрение контекста goal
+- button "Внедрение контекста @deepseek-ai/dsh-system-prompt":
   - img
   - img
-  - text: Context injection @deepseek-ai/dsh-system-prompt
+  - text: Внедрение контекста @deepseek-ai/dsh-system-prompt
 - paragraph: partial
 - status: Deep diving...
-- region "To-dos":
-  - button "To-dos 1 completed · 1 in progress"
+- region "Задачи":
+  - button "Задачи 1 завершено · 1 в работе"
 - img
-- text: Ongoing Goal Keep the composer context panels aligned
-- button "Pause goal":
+- text: Активная цель Keep the composer context panels aligned
+- button "Приостановить цель":
   - img
-- button "Edit goal":
+- button "Редактировать цель":
   - img
-- button "Clear goal":
+- button "Очистить цель":
   - img
-- button "2 queued messages"
-- textbox "Cmd/Ctrl+Enter steers all queued messages"
-- button "Commands":
+- 'button "Сообщений в очереди: 2"'
+- textbox "Cmd/Ctrl+Enter — встроить все сообщения из очереди"
+- button "Команды":
   - img
-- 'button "Access mode, current: Workspace Write"': Workspace Write
-- button "Select model, current DeepSeek-V4-Flash":
+- 'button "Режим доступа, текущий: Workspace Write"': Workspace Write
+- button "Выбор модели, текущая DeepSeek-V4-Flash":
   - text: DeepSeek-V4-Flash
   - img
-- button "Stop generating"
+- button "Остановить генерацию"

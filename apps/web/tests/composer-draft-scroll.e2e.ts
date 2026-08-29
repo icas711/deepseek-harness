@@ -39,7 +39,7 @@ import {
   assertFixtureInventory, compareOrRefreshGolden, launchWebScaffold, watchConsole,
   webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
+import { connectFreshWorkspace, newPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/composer-draft-scroll', import.meta.url))
 /**
@@ -254,7 +254,7 @@ describe('web e2e: composer draft scrolling', () => {
   beforeAll(async () => {
     scaffold = await launchWebScaffold({})
     browser = await chromium.launch()
-    page = await newEnglishPage(browser)
+    page = await newPage(browser)
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })

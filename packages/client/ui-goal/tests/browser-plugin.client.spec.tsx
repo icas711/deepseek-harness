@@ -19,11 +19,11 @@ import { ConversationEventRegistry } from '@deepseek-ai/dsh-client-runtime/src/c
 import type { GoalProjection } from '@deepseek-ai/dsh-goal/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
-import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
+import { ru as commonRu } from '@deepseek-ai/dsh-client-locale/src/locales/ru.ts'
 import type { GoalBarActions } from '../src/client/slots.ts'
 import { apply, inject } from '../src/client/index.ts'
 import { GoalDock } from '../src/client/GoalBar.tsx'
-import { zh } from '../src/client/locales.ts'
+import { ru } from '../src/client/locales.ts'
 import { apply as nodeApply } from '../src/index.ts'
 
 afterEach(cleanup)
@@ -87,7 +87,7 @@ async function bench(options: {
       'conversation.chat.node': { kind: 'keyed', scope: 'session' },
     },
   } as never, (() => null) as never)
-  ctx.provide('locale', new LocaleRuntime(ctx))
+  ctx.provide('locale', new LocaleRuntime())
   ctx.provide('sessions', {
     binding: (id: SessionId) => ({
       sessionId: id,
@@ -217,7 +217,7 @@ describe('GoalDock adapter', () => {
       onResume: () => Promise.resolve({ ok: true, value: undefined }),
       onClear: () => Promise.resolve({ ok: true, value: undefined }),
     }
-    const t = makeTranslate(zh, commonZh)
+    const t = makeTranslate(ru, commonRu)
     const dockProps = (up: () => GoalProjection | null | undefined) =>
       ({ useProjection: up, ...actions, t }) as unknown as Parameters<typeof GoalDock>[0]
     const shown = render(<GoalDock {...dockProps(useProjection)} />)
