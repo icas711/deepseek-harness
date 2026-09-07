@@ -8,10 +8,15 @@ import { TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply, inject, refreshIfLoaded } from '@deepseek-ai/dsh-client-ui-settings-models/client'
 import { ModelsSection } from '../src/client/ModelsSection.tsx'
 import { DeepSeekOnboardingDialog } from '../src/client/DeepSeekOnboardingDialog.tsx'
+import { RetrySettingsRow } from '../src/client/RetrySettingsRow.tsx'
 import { WelcomeNotice } from '../src/client/WelcomeNotice.tsx'
 import { ru } from '../src/client/locales.ts'
 
-async function bench(isLoopback = true) {
+async function bench(
+  isLoopback = true,
+  scope: Record<string, unknown> = {},
+  mutate?: (input: unknown) => Promise<unknown>,
+) {
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
   const locale = new LocaleRuntime()
@@ -21,7 +26,15 @@ async function bench(isLoopback = true) {
   new TestRemote(ctx)
   // The apply path only captures the wire face; no call leaves this fake
   // until a section actually loads.
-  ctx.provide('connection', { api: {}, isLoopback } as never)
+  ctx.provide('connection', { api: mutate === undefined ? {} : { settings: { mutate } }, isLoopback } as never)
+  // The retry row binds the `llm-deepseek` namespace through the settings
+  // seam; the fake vouches for one unavailable snapshot and no subscriptions.
+  ctx.provide('settingsScope', {
+    bind: () => ({
+      getSnapshot: () => ({ status: 'unavailable', value: undefined, revision: undefined, ...scope }),
+      subscribe: () => () => {},
+    }),
+  })
   return { ctx, slots: ctx.get('slots') as SlotRegistry, locale }
 }
 
@@ -32,6 +45,7 @@ function declare(slots: SlotRegistry): () => void {
       children: {
         'settings.section': { kind: 'list', scope: 'root' },
         'settings.onboarding': { kind: 'list', scope: 'root' },
+        'settings.general.item': { kind: 'list', scope: 'root' },
       },
     } as never,
     () => null,
@@ -40,7 +54,7 @@ function declare(slots: SlotRegistry): () => void {
 
 describe('ui-settings-models apply', () => {
   it('declares the services it uses', () => {
-    expect(inject).toEqual(['slots', 'locale', 'connection', 'remote'])
+    expect(inject).toEqual(['slots', 'locale', 'connection', 'remote', 'settingsScope'])
   })
 
   it('registers the models nav entry for declarations before or after apply', async () => {
@@ -58,6 +72,17 @@ describe('ui-settings-models apply', () => {
     expect(typeof injected.controller.load).toBe('function')
     expect(typeof injected.useSnapshot).toBe('function')
     expect(injected.api).toBeDefined()
+    // The General-section retry row: component, position, and the injected face.
+    const retryRow = before.slots.entries('settings.general.item')[0]!
+    expect(retryRow.component).toBe(RetrySettingsRow)
+    expect(retryRow.options).toMatchObject({ id: 'llm-retries', order: 30 })
+    const retryInjected = (
+      retryRow.inject as unknown as () => import('../src/client/RetrySettingsRow.tsx').RetrySettingsRowInjected
+    )()
+    expect(typeof retryInjected.saveRetryPolicy).toBe('function')
+    expect(typeof retryInjected.resetRetryPolicy).toBe('function')
+    expect(typeof retryInjected.hooks.provider.getSnapshot).toBe('function')
+
     const onboarding = before.slots.entries('settings.onboarding')
     expect(onboarding).toHaveLength(2)
     expect(onboarding.find(entry => entry.options.id === 'welcome-notice')).toMatchObject({
@@ -83,6 +108,103 @@ describe('ui-settings-models apply', () => {
     expect(after.slots.entries('settings.onboarding')).toHaveLength(2)
     // The self-inflicted ledger notifications hit the duplicate guard.
     expect(after.slots.entries('settings.section')).toHaveLength(1)
+  })
+
+  it('saves and resets the retry policy through one revision-checked mutate', async () => {
+    const mutate = vi.fn(async () => ({ result: { ok: true } as const }))
+    const b = await bench(
+      true,
+      { status: 'ready', value: {}, user: undefined, revision: 4, writable: true, mode: 'host' },
+      mutate,
+    )
+    declare(b.slots)
+    await b.ctx.plugin({ inject: [...inject], apply }).await()
+    const row = b.slots.entries('settings.general.item')[0]!
+    const face = (row.inject as unknown as () => import('../src/client/RetrySettingsRow.tsx').RetrySettingsRowInjected)()
+    expect(await face.saveRetryPolicy({ maxRetries: 7, initialDelayMs: 250, maxDelayMs: 8000 })).toBeUndefined()
+    expect(mutate).toHaveBeenCalledWith({
+      ns: 'llm-deepseek',
+      ops: [{
+        op: 'set',
+        path: ['retryPolicy'],
+        value: { mode: 'normal', maxRetries: 7, backoff: { initialDelayMs: 250, maxDelayMs: 8000 } },
+      }],
+      expectedRevision: 4,
+    })
+    expect(await face.resetRetryPolicy()).toBeUndefined()
+    expect(mutate).toHaveBeenLastCalledWith({
+      ns: 'llm-deepseek',
+      ops: [{ op: 'unset', path: ['retryPolicy'] }],
+      expectedRevision: 4,
+    })
+  })
+
+  it('carries a user-layer backoff forward and omits the revision when the mirror has none', async () => {
+    const mutate = vi.fn(async (_input: unknown) => ({ result: { ok: true } as const }))
+    const b = await bench(
+      true,
+      {
+        status: 'ready',
+        value: {},
+        user: { retryPolicy: { mode: 'normal', retryableCodes: ['SERVER'], backoff: { initialDelayMs: 900, jitterRatio: 0.2 } } },
+        revision: undefined,
+        writable: true,
+        mode: 'host',
+      },
+      mutate,
+    )
+    declare(b.slots)
+    await b.ctx.plugin({ inject: [...inject], apply }).await()
+    const row = b.slots.entries('settings.general.item')[0]!
+    const face = (row.inject as unknown as () => import('../src/client/RetrySettingsRow.tsx').RetrySettingsRowInjected)()
+    expect(await face.saveRetryPolicy({ maxRetries: 4, initialDelayMs: 100, maxDelayMs: 2000 })).toBeUndefined()
+    expect(mutate).toHaveBeenCalledWith({
+      ns: 'llm-deepseek',
+      ops: [{
+        op: 'set',
+        path: ['retryPolicy'],
+        value: {
+          mode: 'normal',
+          retryableCodes: ['SERVER'],
+          maxRetries: 4,
+          backoff: { initialDelayMs: 100, jitterRatio: 0.2, maxDelayMs: 2000 },
+        },
+      }],
+    })
+    expect(mutate.mock.calls[0]![0]).not.toHaveProperty('expectedRevision')
+  })
+
+  it('carries user-layer siblings forward and reports conflicts and rejections', async () => {
+    type MutateResult = { result: { ok: boolean; error?: { code: string; message: string } } }
+    const mutate = vi.fn(async (_input: unknown): Promise<MutateResult> => ({ result: { ok: true } }))
+      .mockResolvedValueOnce({ result: { ok: false, error: { code: 'settings-conflict', message: 'conflict' } } })
+      .mockResolvedValueOnce({ result: { ok: false, error: { code: 'settings-rejected', message: 'нет такого поля' } } })
+    const b = await bench(
+      true,
+      {
+        status: 'ready',
+        value: {},
+        user: { retryPolicy: { mode: 'normal', maxRetries: 2, retryableCodes: ['SERVER'] } },
+        revision: 2,
+        writable: true,
+        mode: 'host',
+      },
+      mutate,
+    )
+    declare(b.slots)
+    await b.ctx.plugin({ inject: [...inject], apply }).await()
+    const row = b.slots.entries('settings.general.item')[0]!
+    const face = (row.inject as unknown as () => import('../src/client/RetrySettingsRow.tsx').RetrySettingsRowInjected)()
+    const values = { maxRetries: 3, initialDelayMs: 100, maxDelayMs: 2000 }
+    expect(await face.saveRetryPolicy(values)).toBe('Настройки изменились в другом месте, пока строка была открыта. Повторите попытку.')
+    expect(mutate.mock.calls[0]![0]).toMatchObject({
+      ops: [{
+        op: 'set',
+        path: ['retryPolicy'],
+        value: { mode: 'normal', maxRetries: 3, retryableCodes: ['SERVER'], backoff: { initialDelayMs: 100, maxDelayMs: 2000 } },
+      }],
+    })
+    expect(await face.saveRetryPolicy(values)).toBe('нет такого поля')
   })
 
   it('re-registers after an HMR collapse re-declares the slot (stale disposer must not block)', async () => {

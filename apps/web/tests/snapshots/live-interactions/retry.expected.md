@@ -17,7 +17,7 @@
   - img
   - text: Внедрение контекста @deepseek-ai/dsh-system-prompt
 - group:
-  - status: Повтор запроса к модели запущен (1/2) · {{duration}}
+  - status: Повтор запроса к модели запущен (1/5) · {{duration}}
 - button "Think The user is asking for a one-sentence description of event sourcing. This is a straightforward knowledge question that doesn't require any skill loading or tool calls.":
   - img
   - img

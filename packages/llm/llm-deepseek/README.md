@@ -54,6 +54,8 @@ Connection facts are not frozen at load. `resolveAdapterOptions` is the one expl
 
 The one registration-captured fact is the retry policy: when its resolved value changes, the plugin re-registers the route in place (same adapter instance, one synchronous section), so `ctx.llm.providerRetryPolicy('deepseek-official')` always reports the current policy.
 
+Веб-интерфейс правит политику без правки `settings.yaml`: строка «Повторы при ошибках модели» в разделе «Общие» пишет `maxRetries`, `initialDelayMs` и `maxDelayMs` в пользовательский слой секции `llm-deepseek`; смена политики перерегистрирует маршрут на месте и действует со следующего запроса. Умолчание пропущенной политики — нормальный режим с пятью повторами и паузой от 0,5 с с удвоением до 10 с.
+
 The plugin also declares its route in the configurable-provider directory (`ctx.llm.listConfigurableProviders()`): provider `deepseek-official`, settings namespace `llm-deepseek`, empty settings path — the whole section is the profile. Configuration surfaces use that entry to offer this adapter alongside dormant pi-ai providers.
 
 ## App attribution

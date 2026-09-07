@@ -18,6 +18,8 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import { ModelsSection } from './ModelsSection.tsx'
 import type { ModelsSectionInjected } from './ModelsSection.tsx'
+import { RetrySettingsRow } from './RetrySettingsRow.tsx'
+import type { RetryPolicyValues, RetrySettingsRowInjected } from './RetrySettingsRow.tsx'
 import { DeepSeekOnboardingDialog } from './DeepSeekOnboardingDialog.tsx'
 import type { DeepSeekOnboardingInjected } from './DeepSeekOnboardingDialog.tsx'
 import { WelcomeNotice } from './WelcomeNotice.tsx'
@@ -55,8 +57,17 @@ export function refreshIfLoaded(controller: ModelsSettingsStore): void {
  * Required services (cordis fiber inject). The target slot is declared by
  * ui-settings' apply, whose activation order relative to this one is NOT
  * constrained; registration depends on each slot through `slots.inject()`.
+ * `settingsScope` backs the retry row's auto-refreshing namespace mirror;
+ * `remote` carries its pushed settings invalidation.
  */
-export const inject = ['slots', 'locale', 'connection', 'remote']
+export const inject = ['slots', 'locale', 'connection', 'remote', 'settingsScope']
+
+/** The settings namespace the DeepSeek adapter owns (its section stores `retryPolicy`). */
+const DEEPSEEK_SECTION_NS = 'llm-deepseek'
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
 
 /**
  * Register the Models section once the `settings.section` declaration is on
@@ -122,6 +133,65 @@ export function apply(ctx: ClientContext): void {
     label: () => t('nav'),
     inject: injected,
   }, ModelsSection))
+
+  // The General-section retry row: one auto-refreshing mirror of the shared
+  // `llm-deepseek` section plus two explicit writes. The write carries the
+  // revision the mirror last accepted, so a concurrent edit answers
+  // settings-conflict instead of silently landing on top of it.
+  const retryScope = ctx.settingsScope.bind<unknown>({ namespace: DEEPSEEK_SECTION_NS })
+  const mutateRetry = async (op: { op: 'set'; value: unknown } | { op: 'unset' }): Promise<string | undefined> => {
+    const snapshot = retryScope.getSnapshot()
+    const pathOp = op.op === 'set'
+      ? { op: 'set' as const, path: ['retryPolicy'], value: op.value }
+      : { op: 'unset' as const, path: ['retryPolicy'] }
+    const response = await connection.api.settings.mutate({
+      ns: DEEPSEEK_SECTION_NS,
+      ops: [pathOp],
+      ...(snapshot.revision === undefined ? {} : { expectedRevision: snapshot.revision }),
+    })
+    if (!response.result.ok) {
+      return response.result.error.code === 'settings-conflict' ? t('retriesConflict') : response.result.error.message
+    }
+    return undefined
+  }
+  const saveRetryPolicy = async (values: RetryPolicyValues): Promise<string | undefined> => {
+    const snapshot = retryScope.getSnapshot()
+    const existing = isRecord(snapshot.user) && isRecord(snapshot.user.retryPolicy)
+      ? snapshot.user.retryPolicy
+      : {}
+    const existingBackoff = isRecord(existing.backoff) ? existing.backoff : {}
+    // The user-layer subtree replaces wholesale, so the row carries its own
+    // previous fields forward; the composition entry merges underneath at
+    // resolve time and stays authoritative for everything the row never writes.
+    return mutateRetry({
+      op: 'set',
+      value: {
+        ...existing,
+        mode: 'normal',
+        maxRetries: values.maxRetries,
+        backoff: {
+          ...existingBackoff,
+          initialDelayMs: values.initialDelayMs,
+          maxDelayMs: values.maxDelayMs,
+        },
+      },
+    })
+  }
+  const resetRetryPolicy = async (): Promise<string | undefined> => {
+    return mutateRetry({ op: 'unset' })
+  }
+  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+    name: 'settings.general.item',
+    id: 'llm-retries',
+    order: 30,
+    locale: NS,
+    inject: (): RetrySettingsRowInjected => ({
+      hooks: { provider: retryScope },
+      saveRetryPolicy,
+      resetRetryPolicy,
+    }),
+  }, RetrySettingsRow))
+
   ctx.slots.inject('settings.onboarding', () => ctx.slots.register({
     name: 'settings.onboarding',
     id: 'welcome-notice',
