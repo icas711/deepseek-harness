@@ -28,7 +28,7 @@ afterEach(async () => {
 })
 
 /** Write a cordis.yml with one webserver row, then boot it through the real Loader. */
-async function loadComposition(port = 0): Promise<Context> {
+async function loadComposition(port = 0, extraConfig: string[] = []): Promise<Context> {
   root = await mkdtemp(join(tmpdir(), 'dsh-webserver-loader-'))
   const configPath = join(root, 'cordis.yml')
   await writeFile(configPath, [
@@ -36,6 +36,7 @@ async function loadComposition(port = 0): Promise<Context> {
     '  config:',
     "    host: '127.0.0.1'",
     `    port: ${String(port)}`,
+    ...extraConfig,
     '',
   ].join('\n'))
 
@@ -83,6 +84,33 @@ async function upgrade(port: number, path: string): Promise<ReturnType<typeof co
   const [data] = await response as [Buffer]
   expect(String(data)).toContain('101 Switching Protocols')
   return socket
+}
+
+/**
+ * Open one raw upgrade request with extra headers and return the server's
+ * first response bytes and its close, whichever the gate produces.
+ */
+async function rawUpgrade(port: number, path: string, headers: string[] = []): Promise<{ data: string; closed: boolean }> {
+  const socket = connect(port, '127.0.0.1')
+  socket.on('error', () => { /* A gate denial or handler reset closes the socket; that is the outcome. */ })
+  await once(socket, 'connect')
+  const response = once(socket, 'data')
+  socket.write([
+    `GET ${path} HTTP/1.1`,
+    `Host: 127.0.0.1:${String(port)}`,
+    'Connection: Upgrade',
+    'Upgrade: dsh-test',
+    ...headers,
+    '',
+    '',
+  ].join('\r\n'))
+  const [data] = await response as [Buffer]
+  const closed = await Promise.race([
+    once(socket, 'close').then(() => true),
+    new Promise<false>(resolve => setTimeout(() => resolve(false), 250)),
+  ])
+  socket.destroy()
+  return { data: String(data), closed }
 }
 
 describe('real Loader composition', () => {
@@ -198,6 +226,59 @@ describe('real Loader composition', () => {
     expect(upgradedServerClosed).toBe(true)
     upgraded.destroy()
     await expect(request(port, '/probe')).rejects.toThrow()
+  })
+
+  it('gates requests and upgrades behind the configured token', { timeout: 60_000 }, async () => {
+    const secret = 's3cr3t/plus='
+    const loaded = await loadComposition(0, [`    token: '${secret}'`])
+    const server = loaded.webServer
+    const port = server.port
+    expect(server.token).toBe(secret)
+    server.register({ kind: 'exact', path: '/probe', handler: (_req, res) => { res.writeHead(200); res.end('EXACT') } })
+    server.registerFallback((_req, res) => { res.writeHead(200); res.end('FALLBACK') })
+    server.registerUpgrade({
+      path: '/events',
+      handler: (_req, socket) => { socket.write('HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: dsh-test\r\n\r\n') },
+    })
+
+    // Without a credential everything is denied — named routes, the fallback, and upgrades alike.
+    await expect(request(port, '/probe')).resolves.toMatchObject({ status: 401, body: 'unauthorized' })
+    await expect(request(port, '/whatever')).resolves.toMatchObject({ status: 401 })
+    const deniedUpgrade = await rawUpgrade(port, '/events')
+    expect(deniedUpgrade.data).toContain('401 Unauthorized')
+    expect(deniedUpgrade.closed).toBe(true)
+
+    // The query credential is exchanged for a session cookie.
+    const admitted = await fetch(`http://127.0.0.1:${String(port)}/probe?token=${encodeURIComponent(secret)}`)
+    expect(admitted.status).toBe(200)
+    const cookie = admitted.headers.get('set-cookie') ?? ''
+    expect(cookie).toContain(`dsh_web_token=${secret}`)
+    expect(cookie).toContain('HttpOnly')
+
+    // Cookie, Bearer header, and query each admit; a wrong value in any channel denies.
+    await expect(request(port, '/probe', { headers: { cookie } })).resolves.toMatchObject({ status: 200 })
+    await expect(request(port, '/whatever', { headers: { cookie } })).resolves.toMatchObject({ status: 200 })
+    await expect(request(port, '/probe', { headers: { authorization: `Bearer ${secret}` } })).resolves.toMatchObject({ status: 200 })
+    await expect(request(port, '/probe?token=wrong')).resolves.toMatchObject({ status: 401 })
+    await expect(request(port, '/probe', { headers: { authorization: 'Bearer wrong' } })).resolves.toMatchObject({ status: 401 })
+    await expect(request(port, '/probe', { headers: { authorization: `Basic ${secret}` } })).resolves.toMatchObject({ status: 401 })
+    await expect(request(port, '/probe', { headers: { authorization: 'Bearer ' } })).resolves.toMatchObject({ status: 401 })
+    await expect(request(port, '/probe', { headers: { cookie: 'dsh_web_token=wrong; other=1' } })).resolves.toMatchObject({ status: 401 })
+    // A pair without '=' does not break the parse of a later valid pair.
+    await expect(request(port, '/probe', { headers: { cookie: `broken; dsh_web_token=${secret}` } })).resolves.toMatchObject({ status: 200 })
+
+    // Upgrades present the credential through the cookie or the query.
+    const cookieUpgrade = await rawUpgrade(port, '/events', [`Cookie: dsh_web_token=${secret}`])
+    expect(cookieUpgrade.data).toContain('101 Switching Protocols')
+    expect(cookieUpgrade.closed).toBe(false)
+    const queryUpgrade = await rawUpgrade(port, `/events?token=${encodeURIComponent(secret)}`)
+    expect(queryUpgrade.data).toContain('101 Switching Protocols')
+
+    await loaded.fiber.dispose()
+  })
+
+  it('rejects an empty token as the misconfiguration it is', () => {
+    expect(() => new HttpServer.Config({ host: '127.0.0.1', port: 0, token: '' } as never)).toThrow()
   })
 
   it('fails the fiber when the port is already taken (fail-loud at activation)', { timeout: 60_000 }, async () => {

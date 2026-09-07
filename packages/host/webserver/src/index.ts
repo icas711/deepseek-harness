@@ -8,6 +8,7 @@
  * IPC bridge. This package never prints: the URL line belongs to the shell.
  */
 
+import { createHash, timingSafeEqual } from 'node:crypto'
 import { createServer } from 'node:http'
 import type { IncomingMessage, ServerResponse, Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -41,25 +42,107 @@ export interface WebUpgradeRoute {
   handler: (req: IncomingMessage, socket: Duplex, head: Buffer) => void | Promise<void>
 }
 
-/** Gateway config: the listen address. */
+/** Cookie that carries the credential after one successful presentation. */
+const AUTH_COOKIE = 'dsh_web_token'
+
+/** Query parameter accepting the credential on any path. */
+const AUTH_QUERY = 'token'
+
+/** The 401 body; its byte length is the upgrade denial's Content-Length. */
+const UNAUTHORIZED_BODY = 'unauthorized'
+
+/**
+ * Gateway config: the listen address and the optional shared credential.
+ */
 export interface Config {
   /** Listen host; the two supported values are loopback and all-interfaces. */
   host: '127.0.0.1' | '0.0.0.0'
   /** Listen port; zero requests an OS-assigned port. */
   port: number
+  /**
+   * Shared credential every browser request must present — the `?token=`
+   * query, an `Authorization: Bearer` header, or the session cookie a
+   * presentation issues; absent admits every request. Validation rejects an
+   * empty value: an empty secret would be a disabled gate, not a configured
+   * one.
+   */
+  token?: string
+}
+
+/**
+ * The named cookie's value from a Cookie header.
+ * @param header - the request's raw Cookie header.
+ * @param name - the cookie name to read.
+ * @returns the cookie's value, or undefined when the header or cookie is absent.
+ */
+function cookieValue(header: string | undefined, name: string): string | undefined {
+  if (header === undefined) return undefined
+  for (const pair of header.split(';')) {
+    const at = pair.indexOf('=')
+    if (at !== -1 && pair.slice(0, at).trim() === name) return pair.slice(at + 1).trim()
+  }
+  return undefined
+}
+
+/**
+ * The credential of an `Authorization: Bearer` header; the scheme is
+ * case-insensitive per RFC 9110.
+ * @param header - the request's raw Authorization header.
+ * @returns the credential, or undefined when the header is absent or not Bearer.
+ */
+function bearerToken(header: string | undefined): string | undefined {
+  const match = /^Bearer\s+(.+)$/i.exec(header ?? '')
+  return match?.[1]?.trim() || undefined
+}
+
+/**
+ * The `?token=` query credential.
+ * @param url - the parsed request URL.
+ * @returns the parameter's value, or undefined when absent.
+ */
+function queryToken(url: URL): string | undefined {
+  return url.searchParams.get(AUTH_QUERY) ?? undefined
+}
+
+/**
+ * Whether one presented credential equals the configured token. Comparison
+ * runs over SHA-256 digests: `timingSafeEqual` requires equal lengths, and the
+ * digest comparison leaks neither the secret's length nor its content.
+ * @param presented - the credential the request carried, if any.
+ * @param token - the configured secret.
+ * @returns whether the credential is the token.
+ */
+function tokenMatches(presented: string | undefined, token: string): boolean {
+  if (presented === undefined) return false
+  return timingSafeEqual(
+    createHash('sha256').update(presented).digest(),
+    createHash('sha256').update(token).digest(),
+  )
+}
+
+/**
+ * The session cookie issued after one successful presentation.
+ * @param token - the configured secret.
+ * @returns the Set-Cookie value binding the credential for the browser session.
+ */
+function sessionCookie(token: string): string {
+  return `${AUTH_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax`
 }
 
 /**
  * The browser HTTP carrier service. Activation listens immediately. Route
  * registration order does not affect requests because configured named routes
  * must be distinct, and the fallback handler answers anything not yet claimed
- * during startup with 404 until its owner registers. A listen failure rejects
- * initialization, and the boot process reports the failed fiber.
+ * during startup with 404 until its owner registers. A configured `token`
+ * gates every HTTP request and upgrade before route dispatch. A listen
+ * failure rejects initialization, and the boot process reports the failed
+ * fiber.
  */
 export class WebServer extends Service {
   static Config: z<Config> = z.object({
     host: z.union([z.const('127.0.0.1'), z.const('0.0.0.0')]).required(),
     port: z.natural().max(65535).required(),
+    token: z.string().min(1),
   })
 
   private readonly exact = new Map<string, WebRoute>()
@@ -83,6 +166,62 @@ export class WebServer extends Service {
   /** The configured bind host (the loopback or all-interfaces literal). */
   get host(): Config['host'] {
     return this.config.host
+  }
+
+  /** The token every request must present, or undefined when the gate is off. */
+  get token(): string | undefined {
+    return this.config.token
+  }
+
+  /**
+   * Whether the request presents the configured token (always true without
+   * one): the session cookie, a Bearer header, or the `?token=` query.
+   * @param req - the request presenting credentials.
+   * @param url - the parsed request URL.
+   * @returns whether the request may proceed past the gate.
+   */
+  private presentsToken(req: IncomingMessage, url: URL): boolean {
+    const token = this.config.token
+    return token === undefined
+      || tokenMatches(cookieValue(req.headers.cookie, AUTH_COOKIE), token)
+      || tokenMatches(bearerToken(req.headers.authorization), token)
+      || tokenMatches(queryToken(url), token)
+  }
+
+  /**
+   * Enforce the token gate on one HTTP request, writing the 401 response or
+   * the session cookie as the outcome requires.
+   * @param req - the request presenting credentials.
+   * @param res - the response the denial writes to.
+   * @param url - the parsed request URL (the `?token=` source).
+   * @returns whether the request is admitted.
+   */
+  private gateRequest(req: IncomingMessage, res: ServerResponse, url: URL): boolean {
+    const token = this.config.token
+    if (token === undefined) return true
+    if (!this.presentsToken(req, url)) {
+      res.writeHead(401, { 'content-type': 'text/plain; charset=utf-8' })
+      res.end(UNAUTHORIZED_BODY)
+      return false
+    }
+    res.setHeader('set-cookie', sessionCookie(token))
+    return true
+  }
+
+  /**
+   * Deny one upgrade with a complete 401 response; the socket stays owned by
+   * the caller's upgrade dispatch, which observes the close.
+   * @param socket - the raw HTTP socket of the denied upgrade.
+   */
+  private denyUpgrade(socket: Duplex): void {
+    socket.end([
+      'HTTP/1.1 401 Unauthorized',
+      'Connection: close',
+      'Content-Type: text/plain; charset=utf-8',
+      `Content-Length: ${String(Buffer.byteLength(UNAUTHORIZED_BODY))}`,
+      '',
+      UNAUTHORIZED_BODY,
+    ].join('\r\n'))
   }
 
   /**
@@ -149,8 +288,9 @@ export class WebServer extends Service {
     const handle = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
       /* v8 ignore next -- `?? '/'` arm: node:http always sets url on server
       requests; the field is only optional on the client-side IncomingMessage type */
-      const rawPath = new URL(req.url ?? '/', 'http://x').pathname
-      const route = this.match(rawPath)
+      const url = new URL(req.url ?? '/', 'http://x')
+      if (!this.gateRequest(req, res, url)) return
+      const route = this.match(url.pathname)
       if (route !== undefined) {
         await route.handler(req, res)
         return
@@ -188,15 +328,20 @@ export class WebServer extends Service {
         socket.off('error', onError)
         this.upgradedSockets.delete(socket)
       })
-      let route: WebUpgradeRoute | undefined
+      let url: URL
       try {
         /* v8 ignore next -- node:http always sets url on server requests. */
-        route = this.upgrades.get(new URL(req.url ?? '/', 'http://x').pathname)
+        url = new URL(req.url ?? '/', 'http://x')
       } catch (error) {
         this.ctx.logger.warn(error instanceof Error ? error : new Error(String(error)))
         socket.destroy()
         return
       }
+      if (!this.presentsToken(req, url)) {
+        this.denyUpgrade(socket)
+        return
+      }
+      const route = this.upgrades.get(url.pathname)
       if (route === undefined) {
         socket.destroy()
         return

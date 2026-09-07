@@ -118,6 +118,10 @@
       config:
         host: !!js ctx.webStartup.host ?? '127.0.0.1'
         port: !!js ctx.webStartup.port ?? 3080
+        # `--token` (or this expression's deployment replacement) turns on the
+        # shared-secret gate; absent, the Host fence below remains the only
+        # access control.
+        token: !!js ctx.webStartup.token
 
     # Web glue owned by this bundle: resolves the built frontend dist (an
     # assembly fact of dsh-web-app, never user config), mounts the

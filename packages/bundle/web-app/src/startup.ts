@@ -1,6 +1,6 @@
 /**
  * The web app's command-line provider: it parses the `dsh --profile web` flag
- * family (`--host`, `--port`, `--trusted-host`) and its `--help`
+ * family (`--host`, `--port`, `--token`, `--trusted-host`) and its `--help`
  * text, then provides the immutable values as {@link WEB_STARTUP_SERVICE}.
  * Ordinary rows inject that service before reading it from lazy config.
  * @module @deepseek-ai/dsh-web-app/startup
@@ -19,12 +19,16 @@ export const inject = ['cmdlineArgs']
 /** Service provided by this ordinary plugin and injected by flag-configured rows. */
 export const WEB_STARTUP_SERVICE = 'webStartup'
 
-/** What the web rows read from {@link WEB_STARTUP_SERVICE}. */
+/**
+ * What the web rows read from {@link WEB_STARTUP_SERVICE}.
+ */
 export interface WebStartupValues {
   /** `--host`, absent when the invocation did not name one. */
   host?: string
   /** `--port`, absent when the invocation did not name one. */
   port?: number
+  /** `--token`, absent when the invocation did not name one. */
+  token?: string
   /** Explicit `--trusted-host` authorities, in argument order. */
   trustedHosts: string[]
 }
@@ -33,6 +37,7 @@ export interface WebStartupValues {
 interface WebOptions {
   host?: string
   port?: string
+  token?: string
   trustedHost?: string[]
 }
 
@@ -47,11 +52,13 @@ function webCommand(): Command {
     .helpOption('-h, --help', 'show this help')
     .option('--host <host>', 'bind host')
     .option('--port <port>', 'listen port; pass 0 to let the OS pick a free one')
+    .option('--token <secret>', 'shared token every browser request must present (?token=, Bearer, or cookie)')
     .option('--trusted-host <authority...>', 'extra authority the /api browser-trust fence accepts (host or host:port; repeatable)')
     .addHelpText('after', `
 Examples:
   dsh --profile web                          serve on the composed host and port
   dsh --profile web --port 8080              serve on another port
+  dsh web --patch lan.yml --token SECRET     all-interfaces overlay with token auth
 `)
 }
 
@@ -72,9 +79,13 @@ export function apply(ctx: Context): void {
     if (options.port !== undefined && !/^\d+$/.test(options.port)) {
       program.error(`error: --port must be a number, got ${JSON.stringify(options.port)}`)
     }
+    if (options.token === '') {
+      program.error('error: --token must not be empty')
+    }
     ctx.provide(WEB_STARTUP_SERVICE, {
       ...options.host !== undefined && { host: options.host },
       ...options.port !== undefined && { port: Number(options.port) },
+      ...options.token !== undefined && { token: options.token },
       trustedHosts: options.trustedHost ?? [],
     } satisfies WebStartupValues)
   })

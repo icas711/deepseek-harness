@@ -57,6 +57,7 @@ export const apply = ctx => globalThis.__webStartupApply(ctx)
     '  config:',
     "    host: !!js ctx.webStartup.host ?? '127.0.0.1'",
     '    port: !!js ctx.webStartup.port ?? 3080',
+    '    token: !!js ctx.webStartup.token',
     '    trustedHosts: !!js ctx.webStartup.trustedHosts',
     '- id: provider',
     `  name: ${pathToFileURL(join(dir, 'provider.mjs')).href}`,
@@ -90,12 +91,14 @@ describe('web command-line provider', () => {
     const { values, observed } = await bootProvider([
       '--host', '127.0.0.1',
       '--port', '8080',
+      '--token', 's3cr3t',
       '--trusted-host', 'lab.internal', 'lab-2.internal',
       '--trusted-host', '10.0.0.9',
     ])
     expect(values).toEqual({
       host: '127.0.0.1',
       port: 8080,
+      token: 's3cr3t',
       trustedHosts: ['lab.internal', 'lab-2.internal', '10.0.0.9'],
     })
     expect(observed.readerConfig).toEqual(values)
@@ -116,9 +119,18 @@ describe('web command-line provider', () => {
     const { values, observed } = await bootProvider(['--help'])
     expect(observed.out).toContain('dsh --profile web')
     expect(observed.out).toContain('--trusted-host')
+    expect(observed.out).toContain('--token')
     expect(values).toBeUndefined()
     expect(observed.readerConfig).toBeUndefined()
     expect(observed.exits).toEqual([0])
+  })
+
+  it('rejects an empty token before the consumer activates', async () => {
+    const { values, observed } = await bootProvider(['--token', ''])
+    expect(observed.out).toContain('--token must not be empty')
+    expect(values).toBeUndefined()
+    expect(observed.readerConfig).toBeUndefined()
+    expect(observed.exits).toEqual([1])
   })
 
   it('rejects a non-numeric port before the consumer activates', async () => {
