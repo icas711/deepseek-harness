@@ -1,0 +1,7 @@
+# Caddy: автоматический HTTPS для веб-GUI DeepSeek Harness.
+# 1) Замените dsh.example.com на свой домен (A-запись должна указывать на сервер).
+# 2) Порты 80 и 443 должны быть открыты (см. README, раздел «Подготовка сервера»).
+# 3) Сертификаты Caddy получает и продлевает сам (Let's Encrypt).
+dsh.example.com {
+	reverse_proxy dsh:3080
+}

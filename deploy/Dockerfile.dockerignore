@@ -1,0 +1,24 @@
+# Локальный мусор, который не должен попадать в контекст сборки.
+# Файл применяется автоматически при `docker build -f deploy/Dockerfile`
+# (BuildKit читает <Dockerfile>.dockerignore); пути — от корня контекста.
+.git
+.env
+.env.*
+deploy/.env
+!.env.example
+.dsh
+.artifacts
+.pnpm-store
+.cache
+.github
+.claude
+.idea
+.vscode
+coverage
+tmp
+kovka-menu
+deploy/workspace
+node_modules
+**/node_modules
+*.tsbuildinfo
+**/*.tsbuildinfo

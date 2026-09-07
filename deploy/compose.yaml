@@ -1,0 +1,66 @@
+# Стек DeepSeek Harness на удалённом сервере: веб-GUI в контейнере и
+# необязательный Caddy с автоматическим HTTPS (профиль `tls`).
+#
+#   docker compose up -d --build                 # без TLS: SSH-туннель или прямой порт
+#   docker compose --profile tls up -d --build   # с Caddy: домен + автоматический HTTPS
+#
+# Перед запуском заполните deploy/.env (см. .env.example) и — для TLS —
+# deploy/Caddyfile. Полная инструкция: deploy/README.md.
+name: dsh
+
+services:
+  dsh:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: dsh-web:local
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Секреты приходят из deploy/.env через env_file; проверки здесь —
+      # fail-loud: без токена у сервера остаётся только Host-fence, без ключа
+      # модель не ответит.
+      DSH_WEB_TOKEN: ${DSH_WEB_TOKEN:?Задайте DSH_WEB_TOKEN в deploy/.env (openssl rand -hex 24)}
+      DSH_HOME: /data/dsh-home
+    command:
+      - web
+      - --patch
+      - /app/deploy/web-remote.patch.yml
+      # Внешний адрес, который вводят в браузере (домен или IP без порта:
+      # запись без порта покрывает любой порт). Для нескольких адресов
+      # повторите пару строк --trusted-host / адрес.
+      - --trusted-host
+      - ${DSH_PUBLIC_HOST:?Задайте DSH_PUBLIC_HOST в deploy/.env}
+    volumes:
+      # Сессии, профиль web и credentials — переживают обновления и рестарты.
+      - dsh-home:/data/dsh-home
+      # Рабочая папка агента (workspace root): файлы проектов живут на хосте.
+      - ./workspace:/workspace
+    ports:
+      # Наружу не публикуем: доступ через Caddy (профиль tls) или SSH-туннель.
+      - "127.0.0.1:3080:3080"
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  caddy:
+    image: caddy:2
+    profiles: [tls]
+    restart: unless-stopped
+    depends_on:
+      - dsh
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  dsh-home:
+  caddy-data:
+  caddy-config:
