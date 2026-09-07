@@ -16,6 +16,8 @@ The Workspace registry owns a durable `workspaceIds` order and exposes `insertBe
 
 The client installs a Workspace drag optimistically. Request and frame generations ensure that only the latest unary echo can replace local order and that a newer Host frame outranks an older response; a latest rejected request restores the last complete order accepted from a Host baseline, frame, or current unary echo. Every successful list baseline restores Host order so reconnects adopt durable changes made elsewhere.
 
+The browser also orders Workspace sections by last-session activity by default. That mode is a pure display permutation over Host order, renders no section drag affordance, and never writes the registry; Manual keeps the durable drag order above ([Workspace sections order by last activity](2026-09-07-workspace-sections-order-by-last-activity.md)).
+
 ### Session folding and view order
 
 Each Workspace persists one browser-local open state: closed means zero Session rows and open means up to five. When more Sessions exist, **Show more** reveals the remainder only for the current mount; closing the whole Workspace clears this transient expansion, so reopening returns to five. The current Session's group opens automatically only when the user has not already stored an explicit state for that Workspace. Creating a Session from a Workspace row opens the target group before starting the Session, keeping the new row visible when state propagation completes. After a ready Workspace baseline changes, the browser removes expansion, order, and observed-timestamp records for ids absent from that baseline while retaining the Ungrouped and flat-list accounts.

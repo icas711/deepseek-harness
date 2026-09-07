@@ -110,6 +110,39 @@ function byRecency(a: SessionSummary, b: SessionSummary): number {
 }
 
 /**
+ * Automatic workspace section order: newest last session first. A section's
+ * recency is the maximum `updatedAt` across its member sessions known to the
+ * list (the same relation the runtime's `recentWorkspace` projection uses).
+ * Sections with no known session — truly empty, or their summaries not yet
+ * pulled — pin below every active section, ordered by creation time
+ * (newest first). Stable sorts keep Host order within every tie, so switching
+ * the mode on never scrambles same-moment sections.
+ * @param workspaces - real workspaces in stable Host order.
+ * @param sessionById - session summaries the recency reads (`updatedAt`).
+ * @returns the workspaces in display order (input array untouched).
+ */
+export function orderWorkspacesByRecency(
+  workspaces: readonly WorkspaceView[],
+  sessionById: SessionListState['byId'],
+): WorkspaceView[] {
+  const withRecency = workspaces.map((workspace) => {
+    let latest = Number.NEGATIVE_INFINITY
+    for (const id of workspace.sessionIds) {
+      const session = sessionById[id]
+      if (session !== undefined) latest = Math.max(latest, session.updatedAt)
+    }
+    return { workspace, latest }
+  })
+  const active = withRecency
+    .filter(entry => entry.latest !== Number.NEGATIVE_INFINITY)
+    .sort((a, b) => b.latest - a.latest)
+  const idle = withRecency
+    .filter(entry => entry.latest === Number.NEGATIVE_INFINITY)
+    .sort((a, b) => Date.parse(b.workspace.createdAt) - Date.parse(a.workspace.createdAt))
+  return [...active, ...idle].map(entry => entry.workspace)
+}
+
+/**
  * Ordinary sessions are visible; among blank sessions, only the current one
  * is visible. Subagent children use their parent header catalog; archived
  * sessions are visible nowhere, while their accounting slots remain so

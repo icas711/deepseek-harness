@@ -66,7 +66,7 @@ Lost RPC responses, Host frames arriving before completions, and completions arr
 
 ### Sidebar and ordering
 
-Workspace groups follow the persistent order returned by the Host. Bootstrap determines the historical order once, explicitly created Workspaces are placed first, and `workspace.insertBefore` durably applies user drag order. Session activity does not move Workspace groups.
+Workspace groups follow the persistent order returned by the Host. Bootstrap determines the historical order once, explicitly created Workspaces are placed first, and `workspace.insertBefore` durably applies user drag order. Session activity never moves that durable order; since [Workspace sections order by last activity](2026-09-07-workspace-sections-order-by-last-activity.md) it does reorder the browser's section display by default, while Manual keeps the Host drag order.
 
 The Host account remains the manual `Workspace.sessionIds` order: a newly attached Session is placed first and activity does not mutate it. The grouped browser can instead select a browser-local recent-update view that promotes a Session when its `updatedAt` advances and remains manually editable. Five Sessions are visible per open Workspace until the user transiently expands the remainder. The durable Workspace reorder and browser-local Session order are defined in [Workspace Sidebar Order and Folding](2026-08-11-workspace-sidebar-order-and-folding.md).
 

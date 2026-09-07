@@ -14,7 +14,14 @@ import { WorkspaceBrowser } from '../src/client/WorkspaceBrowser.tsx'
 import { ru } from '../src/client/locales.ts'
 
 afterEach(cleanup)
-beforeEach(() => { localStorage.clear(); createWorkspaceViewStore().create().actions.setOrderBy('manual') })
+beforeEach(() => {
+  localStorage.clear()
+  const store = createWorkspaceViewStore().create()
+  store.actions.setOrderBy('manual')
+  // Existing ordering/drag specs pin the manual section order; the shipped
+  // default ('updated') and its menu toggle get dedicated specs below.
+  store.actions.setWorkspaceOrder('manual')
+})
 
 // The seat's key domain is workspace ∪ common; the stub mirrors the real
 // lookup chain (namespace, then common vocabulary, then the key).
@@ -56,6 +63,17 @@ function fireDrag(row: HTMLElement, kind: 'dragOver' | 'drop', clientY: number):
 
 function dragData(): Pick<DataTransfer, 'effectAllowed' | 'dropEffect' | 'setData'> {
   return { effectAllowed: 'uninitialized', dropEffect: 'none', setData: vi.fn() }
+}
+
+/**
+ * The view menu renders two same-labeled order pairs (sessions, then
+ * workspace sections); DOM order disambiguates the pair under test.
+ */
+function sessionOrderItem(name: 'Вручную' | 'По обновлению'): HTMLElement {
+  return screen.getAllByRole('menuitem', { name })[0]!
+}
+function workspaceOrderItem(name: 'Вручную' | 'По обновлению'): HTMLElement {
+  return screen.getAllByRole('menuitem', { name }).at(-1)!
 }
 
 function mount(overrides: Partial<WorkspaceBrowserProps> = {}) {
@@ -131,12 +149,13 @@ describe('WorkspaceBrowser', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Параметры просмотра' }))
     expect(screen.getByText('Группировка')).toBeTruthy() // the menu heading label
-    expect(screen.getByRole('separator')).toBeTruthy()
+    expect(screen.getAllByRole('separator')).toHaveLength(2)
     expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual([
-      'По рабочей области', 'Единым списком', 'Вручную', 'По обновлению',
+      'По рабочей области', 'Единым списком', 'Вручную', 'По обновлению', 'Вручную', 'По обновлению',
     ])
     expect(screen.getByRole('menuitem', { name: 'По рабочей области' }).querySelector('svg')).toBeTruthy()
-    expect(screen.getByRole('menuitem', { name: 'Вручную' }).querySelector('svg')).toBeTruthy()
+    expect(sessionOrderItem('Вручную').querySelector('svg')).toBeTruthy()
+    expect(screen.getByText('Сортировка областей')).toBeTruthy()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Единым списком' }))
     // Store-driven flip: title changes, rows flatten newest-first, headers gone.
     expect(b.store.getSnapshot().groupBy).toBe('flat')
@@ -147,7 +166,7 @@ describe('WorkspaceBrowser', () => {
 
     // Back to workspace grouping through the same menu.
     fireEvent.click(screen.getByRole('button', { name: 'Параметры просмотра' }))
-    expect(screen.getByRole('menuitem', { name: 'Вручную' }).hasAttribute('disabled')).toBe(false)
+    expect(sessionOrderItem('Вручную').hasAttribute('disabled')).toBe(false)
     fireEvent.click(screen.getByRole('menuitem', { name: 'По рабочей области' }))
     expect(b.store.getSnapshot().groupBy).toBe('workspace')
     expect(screen.getByText('Рабочие области')).toBeTruthy()
@@ -191,14 +210,14 @@ describe('WorkspaceBrowser', () => {
     expect(insertSessionBefore).not.toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('button', { name: 'Параметры просмотра' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'По обновлению' }))
+    fireEvent.click(sessionOrderItem('По обновлению'))
     await waitFor(() => {
       expect(b.store.getSnapshot().sessionOrderByAccount[FLAT_SESSION_ORDER_KEY])
         .toEqual(['one', 'two', 'three'])
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Параметры просмотра' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Вручную' }))
+    fireEvent.click(sessionOrderItem('Вручную'))
     fireEvent.dragStart(one, { dataTransfer: dragData() })
     fireDrag(three, 'drop', 180)
     b.view.unmount()
@@ -260,7 +279,7 @@ describe('WorkspaceBrowser', () => {
     })
     fireEvent.click(screen.getByText('alpha'))
     fireEvent.click(screen.getByRole('button', { name: 'Параметры просмотра' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'По обновлению' }))
+    fireEvent.click(sessionOrderItem('По обновлению'))
     await waitFor(() => {
       const rows = screen.getAllByRole('treeitem').slice(1)
       expect(rows[0]?.textContent).toContain('one')
@@ -276,7 +295,7 @@ describe('WorkspaceBrowser', () => {
     expect(b.store.getSnapshot().sessionOrderByAccount.alpha).toEqual(['two', 'one'])
 
     fireEvent.click(screen.getByRole('button', { name: 'Параметры просмотра' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Вручную' }))
+    fireEvent.click(sessionOrderItem('Вручную'))
     expect(screen.getAllByRole('treeitem').slice(1)[0]?.textContent).toContain('two')
 
     // User activity updates the timestamp baseline in Manual mode without
@@ -291,7 +310,7 @@ describe('WorkspaceBrowser', () => {
 
     // Entering Last updated performs one complete recency sort.
     fireEvent.click(screen.getByRole('button', { name: 'Параметры просмотра' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'По обновлению' }))
+    fireEvent.click(sessionOrderItem('По обновлению'))
     await waitFor(() => {
       expect(b.store.getSnapshot().sessionOrderByAccount.alpha).toEqual(['one', 'two'])
       expect(screen.getAllByRole('treeitem').slice(1)[0]?.textContent).toContain('one')
@@ -313,6 +332,79 @@ describe('WorkspaceBrowser', () => {
     })
     expect(restored.store.getSnapshot().sessionOrderByAccount.alpha).toEqual(['two', 'one'])
     expect(screen.getAllByRole('treeitem').slice(1)[0]?.textContent).toContain('two')
+  })
+
+  it('auto-orders workspace sections by last session activity, empty ones pinned last', () => {
+    // Drop the manual-order seed the shared beforeEach writes: the shipped
+    // default (no stored choice) is activity order.
+    localStorage.removeItem('dsh.workspace.view.v5')
+    const sessions = sessionState([
+      summary('old-1', 1), summary('old-2', 2),
+      summary('mid-1', 500),
+      summary('new-1', 900),
+    ])
+    const dated = (id: string, sessionIds: string[], createdAt: string): WorkspaceView => ({
+      ...workspace(id, sessionIds), createdAt,
+    })
+    mount({
+      useSessions: hook(sessions),
+      useWorkspaces: hook(workspaceState([
+        dated('old', ['old-1', 'old-2'], '2026-01-01T00:00:00.000Z'),
+        dated('mid', ['mid-1'], '2026-01-02T00:00:00.000Z'),
+        dated('empty-new', [], '2026-01-09T00:00:00.000Z'),
+        dated('new', ['new-1'], '2026-01-01T00:00:00.000Z'),
+        dated('empty-old', [], '2026-01-02T00:00:00.000Z'),
+      ])),
+    })
+    // Newest last session leads; sections without a known session trail in
+    // creation order, and the ungrouped bucket stays below every section.
+    expect(screen.getAllByRole('treeitem').map(row => row.textContent)).toEqual([
+      expect.stringContaining('new'),
+      expect.stringContaining('mid'),
+      expect.stringContaining('old'),
+      expect.stringContaining('empty-new'),
+      expect.stringContaining('empty-old'),
+    ])
+  })
+
+  it('switches workspace section order through the view menu and offers no drag in auto mode', () => {
+    // Drop the manual-order seed the shared beforeEach writes: this spec owns
+    // the shipped default.
+    localStorage.removeItem('dsh.workspace.view.v5')
+    const insertWorkspaceBefore = vi.fn(async () => {})
+    const sessions = sessionState([summary('a-1', 1), summary('b-1', 2)])
+    const b = mount({
+      useSessions: hook(sessions),
+      useWorkspaces: hook(workspaceState([
+        workspace('alpha', ['a-1']),
+        workspace('beta', ['b-1']),
+      ])),
+      insertWorkspaceBefore,
+    })
+    // The shipped default is activity order: beta's session is the freshest.
+    expect(b.store.getSnapshot().workspaceOrder).toBeUndefined()
+    expect(screen.getAllByRole('treeitem').map(row => row.textContent)).toEqual([
+      expect.stringContaining('beta'), expect.stringContaining('alpha'),
+    ])
+
+    // Auto mode renders no section drag affordance and commits nothing.
+    const betaRow = screen.getByText('beta').closest('[role="treeitem"]') as HTMLElement
+    fireEvent.dragStart(betaRow, { dataTransfer: dragData() })
+    expect(insertWorkspaceBefore).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Параметры просмотра' }))
+    expect(workspaceOrderItem('По обновлению').querySelector('svg')).toBeTruthy()
+    fireEvent.click(workspaceOrderItem('Вручную'))
+    expect(b.store.getSnapshot().workspaceOrder).toBe('manual')
+    expect(screen.getAllByRole('treeitem').map(row => row.textContent)).toEqual([
+      expect.stringContaining('alpha'), expect.stringContaining('beta'),
+    ])
+
+    // Switching back re-enters activity order without a persisted account.
+    fireEvent.click(screen.getByRole('button', { name: 'Параметры просмотра' }))
+    fireEvent.click(workspaceOrderItem('По обновлению'))
+    expect(b.store.getSnapshot().workspaceOrder).toBe('updated')
+    expect(screen.getAllByRole('treeitem')[0]?.textContent).toContain('beta')
   })
 
   it('archives a session from the row menu and hides archived rows in both modes', async () => {
@@ -918,7 +1010,7 @@ describe('WorkspaceBrowser', () => {
     expect(insertSessionBefore).not.toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('button', { name: 'Параметры просмотра' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'По обновлению' }))
+    fireEvent.click(sessionOrderItem('По обновлению'))
     await waitFor(() => {
       expect(b.store.getSnapshot().sessionOrderByAccount[UNGROUPED_KEY]).toEqual(['one', 'two', 'three'])
     })

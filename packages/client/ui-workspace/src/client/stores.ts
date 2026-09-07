@@ -14,11 +14,27 @@ export const FLAT_SESSION_ORDER_KEY = '__flat_session_order__'
 export type SessionGroupBy = 'workspace' | 'flat'
 /** Session order: user-arranged only, or user-arranged plus activity promotion. */
 export type SessionOrderBy = 'manual' | 'updated'
+/** Workspace section order: user-arranged Host order, or automatic last-session recency. */
+export type WorkspaceOrderBy = 'manual' | 'updated'
+
+/**
+ * Workspace section order with its pre-v5-persist default. Persisted viewing
+ * state is stored as one whole-value JSON blob; blobs written before this
+ * field existed lack it, so every read funnels through this resolver instead
+ * of trusting the raw field.
+ * @param state - viewing state snapshot.
+ * @returns the effective workspace order ('updated' unless stored otherwise).
+ */
+export function resolveWorkspaceOrder(state: { workspaceOrder?: WorkspaceOrderBy }): WorkspaceOrderBy {
+  return state.workspaceOrder ?? 'updated'
+}
 
 /** Workspace browser viewing state persisted across surface remounts and reloads. */
 type WorkspaceViewState = {
   groupBy: SessionGroupBy
   orderBy: SessionOrderBy
+  /** Workspace section order; absent in stored v5 blobs and resolved by {@link resolveWorkspaceOrder}. */
+  workspaceOrder?: WorkspaceOrderBy
   /** Explicit zero-or-five-session state keyed by Workspace group identity. */
   groupExpansion: Record<string, boolean>
   /** Shared editable order per Workspace group plus the browser-local flat-list account. */
@@ -34,6 +50,7 @@ type WorkspaceViewState = {
 type WorkspaceViewActions = {
   setGroupBy: (draft: WorkspaceViewState, mode: SessionGroupBy) => void
   setOrderBy: (draft: WorkspaceViewState, mode: SessionOrderBy) => void
+  setWorkspaceOrder: (draft: WorkspaceViewState, mode: WorkspaceOrderBy) => void
   setGroupExpanded: (draft: WorkspaceViewState, key: string, expanded: boolean) => void
   retainAccountKeys: (draft: WorkspaceViewState, workspaceKeys: readonly string[]) => void
   syncSessionOrderAccount: (
@@ -62,6 +79,7 @@ export function createWorkspaceViewStore(): EngineStoreHandle<WorkspaceViewState
     actions: {
       setGroupBy: (d, mode: SessionGroupBy) => { d.groupBy = mode },
       setOrderBy: (d, mode: SessionOrderBy) => { d.orderBy = mode },
+      setWorkspaceOrder: (d, mode: WorkspaceOrderBy) => { d.workspaceOrder = mode },
       setGroupExpanded: (d, key: string, expanded: boolean) => { d.groupExpansion[key] = expanded },
       retainAccountKeys: (d, workspaceKeys: readonly string[]) => {
         const retained = new Set(workspaceKeys)

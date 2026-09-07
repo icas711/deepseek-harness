@@ -3,10 +3,10 @@ import type {
   SessionId, SessionListState, SessionSummary, WorkspaceId, WorkspaceView,
 } from '@deepseek-ai/dsh-client-runtime/client'
 import {
-  deriveFlat, deriveGroups, deriveSearchResults, workspaceLabel, relativeTime,
+  deriveFlat, deriveGroups, deriveSearchResults, orderWorkspacesByRecency, workspaceLabel, relativeTime,
   UNGROUPED_KEY, UNGROUPED_LABEL,
 } from '../src/client/tree.ts'
-import { createWorkspaceViewStore } from '../src/client/stores.ts'
+import { createWorkspaceViewStore, resolveWorkspaceOrder } from '../src/client/stores.ts'
 
 const sid = (id: string) => id as SessionId
 const wid = (id: string) => id as WorkspaceId
@@ -424,6 +424,54 @@ describe('createWorkspaceViewStore', () => {
     expect(snapshot.groupExpansion).toEqual({ '': true, alpha: true })
     expect(snapshot.sessionOrderByAccount).toEqual({ alpha: ['alpha-session'] })
     expect(snapshot.sessionUpdatedAtByAccount).toEqual({ alpha: { 'alpha-session': 2 } })
+  })
+})
+
+describe('orderWorkspacesByRecency', () => {
+  const dated = (id: string, sessionIds: string[], createdAt: string): WorkspaceView => ({
+    ...workspace(id, sessionIds), createdAt,
+  })
+
+  it('orders sections by freshest member session and pins unknown-activity sections last', () => {
+    const sessions = list(summary('a', 1), summary('b', 300), summary('c', 30))
+    const ordered = orderWorkspacesByRecency([
+      dated('oldest', ['a'], '2026-01-03T00:00:00.000Z'),
+      dated('freshest', ['b'], '2026-01-01T00:00:00.000Z'),
+      dated('unknown', ['ghost'], '2026-01-09T00:00:00.000Z'),
+      dated('middle', ['c'], '2026-01-02T00:00:00.000Z'),
+    ], sessions.byId)
+    expect(ordered.map(workspace => workspace.workspaceId)).toEqual([
+      wid('freshest'), wid('middle'), wid('oldest'), wid('unknown'),
+    ])
+  })
+
+  it('breaks recency ties with Host order and orders empty sections by creation desc', () => {
+    const sessions = list(summary('a', 5))
+    const ordered = orderWorkspacesByRecency([
+      dated('empty-new', [], '2026-02-01T00:00:00.000Z'),
+      dated('host-second', ['a'], '2026-01-01T00:00:00.000Z'),
+      dated('host-first', ['a'], '2026-01-01T00:00:00.000Z'),
+      dated('empty-old', [], '2026-01-01T00:00:00.000Z'),
+    ], sessions.byId)
+    expect(ordered.map(workspace => workspace.workspaceId)).toEqual([
+      wid('host-second'), wid('host-first'), wid('empty-new'), wid('empty-old'),
+    ])
+  })
+
+  it('returns the input order untouched when the caller passes it back', () => {
+    const sessions = list(summary('a', 1), summary('b', 2))
+    const hostOrder = [dated('first', ['a'], '2026-01-01T00:00:00.000Z'), dated('second', ['b'], '2026-01-02T00:00:00.000Z')]
+    expect(orderWorkspacesByRecency(hostOrder, sessions.byId).map(workspace => workspace.workspaceId))
+      .toEqual([wid('second'), wid('first')])
+    // The input array is never permuted.
+    expect(hostOrder.map(workspace => workspace.workspaceId)).toEqual([wid('first'), wid('second')])
+  })
+})
+
+describe('resolveWorkspaceOrder', () => {
+  it('defaults missing stored choice to activity order', () => {
+    expect(resolveWorkspaceOrder({})).toBe('updated')
+    expect(resolveWorkspaceOrder({ workspaceOrder: 'manual' })).toBe('manual')
   })
 })
 

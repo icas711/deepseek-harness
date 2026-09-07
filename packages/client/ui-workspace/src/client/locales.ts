@@ -20,6 +20,7 @@ export const ru = {
   'orderBy.label': 'Сортировка',
   'orderBy.manual': 'Вручную',
   'orderBy.updated': 'По обновлению',
+  'workspaceOrder.label': 'Сортировка областей',
   'sessions.expand': 'Показать ещё {n} сессий',
   'sessions.collapse': 'Свернуть',
   'empty.none': 'Пока нет сессий',

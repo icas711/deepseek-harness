@@ -20,9 +20,9 @@ import type {
 } from '@deepseek-ai/dsh-client-runtime/client'
 import type { WorkspaceBrowserProps } from './contract/slots.ts'
 import type { SessionNode, SessionOrderBy } from './tree.ts'
-import { deriveFlat, deriveGroups, deriveSearchResults, UNGROUPED_KEY } from './tree.ts'
+import { deriveFlat, deriveGroups, deriveSearchResults, orderWorkspacesByRecency, UNGROUPED_KEY } from './tree.ts'
 import { ProjectRowItem, SearchResultItem, SessionNodeItem } from './rows/Rows.tsx'
-import { FLAT_SESSION_ORDER_KEY } from './stores.ts'
+import { FLAT_SESSION_ORDER_KEY, resolveWorkspaceOrder, type WorkspaceOrderBy } from './stores.ts'
 import { WorkspacePickFlow } from './WorkspacePicker.tsx'
 import css from './WorkspaceBrowser.module.css'
 
@@ -144,11 +144,13 @@ function nextSessionOrderAccount({
 }
 
 /** Grouping and ordering menu; own open state so it resets with the wide chrome. */
-function ViewOptionsMenu({ groupBy, orderBy, onGroupPick, onOrderPick, t }: {
+function ViewOptionsMenu({ groupBy, orderBy, workspaceOrder, onGroupPick, onOrderPick, onWorkspaceOrderPick, t }: {
   groupBy: 'workspace' | 'flat'
   orderBy: SessionOrderBy
+  workspaceOrder: WorkspaceOrderBy
   onGroupPick: (mode: 'workspace' | 'flat') => void
   onOrderPick: (mode: SessionOrderBy) => void
+  onWorkspaceOrderPick: (mode: WorkspaceOrderBy) => void
   t: WorkspaceBrowserProps['t']
 }) {
   const [open, setOpen] = useState(false)
@@ -164,11 +166,18 @@ function ViewOptionsMenu({ groupBy, orderBy, onGroupPick, onOrderPick, t }: {
         { type: 'label' as const, id: 'order-by', text: t('orderBy.label') },
         { id: 'manual', label: t('orderBy.manual') },
         { id: 'updated', label: t('orderBy.updated') },
+        { type: 'separator' as const, id: 'workspace-order-separator' },
+        { type: 'label' as const, id: 'workspace-order', text: t('workspaceOrder.label') },
+        { id: 'ws-manual', label: t('orderBy.manual') },
+        { id: 'ws-updated', label: t('orderBy.updated') },
       ]}
-      selectedIds={[groupBy, orderBy]}
+      selectedIds={[groupBy, orderBy, workspaceOrder === 'updated' ? 'ws-updated' : 'ws-manual']}
       onSelect={(id) => {
         if (id === 'workspace' || id === 'flat') onGroupPick(id)
         else if (id === 'manual' || id === 'updated') onOrderPick(id)
+        else if (id === 'ws-manual' || id === 'ws-updated') {
+          onWorkspaceOrderPick(id === 'ws-updated' ? 'updated' : 'manual')
+        }
         setOpen(false)
       }}
       align="end"
@@ -245,13 +254,15 @@ type SessionTreeProps = Pick<
   onSessionDelete: (sessionId: SessionNode['id'], title: string) => void
   /** Session order behavior: fixed after edits, or additionally promoted by user activity. */
   orderBy: SessionOrderBy
+  /** Workspace section order: user-arranged Host order, or automatic last-session recency. */
+  workspaceOrder: WorkspaceOrderBy
 }
 
 /** The scrolling session tree; unmounting drops the sessions subscription and expand-all state. */
 function SessionTree({
   useSessions, startSession, open, forkSession, workspaces, archivedSessionIds,
   onRenameRequest, onDeleteRequest, onSessionRename, onSessionArchive, onSessionDelete,
-  insertWorkspaceBefore, insertSessionBefore, orderBy,
+  insertWorkspaceBefore, insertSessionBefore, orderBy, workspaceOrder,
   groupExpansion, setGroupExpanded,
   sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, setSessionOrder, t,
 }: SessionTreeProps) {
@@ -316,18 +327,24 @@ function SessionTree({
       return { ...workspace, sessionIds }
     })
   }, [sessionOrderByAccount, workspaces])
+  // Auto mode permutes section display only: the recency order is a pure view
+  // over Host order and session activity, never a persisted account, so the
+  // next activity-driven change reshuffles without any stored cleanup.
+  const displayWorkspaces = useMemo(() => (
+    workspaceOrder === 'updated' ? orderWorkspacesByRecency(orderedWorkspaces, list.byId) : orderedWorkspaces
+  ), [list.byId, orderedWorkspaces, workspaceOrder])
   const orderedUngroupedSessionIds = useMemo(
     () => reconciledSessionOrder(ungroupedSessionIds, sessionOrderByAccount[UNGROUPED_KEY]),
     [sessionOrderByAccount, ungroupedSessionIds],
   )
   const groups = useMemo(
-    () => deriveGroups(list, orderedWorkspaces, archivedSessionIds, {
+    () => deriveGroups(list, displayWorkspaces, archivedSessionIds, {
       expandedGroups,
       ...(sessionOrderByAccount[UNGROUPED_KEY] === undefined
         ? {}
         : { ungroupedOrder: sessionOrderByAccount[UNGROUPED_KEY] }),
     }),
-    [list, orderedWorkspaces, archivedSessionIds, expandedGroups, sessionOrderByAccount],
+    [list, displayWorkspaces, archivedSessionIds, expandedGroups, sessionOrderByAccount],
   )
   const now = Date.now()
   const commitSessionDrag = (activeDrag: DragState, over: NonNullable<DragState['over']>): void => {
@@ -362,6 +379,7 @@ function SessionTree({
     activeDrag: WorkspaceDragState,
     over: NonNullable<WorkspaceDragState['over']>,
   ): void => {
+    if (workspaceOrder !== 'manual') return
     if (workspaceDropCommitted.current) return
     workspaceDropCommitted.current = true
     setWorkspaceDrag(null)
@@ -398,20 +416,22 @@ function SessionTree({
           const workspaceMarker = workspaceId !== undefined && workspaceDrag?.over?.id === workspaceId
             ? workspaceDrag.over.half
             : null
-          const workspaceDragProps = workspaceId === undefined ? undefined : {
-            start: () => {
-              workspaceDropCommitted.current = false
-              setWorkspaceDrag({ workspaceId, over: null })
-            },
-            end: () => {
-              if (workspaceDrag?.over !== null && workspaceDrag?.over !== undefined) {
-                commitWorkspaceDrag(workspaceDrag, workspaceDrag.over)
-              } else {
-                setWorkspaceDrag(null)
-              }
-              workspaceDropCommitted.current = false
-            },
-          }
+          const workspaceDragProps = workspaceId === undefined || workspaceOrder !== 'manual'
+            ? undefined
+            : {
+              start: () => {
+                workspaceDropCommitted.current = false
+                setWorkspaceDrag({ workspaceId, over: null })
+              },
+              end: () => {
+                if (workspaceDrag?.over !== null && workspaceDrag?.over !== undefined) {
+                  commitWorkspaceDrag(workspaceDrag, workspaceDrag.over)
+                } else {
+                  setWorkspaceDrag(null)
+                }
+                workspaceDropCommitted.current = false
+              },
+            }
           const hoverWorkspace = workspaceId === undefined
             ? undefined
             : (half: 'before' | 'after') => {
@@ -775,6 +795,7 @@ export function WorkspaceBrowser({
   const directoryFlowAvailable = useDirectoryFlow(occupied => occupied)
   const groupBy = useStore(s => s.groupBy)
   const orderBy = useStore(s => s.orderBy)
+  const workspaceOrder = useStore(resolveWorkspaceOrder)
   const groupExpansion = useStore(s => s.groupExpansion)
   const sessionOrderByAccount = useStore(s => s.sessionOrderByAccount)
   const sessionUpdatedAtByAccount = useStore(s => s.sessionUpdatedAtByAccount)
@@ -1077,8 +1098,10 @@ export function WorkspaceBrowser({
             <ViewOptionsMenu
               groupBy={groupBy}
               orderBy={orderBy}
+              workspaceOrder={workspaceOrder}
               onGroupPick={(mode) => { actions.setGroupBy(mode) }}
               onOrderPick={(mode) => { actions.setOrderBy(mode) }}
+              onWorkspaceOrderPick={(mode) => { actions.setWorkspaceOrder(mode) }}
               t={t}
             />
           )}
@@ -1186,6 +1209,7 @@ export function WorkspaceBrowser({
                 archivedSessionIds={archivedSessionIds}
                 startSession={startSession}
                 open={open}
+                workspaceOrder={workspaceOrder}
                 insertWorkspaceBefore={insertWorkspaceBefore}
                 insertSessionBefore={insertSessionBefore}
                 orderBy={orderBy}
