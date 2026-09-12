@@ -91,6 +91,14 @@ export interface PiAiProviderProfile {
    */
   modelOverrides?: Record<string, PiAiModelOverride>
   /**
+   * Fetch the served model list from the endpoint's `GET {baseURL}/models` and
+   * merge it over the route's catalog: endpoint entries lead (in endpoint
+   * order), catalog-only models follow, and any fetch failure keeps the
+   * catalog. Requires `baseURL` — without one the endpoint to interrogate is
+   * ambiguous across a catalog whose models may name different hosts.
+   */
+  liveModels?: boolean
+  /**
    * Reasoning-dispatch switches for every `openai-completions` model on this
    * route; each model's own `compat` overrides per field. What neither sets
    * keeps the installed catalog entry's value, then pi-ai's baseURL-derived
@@ -236,6 +244,7 @@ const profile = z.object({
   baseURL: z.string(),
   models: z.array(modelProfile),
   modelOverrides: z.dict(modelOverride),
+  liveModels: z.boolean(),
   compat: compatProfile,
   defaultContextWindow: z.number().step(1).min(1).default(DEFAULT_CONTEXT_WINDOW),
   defaultMaxTokens: z.number().step(1).min(1).default(DEFAULT_MAX_TOKENS),
@@ -314,6 +323,12 @@ export function resolveProfiles(
     }
     if (source.displayName !== undefined && source.displayName.length === 0) {
       throw new Error(`llm-pi-ai: provider "${provider}" has an empty displayName`)
+    }
+    if (source.liveModels === true && source.baseURL === undefined) {
+      throw new Error(
+        `llm-pi-ai: provider "${provider}" sets liveModels without a baseURL;`
+        + ' the endpoint to interrogate for the model list would be ambiguous',
+      )
     }
     const streamIdleTimeoutMs = source.streamIdleTimeoutMs ?? DEFAULT_STREAM_IDLE_TIMEOUT_MS
     if (!Number.isFinite(streamIdleTimeoutMs)

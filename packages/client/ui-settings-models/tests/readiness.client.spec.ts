@@ -9,15 +9,15 @@ const missingCredential: CredentialView = { configured: false, writable: true }
 function row(overrides: Partial<ProviderRow> = {}): ProviderRow {
   return {
     entry: {
-      provider: 'deepseek-official',
-      displayName: 'DeepSeek',
-      settingsNs: 'llm-deepseek',
-      settingsPath: [],
+      provider: 'zai',
+      displayName: 'Z.ai',
+      settingsNs: 'llm-pi-ai',
+      settingsPath: ['providers', 'zai'],
       active: true,
     },
     configured: true,
     removable: false,
-    apiKeyEnv: 'DEEPSEEK_API_KEY',
+    apiKeyEnv: 'ZAI_API_KEY',
     credential: missingCredential,
     ...overrides,
   }

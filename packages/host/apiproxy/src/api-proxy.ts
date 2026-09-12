@@ -3550,6 +3550,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
           settingsPath: [...entry.settingsPath],
           active: active.has(entry.provider),
           ...entry.declared === undefined ? {} : { declared: entry.declared },
+          ...entry.provisionable === undefined ? {} : { provisionable: entry.provisionable },
         }))
         // Routes registered without a directory declaration still appear —
         // they exist and serve models — just with no settings address. No
@@ -3591,6 +3592,27 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
             code: 'model-discovery-failed',
             message: error instanceof Error ? error.message : String(error),
             details: { settingsNs, ...baseURL === undefined ? {} : { baseURL } },
+          })
+        }
+      },
+
+      async provisionProvider(request, signal) {
+        const { settingsNs, provider } = request.payload
+        try {
+          const result = await ctx.llm.provisionProvider(settingsNs, {
+            provider,
+            ...signal === undefined ? {} : { signal },
+          })
+          return ok(request, { models: result.models })
+        } catch (error: unknown) {
+          // A provisioning failure leaves the stored route exactly as it was,
+          // so this too is the user's next move — retry, or fill the profile
+          // in by hand. The details repeat only what the caller already sent,
+          // never the credential.
+          return err(request, {
+            code: 'model-provisioning-failed',
+            message: error instanceof Error ? error.message : String(error),
+            details: { settingsNs, provider },
           })
         }
       },

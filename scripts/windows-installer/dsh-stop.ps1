@@ -1,4 +1,4 @@
-# Stops the DeepSeek Harness web server started by dsh-web.ps1, matching only
+# Stops the custom-harness web server started by dsh-web.ps1, matching only
 # node processes whose command line runs this installation's bin with `web`.
 $ErrorActionPreference = 'Stop'
 
@@ -12,7 +12,7 @@ Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" | Where-Object {
 }
 
 if ($stopped.Count -eq 0) {
-  Write-Host 'DeepSeek Harness server is not running.'
+  Write-Host 'custom-harness server is not running.'
 } else {
-  Write-Host ("Stopped DeepSeek Harness server (PID {0})." -f ($stopped -join ', '))
+  Write-Host ("Stopped custom-harness server (PID {0})." -f ($stopped -join ', '))
 }

@@ -17,6 +17,7 @@ export const configurableProviderViewSchema = z.object({
   settingsPath: z.array(z.string()),
   active: z.boolean(),
   declared: z.boolean().optional(),
+  provisionable: z.boolean().optional(),
 }) satisfies z.ZodType<Wire<ConfigurableProviderView>>
 
 /** llm.providers request payload. */
@@ -62,3 +63,14 @@ export const llmDiscoverModelsRequestSchema = z.object({
 export const llmDiscoverModelsValueSchema = z.object({
   models: z.array(discoveredModelViewSchema),
 }) satisfies z.ZodType<Wire<ResponseValue<'llm.discoverModels'>>>
+
+/** llm.provisionProvider request payload. */
+export const llmProvisionProviderRequestSchema = z.object({
+  settingsNs: z.string().min(1),
+  provider: z.string().min(1),
+}) satisfies z.ZodType<Wire<RequestPayload<'llm.provisionProvider'>>>
+
+/** llm.provisionProvider response value. */
+export const llmProvisionProviderValueSchema = z.object({
+  models: z.number().int().nonnegative(),
+}) satisfies z.ZodType<Wire<ResponseValue<'llm.provisionProvider'>>>

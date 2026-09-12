@@ -790,16 +790,26 @@ Source: [`packages/host/frontend-static/src/index.ts:28`](../packages/host/front
 ## `@deepseek-ai/dsh-host-webserver`
 
 ```ts config-catalog
-/** Gateway config: the listen address. */
+/**
+ * Gateway config: the listen address and the optional shared credential.
+ */
 export interface Config {
   /** Listen host; the two supported values are loopback and all-interfaces. */
   host: '127.0.0.1' | '0.0.0.0'
   /** Listen port; zero requests an OS-assigned port. */
   port: number
+  /**
+   * Shared credential every browser request must present — the `?token=`
+   * query, an `Authorization: Bearer` header, or the session cookie a
+   * presentation issues; absent admits every request. Validation rejects an
+   * empty value: an empty secret would be a disabled gate, not a configured
+   * one.
+   */
+  token?: string
 }
 ```
 
-Source: [`packages/host/webserver/src/index.ts:45`](../packages/host/webserver/src/index.ts)
+Source: [`packages/host/webserver/src/index.ts:57`](../packages/host/webserver/src/index.ts)
 
 <a id="deepseek-aidsh-invariants"></a>
 
@@ -937,6 +947,14 @@ export interface PiAiProviderProfile {
    * model the catalog does not describe is refused rather than skipped.
    */
   modelOverrides?: Record<string, PiAiModelOverride>
+  /**
+   * Fetch the served model list from the endpoint's `GET {baseURL}/models` and
+   * merge it over the route's catalog: endpoint entries lead (in endpoint
+   * order), catalog-only models follow, and any fetch failure keeps the
+   * catalog. Requires `baseURL` — without one the endpoint to interrogate is
+   * ambiguous across a catalog whose models may name different hosts.
+   */
+  liveModels?: boolean
   /**
    * Reasoning-dispatch switches for every `openai-completions` model on this
    * route; each model's own `compat` overrides per field. What neither sets
@@ -1079,7 +1097,7 @@ type WithheldThinkingFormat = 'chat-template' | 'qwen-chat-template'
 
 Depends on: `Api` (`@earendil-works/pi-ai`) · `CacheRetention` (`@earendil-works/pi-ai`) · `Model` (`@earendil-works/pi-ai`) · `ModelThinkingLevel` (`@earendil-works/pi-ai`) · `OpenAICompletionsCompat` (`@earendil-works/pi-ai`) · [`RetryPolicyConfig`](../packages/llm/llm/src/index.ts) · `ThinkingBudgets` (`@earendil-works/pi-ai`) · `Transport` (`@earendil-works/pi-ai`)
 
-Source: [`packages/llm/llm-pi-ai/src/config.ts:172`](../packages/llm/llm-pi-ai/src/config.ts)
+Source: [`packages/llm/llm-pi-ai/src/config.ts:180`](../packages/llm/llm-pi-ai/src/config.ts)
 
 <a id="deepseek-aidsh-llm-replay"></a>
 
@@ -2901,10 +2919,16 @@ export interface Config {
   surfaceContext: boolean
   /** Explicit `--trusted-host` authorities from this invocation. */
   trustedHosts: string[]
+  /**
+   * Shut the server down after the last browser connection has been gone this
+   * long (default 10 minutes; 0 disables). A server no browser ever connected
+   * to never exits, so boot-time smokes and headless probing keep working.
+   */
+  idleExitMs: number
 }
 ```
 
-Source: [`packages/bundle/web-app/src/index.ts:38`](../packages/bundle/web-app/src/index.ts)
+Source: [`packages/bundle/web-app/src/index.ts:42`](../packages/bundle/web-app/src/index.ts)
 
 <a id="deepseek-aidsh-web-fetch-http"></a>
 

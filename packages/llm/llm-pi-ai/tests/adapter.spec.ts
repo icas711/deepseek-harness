@@ -900,3 +900,118 @@ describe('abort wiring', () => {
     expect(server.requests).toHaveLength(1)
   })
 })
+
+describe('live model listing', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  /** A liveModels z.ai-shaped route; the endpoint is the test's to change. */
+  function zaiRoute(baseURL: string): { zai: LlmPiAi.PiAiProviderProfile } {
+    return {
+      zai: {
+        displayName: 'Z.ai',
+        apiKeyEnv: 'ZAI_API_KEY',
+        baseURL,
+        liveModels: true,
+      },
+    }
+  }
+
+  /** Answer every listing request with one scripted `GET /models` reply. */
+  function stubListing(entries: readonly Record<string, unknown>[]): RequestInit[] {
+    const requests: RequestInit[] = []
+    vi.stubGlobal('fetch', async (_url: string | URL, init?: RequestInit) => {
+      requests.push(init ?? {})
+      return new Response(JSON.stringify({ data: entries }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    })
+    return requests
+  }
+
+  it('merges the endpoint listing over the catalog, endpoint entries leading', async () => {
+    const requests = stubListing([{ id: 'glm-5.3' }, { id: 'glm-5.2' }])
+    const adapter = adapterOf(zaiRoute('https://api.z.ai/api/paas/v4'))
+
+    const models = await adapter.listModels('zai')
+
+    const ids = models.map(model => model.id)
+    // A model the endpoint added after this build leads the picker...
+    expect(ids[0]).toBe('glm-5.3')
+    expect(models[0]).toMatchObject({ provider: 'zai', name: 'glm-5.3' })
+    // ...a catalog model the endpoint also lists appears exactly once...
+    expect(ids.filter(id => id === 'glm-5.2')).toHaveLength(1)
+    // ...and catalog-only entries stay selectable behind the live ones.
+    expect(ids).toContain('glm-4.5-air')
+    expect(new Headers(requests[0]?.headers).get('authorization')).toBe('Bearer test-key')
+  })
+
+  it('refetches only after the TTL or an endpoint change', async () => {
+    vi.useFakeTimers()
+    try {
+      const requests = stubListing([{ id: 'glm-5.3' }])
+      const providers = zaiRoute('https://api.z.ai/api/paas/v4')
+      const adapter = adapterOf(providers)
+      await adapter.listModels('zai')
+      await adapter.listModels('zai')
+      expect(requests).toHaveLength(1)
+      vi.advanceTimersByTime(5 * 60_000)
+      await adapter.listModels('zai')
+      expect(requests).toHaveLength(2)
+      providers.zai.baseURL = 'https://open.bigmodel.cn/api/paas/v4'
+      await adapter.listModels('zai')
+      expect(requests).toHaveLength(3)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('dispatches a live-listed model the catalog does not describe', async () => {
+    stubListing([{ id: 'glm-5.3' }])
+    const adapter = adapterOf(zaiRoute('https://api.z.ai/api/paas/v4'))
+    // The picker load populates the cache; a selection then resolves from it.
+    await adapter.listModels('zai')
+
+    await expect(adapter.resolveModel('zai', 'glm-5.3'))
+      .resolves.toMatchObject({ provider: 'zai', id: 'glm-5.3' })
+    // A model neither the catalog nor any listing knows stays unknown.
+    await expect(adapter.resolveModel('zai', 'glm-9'))
+      .rejects.toMatchObject({ code: 'UNKNOWN_MODEL' })
+  })
+
+  it('keeps the catalog picker and dispatch when the endpoint cannot be asked', async () => {
+    vi.stubGlobal('fetch', async () => {
+      throw new TypeError('fetch failed')
+    })
+    const live = adapterOf(zaiRoute('https://api.z.ai/api/paas/v4'))
+    const catalog = adapterOf({
+      zai: { displayName: 'Z.ai', apiKeyEnv: 'ZAI_API_KEY', baseURL: 'https://api.z.ai/api/paas/v4' },
+    })
+
+    const models = await live.listModels('zai')
+
+    expect(models.map(model => model.id)).toEqual((await catalog.listModels('zai')).map(model => model.id))
+    await expect(live.resolveModel('zai', 'glm-5.2')).resolves.toMatchObject({ id: 'glm-5.2' })
+    // A live-only model without a listing stays unknown rather than dispatching
+    // into a guessed descriptor.
+    await expect(live.resolveModel('zai', 'glm-5.3')).rejects.toMatchObject({ code: 'UNKNOWN_MODEL' })
+  })
+
+  it('answers a route without liveModels from the catalog without the network', async () => {
+    const requests: RequestInit[] = []
+    vi.stubGlobal('fetch', async (_url: string | URL, init?: RequestInit) => {
+      requests.push(init ?? {})
+      throw new Error('network must not be reached')
+    })
+    const adapter = adapterOf({
+      zai: { displayName: 'Z.ai', apiKeyEnv: 'ZAI_API_KEY', baseURL: 'https://api.z.ai/api/paas/v4' },
+    })
+
+    const models = await adapter.listModels('zai')
+
+    expect(models).not.toHaveLength(0)
+    expect(requests).toEqual([])
+  })
+})

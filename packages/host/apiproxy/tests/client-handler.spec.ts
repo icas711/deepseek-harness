@@ -129,6 +129,7 @@ function scriptedApi(overrides: {
       providers: r => ok(r, { providers: [] }),
       models: r => ok(r, { groups: [], failures: [] }),
       discoverModels: err,
+      provisionProvider: err,
       ...overrides.llm,
     },
     events: { mux: () => empty<MuxFrame>(), host: () => empty<HostFrame>(), ...overrides.events },
@@ -748,6 +749,27 @@ describe('envelope tap', () => {
   })
 })
 
+describe('session unary surface', () => {
+  it('round-trips the delete and quota-resume wrappers with their value shapes', async () => {
+    const seen: { method: string; payload: unknown }[] = []
+    const record = recorderInto(seen)
+    const api = scriptedApi({
+      sessions: {
+        delete: record('session.delete', r => ok(r, { deleted: true as const })),
+        resumeAfterQuota: record('session.resumeAfterQuota', r => ok(r, { resumed: true })),
+      },
+    })
+    const c = client(api)
+
+    expect((await c.sessions.delete({ sessionId: sid('s1') })).result).toEqual({ ok: true, value: { deleted: true } })
+    expect((await c.sessions.resumeAfterQuota({ sessionId: sid('s1') })).result)
+      .toEqual({ ok: true, value: { resumed: true } })
+    expect(seen.map(call => call.method)).toEqual(['session.delete', 'session.resumeAfterQuota'])
+    expect(seen[0]?.payload).toEqual({ sessionId: sid('s1') })
+    expect(seen[1]?.payload).toEqual({ sessionId: sid('s1') })
+  })
+})
+
 describe('config unary surface', () => {
   it('round-trips every settings/credentials/llm method with its own payload and value shape', async () => {
     const seen: { method: string; payload: unknown }[] = []
@@ -786,6 +808,7 @@ describe('config unary surface', () => {
         providers: record('llm.providers', r => ok(r, { providers: [providerRow] })),
         models: record('llm.models', r => ok(r, { groups: [group], failures: [] })),
         discoverModels: record('llm.discoverModels', r => ok(r, { models: [{ id: 'acme-large', contextWindow: 65536 }] })),
+        provisionProvider: record('llm.provisionProvider', r => ok(r, { models: 6 })),
       },
     })
     const c = client(api)
@@ -818,11 +841,13 @@ describe('config unary surface', () => {
       apiKey: 'probe-key',
     })
     expect(discovered.result).toEqual({ ok: true, value: { models: [{ id: 'acme-large', contextWindow: 65536 }] } })
+    const provisioned = await c.llm.provisionProvider({ settingsNs: 'llm-pi-ai', provider: 'zai' })
+    expect(provisioned.result).toEqual({ ok: true, value: { models: 6 } })
 
     expect(seen.map(call => call.method)).toEqual([
       'settings.describe', 'settings.openDocument', 'settings.update', 'settings.replace', 'settings.mutate',
       'credentials.describe', 'credentials.set', 'credentials.unset',
-      'llm.providers', 'llm.models', 'llm.discoverModels',
+      'llm.providers', 'llm.models', 'llm.discoverModels', 'llm.provisionProvider',
     ])
     expect(seen[2]?.payload).toEqual({ ns: 'llm-deepseek', patch: { baseURL: 'https://next' } })
     expect(seen[4]?.payload)
@@ -836,6 +861,7 @@ describe('config unary surface', () => {
       api: 'openai-completions',
       apiKey: 'probe-key',
     })
+    expect(seen[11]?.payload).toEqual({ settingsNs: 'llm-pi-ai', provider: 'zai' })
   })
 
   it('rejects an invalid credential reference name at the carrier boundary', async () => {

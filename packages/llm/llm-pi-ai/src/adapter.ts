@@ -38,20 +38,70 @@ import {
   LlmError,
   ReasoningEffortId,
 } from '@deepseek-ai/dsh-llm'
-import type {
-  GenerateOptions,
-  LlmModelInfo,
-  LlmProviderInfo,
-  LlmResolvedModelInfo,
-  ReasoningEffortId as ReasoningEffortIdType,
-  ResolvedRetryPolicy,
-  StreamChunk,
-} from '@deepseek-ai/dsh-llm'
+import type { GenerateOptions, LlmDiscoveredModel, LlmModelInfo, LlmProviderInfo, LlmResolvedModelInfo, ReasoningEffortId as ReasoningEffortIdType, ResolvedRetryPolicy, StreamChunk } from '@deepseek-ai/dsh-llm'
 import type { AttachmentStore } from '@deepseek-ai/dsh-attachment'
 import { idleWatchdog, timeoutOf } from '@deepseek-ai/dsh-timeout'
-import type { ResolvedPiAiProviderProfile } from './config.ts'
+import { DEFAULT_CONTEXT_WINDOW, DEFAULT_INPUT, DEFAULT_MAX_TOKENS, type ResolvedPiAiProviderProfile } from './config.ts'
+import { resolveRouteModels } from './catalog.ts'
 import { toPiContext } from './context.ts'
+import { fetchListing } from './discovery.ts'
 import { toStreamChunks } from './stream.ts'
+
+/** How long one route's live listing stays authoritative before a refetch. */
+const LIVE_MODELS_TTL_MS = 5 * 60_000
+
+/** One route's cached live listing; `models` is empty after a failed fetch. */
+interface LiveListing {
+  /** The endpoint the listing was read from; a changed endpoint refetches. */
+  baseURL: string
+  /** The advertised models in endpoint order, empty when the fetch failed. */
+  models: readonly LlmDiscoveredModel[]
+  /** When the listing was read; a `LIVE_MODELS_TTL_MS`-old one refetches. */
+  fetchedAt: number
+}
+
+/**
+ * Materialize one live-listed model the installed catalog does not describe,
+ * so a model the endpoint added after this build stays selectable and
+ * dispatchable. The route's protocol and compat apply; the listing discloses
+ * what it can, and the profile defaults answer for the rest.
+ * @param provider - the owning route key.
+ * @param profile - the route's resolved profile; `liveModels` routes carry a
+ *   validated `baseURL`.
+ * @param entry - the endpoint's listing entry.
+ * @returns the model descriptor `resolveModel` and `stream` both consume.
+ */
+function materializeLiveModel(
+  provider: string,
+  profile: ResolvedPiAiProviderProfile,
+  entry: LlmDiscoveredModel,
+): Model<Api> {
+  const baseURL = profile.baseURL
+  if (baseURL === undefined) {
+    throw new LlmError(`pi-ai provider "${provider}" resolves live models without a baseURL`, 'NO_ADAPTER')
+  }
+  const materialized = resolveRouteModels({
+    provider,
+    ...profile.api === undefined ? {} : { api: profile.api },
+    baseURL,
+    models: [{
+      id: entry.id,
+      ...entry.name === undefined ? {} : { name: entry.name },
+      ...entry.contextWindow === undefined ? {} : { contextWindow: entry.contextWindow },
+      ...entry.maxTokens === undefined ? {} : { maxTokens: entry.maxTokens },
+    }],
+    ...profile.compat === undefined ? {} : { compat: profile.compat },
+    defaultInput: [...DEFAULT_INPUT],
+    defaultContextWindow: profile.defaultContextWindow ?? DEFAULT_CONTEXT_WINDOW,
+    defaultMaxTokens: profile.defaultMaxTokens ?? DEFAULT_MAX_TOKENS,
+  })
+  /* v8 ignore next 3 -- a one-entry models list cannot resolve empty; the arm only narrows the indexed type */
+  const [model] = materialized.models
+  if (model === undefined) {
+    throw new LlmError(`pi-ai provider "${provider}" materialized no descriptor for live model "${entry.id}"`, 'NO_ADAPTER')
+  }
+  return model
+}
 
 /** One resolution's frozen view: the profiles and the collection built from them. */
 interface PiAiSnapshot {
@@ -185,6 +235,7 @@ function requestHeaders(headers: Readonly<Record<string, string>> | undefined): 
  */
 export class PiAiAdapter extends LlmAdapter {
   private snapshot: PiAiSnapshot | undefined
+  private readonly live = new Map<string, LiveListing>()
 
   constructor(private readonly config: PiAiAdapterOptions) {
     super()
@@ -216,12 +267,18 @@ export class PiAiAdapter extends LlmAdapter {
 
   /** The configured descriptor for one exact route/model pair within one snapshot. */
   private modelOf(snapshot: PiAiSnapshot, provider: string, model: string): Model<Api> {
-    this.profileOf(snapshot, provider)
+    const profile = this.profileOf(snapshot, provider)
     const resolved = snapshot.models.getModel(provider, model)
-    if (resolved === undefined) {
-      throw new LlmError(`pi-ai provider "${provider}" has no configured model "${model}"`, 'UNKNOWN_MODEL')
-    }
-    return resolved
+    if (resolved !== undefined) return resolved
+    // Past the catalog a `liveModels` route answers from its cached live
+    // listing, so a model the endpoint added after this build dispatches
+    // without waiting for a catalog update. The listing is populated by
+    // `listModels` — the picker load — so a selection made in the surface
+    // always finds its entry here.
+    const live = profile.liveModels === true ? this.live.get(provider) : undefined
+    const entry = live?.models.find(candidate => candidate.id === model)
+    if (live !== undefined && entry !== undefined) return materializeLiveModel(provider, profile, entry)
+    throw new LlmError(`pi-ai provider "${provider}" has no configured model "${model}"`, 'UNKNOWN_MODEL')
   }
 
   override providerInfo(provider: string): LlmProviderInfo {
@@ -235,17 +292,62 @@ export class PiAiAdapter extends LlmAdapter {
     return this.current().profiles.get(provider)?.retryPolicy
   }
 
-  override listModels(provider: string): Promise<readonly LlmModelInfo[]> {
-    return Promise.resolve().then(() => {
-      const snapshot = this.current()
-      this.profileOf(snapshot, provider)
-      return snapshot.models.getModels(provider).map(model => ({
+  /**
+   * The endpoint's live listing for one `liveModels` route, TTL-cached per
+   * route. A missing credential, an unreachable endpoint, or an unreadable
+   * reply yields an empty list: the catalog under the merge stays the
+   * fallback, and a live-fetch failure must not take the route's models out
+   * of a picker.
+   * @param provider - the owning route key.
+   * @param profile - the route's resolved profile.
+   * @returns the advertised models in endpoint order, or an empty list when
+   *   the endpoint could not be asked.
+   */
+  private async liveListing(provider: string, profile: ResolvedPiAiProviderProfile): Promise<readonly LlmDiscoveredModel[]> {
+    const cached = this.live.get(provider)
+    if (cached !== undefined
+      && cached.baseURL === profile.baseURL
+      && Date.now() - cached.fetchedAt < LIVE_MODELS_TTL_MS) {
+      return cached.models
+    }
+    let models: readonly LlmDiscoveredModel[] = []
+    try {
+      const apiKey = await this.config.resolveApiKey(provider, profile)
+      if (profile.baseURL !== undefined) models = await fetchListing(profile.baseURL, apiKey)
+    } catch {
+      // The catalog stays authoritative on any live-fetch failure: an offline
+      // endpoint or a refused credential must not empty the picker.
+    }
+    if (profile.baseURL === undefined) return []
+    this.live.set(provider, { baseURL: profile.baseURL, models, fetchedAt: Date.now() })
+    return models
+  }
+
+  override async listModels(provider: string): Promise<readonly LlmModelInfo[]> {
+    const snapshot = this.current()
+    const profile = this.profileOf(snapshot, provider)
+    const catalog = snapshot.models.getModels(provider).map(model => ({
+      provider,
+      id: model.id,
+      name: model.name,
+      inputModalities: [...model.input],
+    }))
+    if (profile.liveModels !== true || profile.baseURL === undefined) return catalog
+    const live = await this.liveListing(provider, profile)
+    if (live.length === 0) return catalog
+    const liveIds = new Set(live.map(entry => entry.id))
+    const liveInfos = live.map((entry) => {
+      // A listing entry the installed catalog also describes keeps the
+      // catalog's display facts; a bare one answers from the endpoint.
+      const known = snapshot.models.getModel(provider, entry.id)
+      return {
         provider,
-        id: model.id,
-        name: model.name,
-        inputModalities: [...model.input],
-      }))
+        id: entry.id,
+        name: known?.name ?? entry.name ?? entry.id,
+        inputModalities: known === undefined ? [...DEFAULT_INPUT] : [...known.input],
+      }
     })
+    return [...liveInfos, ...catalog.filter(model => !liveIds.has(model.id))]
   }
 
   override resolveModel(

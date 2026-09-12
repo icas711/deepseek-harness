@@ -73,10 +73,10 @@ import { REPO_ROOT, requireDist } from './support.ts'
 // } from '@deepseek-ai/dsh-client-ui-settings-models'
 export const WELCOME_NOTICE_SETTINGS_NAMESPACE = 'ui-onboarding'
 export const WELCOME_NOTICE_ACK_FIELD = 'welcomeNoticeVersion'
-export const WELCOME_NOTICE_VERSION = '2026-08-13.1'
+export const WELCOME_NOTICE_VERSION = '2026-09-11.1'
 export const WELCOME_NOTICE_COPY = {
   title: 'Уведомление о внутреннем тестировании',
-  body: 'DeepSeek Harness 0.1 находится на стадии тестирования разработчиками Harness. Многое ещё предстоит улучшить, и мы ждём отзывов от сообщества разработчиков. Базовые плагины и фундаментальные API DeepSeek Harness будут быстро развиваться и в ближайшие месяцы.\n\nМы ждём разработчиков со всего мира, чтобы вместе исследовать пределы интеллекта на открытой, переиспользуемой и компонуемой инфраструктуре. Присоединяйтесь к экосистеме плагинов DSH.',
+  body: 'custom-harness находится на стадии внутреннего тестирования. Многое ещё предстоит улучшить, и мы ждём отзывов от сообщества разработчиков. Базовые плагины и фундаментальные API custom-harness будут быстро развиваться и в ближайшие месяцы.\n\nМы ждём разработчиков со всего мира, чтобы вместе исследовать пределы интеллекта на открытой, переиспользуемой и компонуемой инфраструктуре.',
   continueLabel: 'Продолжить',
 } as const
 
@@ -234,6 +234,13 @@ export interface LaunchOptions {
   /** Leave the current welcome notice pending; ordinary scenarios pre-acknowledge it before browser boot. */
   welcomeNoticePending?: boolean
   /**
+   * Skip the `ZAI_API_KEY` seed the scaffold writes into the isolated harness
+   * home. The shipped composition carries a live z.ai profile, so a missing
+   * key makes the first-run onboarding dialog block every scenario that does
+   * not test it; only the first-run lane opts out and drives that dialog.
+   */
+  zaiCredentialMissing?: boolean
+  /**
    * Patch the shipped DeepSeek search row to a deterministic endpoint and
    * credential reference. Browser search scenarios keep the real provider and
    * credentials seam while avoiding external search traffic and ambient keys.
@@ -320,6 +327,20 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
   // paths at load, and an in-process boot must NEVER touch the developer's
   // real ~/.dsh document or credential file.
   const harnessHome = options.harnessHome ?? join(workspaceCwd, '.dsh-home')
+  if (options.zaiCredentialMissing !== true) {
+    // The shipped base composition ships a live z.ai profile whose credential
+    // reference resolves from the harness home; seed the managed store so the
+    // first-run onboarding dialog stays complete for every scenario not
+    // testing it. A shared harness home may already carry the seed — `wx`
+    // keeps the first write.
+    await mkdir(harnessHome, { recursive: true })
+    await writeFile(join(harnessHome, '.credentials.yaml'), 'ZAI_API_KEY: dsh-web-e2e-zai\n', { encoding: 'utf8', flag: 'wx' })
+      .catch((error: unknown) => {
+        // Another boot of a shared home already seeded the credential; the
+        // file's existing content serves the same purpose.
+        if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
+      })
+  }
   // Skill discovery is model-visible input, and its roots now resolve inside a
   // PRESET — a subtree this lane's include patches cannot reach, because the
   // roster mounts it directly per session rather than as a row of the booted
@@ -439,6 +460,30 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     {
       id: 'webserver',
       config: { host: '127.0.0.1', port: 0 },
+    },
+    // The lane's replay/route-only adapter registers exactly the fixture route
+    // below (REPLAY_PROVIDERS, `deepseek-official/deepseek-v4-flash`). Pin the
+    // default model selection to that route so every scenario is insulated from
+    // shipped default changes — the product composition now defaults zai/glm-5.2,
+    // a route no keyless fixture binds.
+    {
+      id: 'agent-default-model',
+      config: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+    },
+    // Keep the lane hermetic: the shipped z.ai profile stays (the picker row is
+    // part of the product surface under test) with `liveModels` off, so opening
+    // a model picker never interrogates the real api.z.ai endpoint.
+    {
+      id: 'llm-pi-ai',
+      config: {
+        providers: {
+          zai: {
+            displayName: 'Z.ai',
+            apiKeyEnv: 'ZAI_API_KEY',
+            baseURL: 'https://api.z.ai/api/paas/v4',
+          },
+        },
+      },
     },
     // The bundle's web-runtime row resolves the same built dist under test
     // (apps/web IS @deepseek-ai/dsh-web-frontend); only the URL line is silenced.

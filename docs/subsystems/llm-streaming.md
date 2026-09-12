@@ -383,6 +383,15 @@ interface LlmConfigurableProvider {
    * from outside.
    */
   declared?: boolean
+  /**
+   * Whether the owning adapter offers to provision this route: saving a
+   * credential can fetch what the endpoint serves and write the route's
+   * stored profile without hand entry. Absent means the adapter draws no
+   * such distinction, so a surface must treat absence as "unknown", not as
+   * "no". Only the adapter can answer; the provision attempt itself stays
+   * the authority and may still refuse.
+   */
+  provisionable?: boolean
 }
 ```
 
@@ -772,6 +781,27 @@ registerModelDiscovery( settingsNs: string, discover: (request: LlmModelDiscover
 async discoverModels( settingsNs: string, request: LlmModelDiscoveryRequest, ): Promise<LlmDiscoveredModel[]>
 
 /**
+ * Offer to provision stored provider routes on behalf of the settings
+ * namespace this plugin owns: fetch what the endpoint serves and write the
+ * route's stored profile — the write path discovery deliberately lacks.
+ * Disposed with the fiber.
+ * @param settingsNs - the namespace whose profiles this provisioning serves.
+ * @param provision - provisions one stored route; must honor `request.signal`.
+ * @returns the disposer that withdraws the offer.
+ */
+registerModelProvisioning( settingsNs: string, provision: (request: LlmModelProvisionRequest) => Promise<LlmProvisionResult>, ): () => void
+
+/**
+ * Provision one stored provider route through its namespace's registered
+ * provisioning. Unlike discovery this reads the route's stored credential
+ * and writes its stored profile; the caller owns surfacing the result.
+ * @param settingsNs - namespace whose registered provisioning serves this route.
+ * @param request - the stored route to provision.
+ * @returns what the provisioning pass changed.
+ */
+async provisionProvider( settingsNs: string, request: LlmModelProvisionRequest, ): Promise<LlmProvisionResult>
+
+/**
  * Resolve the retry policy captured when one provider route was registered.
  * @param provider - registered provider route to inspect.
  * @returns the provider-owned policy, with normal defaults already resolved.
@@ -833,7 +863,7 @@ async prepareCall(config: LlmCallConfig, signal?: AbortSignal): Promise<Prepared
 stream(options: GenerateOptions): AsyncIterable<StreamChunk>
 ```
 
-Source: [`packages/llm/llm/src/index.ts:284`](../../packages/llm/llm/src/index.ts)
+Source: [`packages/llm/llm/src/index.ts:286`](../../packages/llm/llm/src/index.ts)
 
 <a id="llm-events"></a>
 
@@ -882,5 +912,5 @@ Waterfall around every streaming model call (retry, replay, routing). Bound to t
 'llm/stream'(this: LlmRuntime, options: GenerateOptions, next: () => AsyncIterable<StreamChunk>): AsyncIterable<StreamChunk>
 ```
 
-Source: [`packages/llm/llm/src/index.ts:64`](../../packages/llm/llm/src/index.ts)
+Source: [`packages/llm/llm/src/index.ts:66`](../../packages/llm/llm/src/index.ts)
 <!-- END GENERATED cordis-surface -->

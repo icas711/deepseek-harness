@@ -2,7 +2,7 @@
 ; in double braces are filled from the repository state. Edit the template in
 ; scripts/windows-installer/, never the generated copy.
 
-#define MyAppName "DeepSeek Harness"
+#define MyAppName "custom-harness"
 #define MyAppVersion "{{VERSION}}"
 
 [Setup]

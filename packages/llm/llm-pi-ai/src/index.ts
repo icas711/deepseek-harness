@@ -56,6 +56,7 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
+import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import { launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
 import { assertUsableApiKey, LlmError } from '@deepseek-ai/dsh-llm'
 import type { AdapterRegistrationHandle, DirectoryRegistrationHandle, LlmConfigurableProvider } from '@deepseek-ai/dsh-llm'
@@ -65,6 +66,7 @@ import { catalogProviderIds, catalogProviderTakesApiKey } from './catalog.ts'
 import { assertServiceable, Config, resolveProfiles } from './config.ts'
 import type { ResolvedPiAiProviderProfile } from './config.ts'
 import { discoverModels } from './discovery.ts'
+import { isZaiRoute, provisionZaiRoute } from './provision.ts'
 
 export { PiAiAdapter } from './adapter.ts'
 export type { PiAiAdapterOptions } from './adapter.ts'
@@ -132,6 +134,10 @@ function directoryEntries(
       // narrowing a shipped provider's models stores a profile too, and that
       // route is still one pi-ai knows.
       declared: !catalog.has(provider),
+      // A Z.AI route carries the endpoint-and-documentation facts the
+      // provisioning template writes, so a key save can build its profile
+      // without hand entry. The attempt itself re-validates.
+      ...isZaiRoute(provider, profiles.get(provider)) ? { provisionable: true } : {},
     })
   }
   // A provider whose only native method is OAuth leaves this adapter nothing
@@ -172,20 +178,15 @@ export function apply(ctx: Context, config: Config): void {
   }
   profiles()
 
-  const resolveApiKey = async (
-    provider: string,
-    profile: ResolvedPiAiProviderProfile,
-  ): Promise<string | undefined> => {
-    const ref = profile.apiKeyEnv
+  const resolveCredentialRef = async (provider: string, ref: string): Promise<string> => {
     // Only a profile that names no credential at all defers to pi-ai's
     // provider-native discovery. Once one is named, a miss must fail loud:
     // handing pi-ai `undefined` would let it pick up an unrelated ambient key
     // (OPENAI_API_KEY and friends), billing another tenant for a request the
     // deployment meant to authenticate differently.
-    if (ref === undefined) return undefined
     const credentials = ctx.get('credentials')
     const hit = credentials !== undefined
-      ? (await credentials.resolve(ref))?.value
+      ? (await credentials.resolve(credentialRef(ref)))?.value
       // Without the seam the environment is the whole credential plane.
       : launchEnvironmentOf(ctx).get(ref)?.value
     if (hit !== undefined && hit.length > 0) return assertUsableApiKey(hit, 'llm-pi-ai', ref)
@@ -195,6 +196,14 @@ export function apply(ctx: Context, config: Config): void {
       + ' and remove apiKeyEnv only if this provider should authenticate from pi-ai\'s own environment discovery',
       'MISSING_CREDENTIAL',
     )
+  }
+
+  const resolveApiKey = async (
+    provider: string,
+    profile: ResolvedPiAiProviderProfile,
+  ): Promise<string | undefined> => {
+    if (profile.apiKeyEnv === undefined) return undefined
+    return resolveCredentialRef(provider, profile.apiKeyEnv)
   }
 
   const adapter = new PiAiAdapter({
@@ -237,13 +246,48 @@ export function apply(ctx: Context, config: Config): void {
     if (profile === undefined) return undefined
     return resolveApiKey(provider, profile)
   }
+  /**
+   * The stored endpoint of the named route's live listing, when its profile
+   * serves one. Handing it to discovery both answers a draft with no baseURL
+   * of its own and skips the installed-catalog short-circuit, so the page's
+   * fetch action reports what the endpoint serves now.
+   */
+  const liveRouteBaseURL = (provider: string): string | undefined => {
+    const profile = profiles().get(provider)
+    return profile?.liveModels === true ? profile.baseURL : undefined
+  }
   // Interrogating an endpoint is a configuration-time action over a draft, so
   // it is offered for the whole namespace rather than per route: the provider
   // a surface is adding does not exist yet. The draft is the whole request
   // except the credential: a configuration surface edits a redacted descriptor
   // and never holds a stored secret, so an already-configured route supplies
   // its own here rather than being interrogated unauthenticated.
-  ctx.llm.registerModelDiscovery(NS, request => discoverModels(request, () => storedApiKey(request.provider)))
+  ctx.llm.registerModelDiscovery(
+    NS,
+    request => discoverModels(request, () => storedApiKey(request.provider), liveRouteBaseURL),
+  )
+  // Provisioning is discovery's write half, offered for the Z.AI routes the
+  // template covers: fetch what the endpoint serves, build the full profile,
+  // write it into this namespace's section. The stored credential is the
+  // only credential involved; the write validates through the section's own
+  // seam, so a refused profile persists nothing.
+  ctx.llm.registerModelProvisioning(
+    NS,
+    request => provisionZaiRoute(request.provider, request.signal, {
+      storedSection: current,
+      resolveCredentialRef,
+      writeRouteProfile: (provider, profile) => {
+        const settings = ctx.get('settings')
+        if (settings === undefined) {
+          throw new LlmError(
+            'llm-pi-ai: provisioning needs the settings service, which this composition does not mount',
+            'PROVISION_FAILED',
+          )
+        }
+        return settings.mutate(NS, [{ op: 'set', path: ['providers', provider], value: profile }])
+      },
+    }),
+  )
   // Route effects bind to this apply fiber via the stable `ctx` reference,
   // even when a swap runs inside the scoped settings callback below. A bare
   // mount (zero routes) is the dormant posture: nothing registers until a

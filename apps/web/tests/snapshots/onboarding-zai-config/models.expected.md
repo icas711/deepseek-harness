@@ -22,11 +22,11 @@
   - list:
     - listitem:
       - text: DeepSeek
-      - img "API-ключ настроен"
+      - img "API-ключ отсутствует"
       - button "Редактировать DeepSeek (deepseek-official)": Редактировать
       - text: DeepSeek deepseek-official API-ключ
       - textbox "API-ключ":
-        - /placeholder: Настроен — введите новое значение, чтобы заменить
+        - /placeholder: Введите API-ключ
       - group:
         - text: Изменённые настройки Base URL
         - textbox "Base URL":
@@ -67,6 +67,11 @@
             - text: Добавить модель
       - button "Отмена"
       - button "Применить"
+    - listitem:
+      - text: Z.ai
+      - img "API-ключ настроен"
+      - button "Обновить список"
+      - button "Редактировать Z.ai (zai)": Редактировать
   - button "Добавить провайдера":
     - img
     - text: Добавить провайдера

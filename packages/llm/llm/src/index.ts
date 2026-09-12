@@ -15,6 +15,8 @@ import type {
   LlmModelContext,
   LlmModelDiscoveryRequest,
   LlmModelInfo,
+  LlmModelProvisionRequest,
+  LlmProvisionResult,
   LlmResolvedModelInfo,
   LlmProviderInfo,
   ModelModality,
@@ -288,6 +290,10 @@ export class LlmRuntime extends Service {
     string,
     (request: LlmModelDiscoveryRequest) => Promise<readonly LlmDiscoveredModel[]>
   >()
+  private provisions = new Map<
+    string,
+    (request: LlmModelProvisionRequest) => Promise<LlmProvisionResult>
+  >()
 
   constructor(ctx: Context) {
     super(ctx, 'llm')
@@ -556,6 +562,58 @@ export class LlmRuntime extends Service {
       })
     }
     return models
+  }
+
+  /**
+   * Offer to provision stored provider routes on behalf of the settings
+   * namespace this plugin owns: fetch what the endpoint serves and write the
+   * route's stored profile — the write path discovery deliberately lacks.
+   * Disposed with the fiber.
+   * @param settingsNs - the namespace whose profiles this provisioning serves.
+   * @param provision - provisions one stored route; must honor `request.signal`.
+   * @returns the disposer that withdraws the offer.
+   */
+  registerModelProvisioning(
+    settingsNs: string,
+    provision: (request: LlmModelProvisionRequest) => Promise<LlmProvisionResult>,
+  ): () => void {
+    const dispose = this.ctx.effect(function* (this: LlmRuntime) {
+      if (settingsNs.length === 0) {
+        throw new LlmError('model provisioning needs a non-empty settings namespace', 'INVALID_PROVISION')
+      }
+      if (this.provisions.has(settingsNs)) {
+        throw new LlmError(`model provisioning for "${settingsNs}" is already registered`, 'DUPLICATE_PROVISION')
+      }
+      this.provisions.set(settingsNs, provision)
+      yield () => {
+        this.provisions.delete(settingsNs)
+      }
+    }.bind(this), 'llm.registerModelProvisioning()')
+    return () => void dispose()
+  }
+
+  /**
+   * Provision one stored provider route through its namespace's registered
+   * provisioning. Unlike discovery this reads the route's stored credential
+   * and writes its stored profile; the caller owns surfacing the result.
+   * @param settingsNs - namespace whose registered provisioning serves this route.
+   * @param request - the stored route to provision.
+   * @returns what the provisioning pass changed.
+   */
+  async provisionProvider(
+    settingsNs: string,
+    request: LlmModelProvisionRequest,
+  ): Promise<LlmProvisionResult> {
+    const provision = this.provisions.get(settingsNs)
+    if (provision === undefined) {
+      throw new LlmError(`no model provisioning is registered for "${settingsNs}"`, 'NO_PROVISIONING')
+    }
+    // The wire schema enforces a non-empty route name; this repeat keeps the
+    // direct-caller contract self-contained, the same boundary discovery draws.
+    if (request.provider.length === 0) {
+      throw new LlmError('model provisioning needs a provider route', 'INVALID_PROVISION')
+    }
+    return provision(request)
   }
 
   /**

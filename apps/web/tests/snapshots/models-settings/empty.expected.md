@@ -19,7 +19,12 @@
     - text: Закрыть
   - heading "Модели" [level=2]
   - paragraph: Введите API-ключи, чтобы использовать модели следующих провайдеров.
-  - list
+  - list:
+    - listitem:
+      - text: Z.ai
+      - img "API-ключ настроен"
+      - button "Обновить список"
+      - button "Редактировать Z.ai (zai)": Редактировать
   - text: Провайдер
   - combobox "Провайдер":
     - option "amazon-bedrock"
@@ -56,7 +61,6 @@
     - option "xiaomi-token-plan-ams"
     - option "xiaomi-token-plan-cn"
     - option "xiaomi-token-plan-sgp"
-    - option "zai"
     - option "zai-coding-cn"
   - text: API-ключ
   - textbox "API-ключ":

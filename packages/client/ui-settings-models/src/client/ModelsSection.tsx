@@ -58,6 +58,8 @@ interface EditorTarget extends ProviderIdentity {
   credentialRef?: string
   /** The adapter reports this route as one it does not ship (see {@link ProviderEditorProps.declared}). */
   declared?: boolean
+  /** The adapter offers to provision this route (see {@link ProviderEditorProps.provisionable}). */
+  provisionable?: boolean
 }
 
 /** Values that vary around the shared provider-editor rendering. */
@@ -76,6 +78,7 @@ function renderProviderEditor({ target, ...props }: ProviderEditorRenderProps): 
       displayName={target.displayName}
       settingsPath={target.settingsPath}
       {...target.declared === true ? { declared: true } : {}}
+      {...target.provisionable === true ? { provisionable: true } : {}}
       {...props}
     />
   )
@@ -148,6 +151,7 @@ function targetOf(row: ProviderRow): EditorTarget {
     // route-level fields only a declared route owns off the card, exactly as
     // it leaves the custom tag off the row.
     ...row.entry.declared === true ? { declared: true } : {},
+    ...row.entry.provisionable === true ? { provisionable: true } : {},
   }
 }
 
@@ -185,6 +189,10 @@ function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
   const [savedTarget, setSavedTarget] = useState<ProviderIdentity | undefined>(undefined)
   const [declaring, setDeclaring] = useState(false)
   const [dismissedSetup, setDismissedSetup] = useState<ReadonlySet<string>>(() => new Set())
+  /** The provisionable row whose re-pull is in flight, by provider id. */
+  const [reprovisioning, setReprovisioning] = useState<string | undefined>(undefined)
+  const [provisioned, setProvisioned] = useState<{ provider: string; models: number } | undefined>(undefined)
+  const [reprovisionFailure, setReprovisionFailure] = useState<{ provider: string; message: string } | undefined>(undefined)
 
   const announceSaved = (target: ProviderIdentity): void => {
     // Announced only once the refreshed directory is in the snapshot the
@@ -216,6 +224,29 @@ function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
     if (deleting) return
     setDeleteTarget(undefined)
     setDeleteFailure(undefined)
+  }
+
+  /**
+   * Re-pull one provisionable route's served models into its stored profile.
+   * The host owns the write; the row only surfaces the outcome, and a failure
+   * leaves the stored profile exactly as it was.
+   */
+  const reprovision = (target: EditorTarget): void => {
+    setReprovisioning(target.provider)
+    setProvisioned(undefined)
+    setReprovisionFailure(undefined)
+    void api.llm.provisionProvider({ settingsNs: target.settingsNs, provider: target.provider })
+      .then((response) => {
+        if (!response.result.ok) {
+          setReprovisionFailure({ provider: target.provider, message: response.result.error.message })
+          return
+        }
+        setProvisioned({ provider: target.provider, models: response.result.value.models })
+      })
+      .catch((error: unknown) => {
+        setReprovisionFailure({ provider: target.provider, message: messageOf(error) })
+      })
+      .finally(() => { setReprovisioning(undefined) })
   }
 
   const confirmDelete = (): void => {
@@ -283,6 +314,13 @@ function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
             {providerCopy(t('savedProvider'), savedIdentity)}
           </p>
         )}
+      {provisioned === undefined
+        ? null
+        : (
+          <p className={styles['savedNotice']} role="status" aria-live="polite">
+            {t('provisionDone').replace('{n}', String(provisioned.models))}
+          </p>
+        )}
       <ul className={styles['rows']}>
         {configured.map((row) => {
           const target = targetOf(row)
@@ -342,6 +380,19 @@ function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
                       : null}
                 </span>
                 <span className={styles['rowActions']}>
+                  {row.entry.provisionable === true
+                    ? (
+                      <button
+                        type="button"
+                        className={styles['secondaryButton']}
+                        aria-label={providerCopy(t('refreshModels'), target)}
+                        disabled={!state.writable || reprovisioning === row.entry.provider}
+                        onClick={() =>{  reprovision(target) }}
+                      >
+                        {reprovisioning === row.entry.provider ? t('provisionBusy') : t('refreshModels')}
+                      </button>
+                    )
+                    : null}
                   <button
                     type="button"
                     className={styles['secondaryButton']}
@@ -377,6 +428,9 @@ function Loaded({ injected }: { injected: ModelsSectionInjected }): ReactNode {
                     : null}
                 </span>
               </div>
+              {reprovisionFailure?.provider === row.entry.provider
+                ? <p className={styles['error']}>{reprovisionFailure.message}</p>
+                : null}
               {open
                 ? renderProviderEditor({
                   target,

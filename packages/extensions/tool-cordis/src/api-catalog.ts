@@ -825,6 +825,18 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the advertised models, deduplicated in endpoint order.',
       },
       {
+        signature: 'registerModelProvisioning( settingsNs: string, provision: (request: LlmModelProvisionRequest) => Promise<LlmProvisionResult>, ): () => void',
+        description: 'Offer to provision stored provider routes on behalf of the settings namespace this plugin owns: fetch what the endpoint serves and write the route\'s stored profile — the write path discovery deliberately lacks. Disposed with the fiber.',
+        parameters: [{ name: 'settingsNs', description: 'the namespace whose profiles this provisioning serves.' }, { name: 'provision', description: 'provisions one stored route; must honor `request.signal`.' }],
+        returns: 'the disposer that withdraws the offer.',
+      },
+      {
+        signature: 'async provisionProvider( settingsNs: string, request: LlmModelProvisionRequest, ): Promise<LlmProvisionResult>',
+        description: 'Provision one stored provider route through its namespace\'s registered provisioning. Unlike discovery this reads the route\'s stored credential and writes its stored profile; the caller owns surfacing the result.',
+        parameters: [{ name: 'settingsNs', description: 'namespace whose registered provisioning serves this route.' }, { name: 'request', description: 'the stored route to provision.' }],
+        returns: 'what the provisioning pass changed.',
+      },
+      {
         signature: 'providerRetryPolicy(provider: string): ResolvedRetryPolicy',
         description: 'Resolve the retry policy captured when one provider route was registered.',
         parameters: [{ name: 'provider', description: 'registered provider route to inspect.' }],
@@ -2081,7 +2093,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
   {
     key: 'webServer',
     summary: 'The browser HTTP carrier service.',
-    description: 'The browser HTTP carrier service. Activation listens immediately. Route registration order does not affect requests because configured named routes must be distinct, and the fallback handler answers anything not yet claimed during startup with 404 until its owner registers. A listen failure rejects initialization, and the boot process reports the failed fiber.',
+    description: 'The browser HTTP carrier service. Activation listens immediately. Route registration order does not affect requests because configured named routes must be distinct, and the fallback handler answers anything not yet claimed during startup with 404 until its owner registers. A configured `token` gates every HTTP request and upgrade before route dispatch. A listen failure rejects initialization, and the boot process reports the failed fiber.',
     methods: [
       {
         signature: 'register(route: WebRoute): () => void',
@@ -3305,7 +3317,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'LlmConfigurableProvider',
-    declaration: 'export interface LlmConfigurableProvider {\n    provider: string;\n    displayName: string;\n    settingsNs: string;\n    settingsPath: readonly string[];\n    declared?: boolean;\n}',
+    declaration: 'export interface LlmConfigurableProvider {\n    provider: string;\n    displayName: string;\n    settingsNs: string;\n    settingsPath: readonly string[];\n    declared?: boolean;\n    provisionable?: boolean;\n}',
   },
   {
     name: 'LlmDiscoveredModel',
@@ -3328,12 +3340,20 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface LlmModelInfo {\n    provider: string;\n    id: string;\n    name: string;\n    description?: string;\n    inputModalities?: readonly ModelModality[];\n}',
   },
   {
+    name: 'LlmModelProvisionRequest',
+    declaration: 'export interface LlmModelProvisionRequest {\n    provider: string;\n    signal?: AbortSignal;\n}',
+  },
+  {
     name: 'LlmModelReasoningInfo',
     declaration: 'export interface LlmModelReasoningInfo {\n    efforts: readonly LlmReasoningEffortInfo[];\n    defaultEffort?: ReasoningEffortId;\n}',
   },
   {
     name: 'LlmProviderInfo',
     declaration: 'export interface LlmProviderInfo {\n    id: string;\n    name: string;\n}',
+  },
+  {
+    name: 'LlmProvisionResult',
+    declaration: 'export interface LlmProvisionResult {\n    models: number;\n}',
   },
   {
     name: 'LlmReasoningEffortInfo',
@@ -3345,7 +3365,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'LlmRuntime',
-    declaration: 'export class LlmRuntime extends Service {\n    constructor(ctx: Context);\n    registerAdapter(providers: string[], adapter: LlmAdapter): AdapterRegistrationHandle;\n    listProviders(): LlmProviderInfo[];\n    registerConfigurableProviders(entries: readonly LlmConfigurableProvider[]): DirectoryRegistrationHandle;\n    listConfigurableProviders(): LlmConfigurableProvider[];\n    registerModelDiscovery(settingsNs: string, discover: (request: LlmModelDiscoveryRequest) => Promise<readonly LlmDiscoveredModel[]>): () => void;\n    async discoverModels(settingsNs: string, request: LlmModelDiscoveryRequest): Promise<LlmDiscoveredModel[]>;\n    providerRetryPolicy(provider: string): ResolvedRetryPolicy;\n    async listModels(provider: string): Promise<LlmModelInfo[]>;\n    async resolveModelInfo(provider: string, model: string, signal?: AbortSignal): Promise<LlmResolvedModelInfo>;\n    async resolveCallConfig(config: LlmCallConfig, signal?: AbortSignal): Promise<LlmCallConfig>;\n    async prepareCall(config: LlmCallConfig, signal?: AbortSignal): Promise<PreparedLlmCall>;\n    stream(options: GenerateOptions): AsyncIterable<StreamChunk>;\n}',
+    declaration: 'export class LlmRuntime extends Service {\n    constructor(ctx: Context);\n    registerAdapter(providers: string[], adapter: LlmAdapter): AdapterRegistrationHandle;\n    listProviders(): LlmProviderInfo[];\n    registerConfigurableProviders(entries: readonly LlmConfigurableProvider[]): DirectoryRegistrationHandle;\n    listConfigurableProviders(): LlmConfigurableProvider[];\n    registerModelDiscovery(settingsNs: string, discover: (request: LlmModelDiscoveryRequest) => Promise<readonly LlmDiscoveredModel[]>): () => void;\n    async discoverModels(settingsNs: string, request: LlmModelDiscoveryRequest): Promise<LlmDiscoveredModel[]>;\n    registerModelProvisioning(settingsNs: string, provision: (request: LlmModelProvisionRequest) => Promise<LlmProvisionResult>): () => void;\n    async provisionProvider(settingsNs: string, request: LlmModelProvisionRequest): Promise<LlmProvisionResult>;\n    providerRetryPolicy(provider: string): ResolvedRetryPolicy;\n    async listModels(provider: string): Promise<LlmModelInfo[]>;\n    async resolveModelInfo(provider: string, model: string, signal?: AbortSignal): Promise<LlmResolvedModelInfo>;\n    async resolveCallConfig(config: LlmCallConfig, signal?: AbortSignal): Promise<LlmCallConfig>;\n    async prepareCall(config: LlmCallConfig, signal?: AbortSignal): Promise<PreparedLlmCall>;\n    stream(options: GenerateOptions): AsyncIterable<StreamChunk>;\n}',
   },
   {
     name: 'LspHover',

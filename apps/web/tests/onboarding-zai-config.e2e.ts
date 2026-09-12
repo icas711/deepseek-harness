@@ -1,5 +1,5 @@
-// Keyless browser e2e: the shipped DeepSeek adapter stays mounted while its
-// credential is absent, both ordered steps share the shipped modal chrome,
+// Keyless browser e2e: the shipped Z.ai onboarding route stays mounted while
+// its credential is absent, both ordered steps share the shipped modal chrome,
 // and the inline key write lands in an isolated harness home without a reload
 // or model call.
 import { randomBytes } from 'node:crypto'
@@ -18,13 +18,13 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, saveFailureShot } from './support.ts'
 
-const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/onboarding-deepseek-config', import.meta.url))
+const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/onboarding-zai-config', import.meta.url))
 const WELCOME_EXPECTED = join(SNAPSHOT_DIR, 'welcome.expected.md')
 const MISSING_EXPECTED = join(SNAPSHOT_DIR, 'missing.expected.md')
 const MODELS_EXPECTED = join(SNAPSHOT_DIR, 'models.expected.md')
 const MODE = webSnapshotMode()
 
-describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup', () => {
+describe.skipIf(MODE === 'record')('web e2e: first-run Z.ai credential setup', () => {
   let scaffold: WebScaffold
   let browser: Browser
   let page: Page
@@ -32,7 +32,9 @@ describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup
   const browserConsole: string[] = []
 
   beforeAll(async () => {
-    scaffold = await launchWebScaffold({ deepSeekMissingCredential: true, welcomeNoticePending: true })
+    scaffold = await launchWebScaffold({
+      deepSeekMissingCredential: true, welcomeNoticePending: true, zaiCredentialMissing: true,
+    })
     browser = await chromium.launch()
     page = await browser.newPage({ viewport: { width: 1440, height: 960 } })
     tripwire = watchConsole(page)
@@ -84,7 +86,7 @@ describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup
     expect(await page.locator('#root').evaluate(root => (root as HTMLElement).inert)).toBe(false)
 
     const stored = await readFile(join(scaffold.harnessHome, '.credentials.yaml'), 'utf8')
-    expect(stored.includes(`DEEPSEEK_API_KEY: ${secret}`)).toBe(true)
+    expect(stored.includes(`ZAI_API_KEY: ${secret}`)).toBe(true)
     expect((await page.content()).includes(secret)).toBe(false)
     expect((await page.locator('body').ariaSnapshot()).includes(secret)).toBe(false)
     expect(browserConsole.some(line => line.includes(secret))).toBe(false)
@@ -98,9 +100,9 @@ describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup
     const settings = page.getByRole('dialog', { name: 'Настройки' })
     await settings.waitFor({ timeout: 10_000 })
     await settings.getByRole('button', { name: 'Модели' }).click()
-    const deepSeekRow = settings.getByText('DeepSeek', { exact: true }).first()
-    await deepSeekRow.waitFor({ timeout: 10_000 })
-    await deepSeekRow.locator('xpath=ancestor::li').getByRole('button', { name: 'Редактировать' }).click()
+    const zaiRow = settings.getByText('Z.ai', { exact: true }).first()
+    await zaiRow.waitFor({ timeout: 10_000 })
+    await zaiRow.locator('xpath=ancestor::li').getByRole('button', { name: 'Редактировать' }).click()
     const configuredInput = settings.getByLabel('API-ключ', { exact: true })
     await configuredInput.waitFor({ timeout: 10_000 })
     await expect.poll(

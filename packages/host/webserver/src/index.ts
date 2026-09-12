@@ -174,6 +174,16 @@ export class WebServer extends Service {
   }
 
   /**
+   * How many upgraded sockets are open right now. The browser surface holds
+   * one or more event-downlink upgrades for as long as a page is alive, so
+   * this count is the server-side browser-presence signal: zero across an
+   * extended interval means no client UI is connected.
+   */
+  get openUpgradeCount(): number {
+    return this.upgradedSockets.size
+  }
+
+  /**
    * Whether the request presents the configured token (always true without
    * one): the session cookie, a Bearer header, or the `?token=` query.
    * @param req - the request presenting credentials.

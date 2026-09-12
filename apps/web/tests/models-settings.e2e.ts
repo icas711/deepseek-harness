@@ -83,7 +83,7 @@ describe('web e2e: Models settings page configures a dormant provider', () => {
   it('refuses a key no HTTP header can carry before anything is written', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-models-illegal-key'))
     const dialog = page.getByRole('dialog', { name: 'Настройки' })
-    const key = dialog.getByLabel('API-ключ')
+    const key = dialog.getByRole('textbox', { name: 'API-ключ', exact: true })
     const save = dialog.getByRole('button', { name: 'Применить', exact: true })
 
     // A key no HTTP header can carry would save cleanly and fail the first
@@ -107,7 +107,9 @@ describe('web e2e: Models settings page configures a dormant provider', () => {
     const row = dialog.getByText('minimax-cn', { exact: true }).first()
     await row.waitFor({ timeout: 10_000 })
     await dialog.getByText('Провайдер minimax-cn сохранён.', { exact: true }).waitFor({ timeout: 10_000 })
-    expect(await dialog.getByRole('img', { name: 'API-ключ настроен' }).count()).toBe(0)
+    // The seeded Z.ai row is the one configured credential; a blank-key save
+    // adds minimax-cn without any.
+    expect(await dialog.getByRole('img', { name: 'API-ключ настроен' }).count()).toBe(1)
     expect(await dialog.getByRole('img', { name: 'API-ключ отсутствует' }).count()).toBe(0)
     const document = await readFile(join(scaffold.harnessHome, 'settings.yaml'), 'utf8')
     expect(document).toContain('minimax-cn: {}')
@@ -142,7 +144,11 @@ describe('web e2e: Models settings page configures a dormant provider', () => {
       async () => dialog.getByRole('textbox', { name: 'API-ключ', exact: true }).count(),
       { timeout: 10_000 },
     ).toBe(0)
-    await dialog.getByRole('img', { name: 'API-ключ настроен' }).waitFor({ timeout: 10_000 })
+    await dialog
+      .getByRole('listitem')
+      .filter({ hasText: 'minimax-cn' })
+      .getByRole('img', { name: 'API-ключ настроен' })
+      .waitFor({ timeout: 10_000 })
     await dialog.getByText('Провайдер minimax-cn сохранён.', { exact: true }).waitFor({ timeout: 10_000 })
     const document = await readFile(join(scaffold.harnessHome, 'settings.yaml'), 'utf8')
     expect(document).toContain('minimax-cn:')

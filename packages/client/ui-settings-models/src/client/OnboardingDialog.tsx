@@ -1,8 +1,8 @@
 /**
- * Official-DeepSeek first-run step. Readiness comes from the same
+ * First-run model setup step. Readiness comes from the same
  * provider/settings/credential join as the Models page: any provider the user
  * can already talk to ends the step, and only a user with none is offered the
- * official DeepSeek route. The step reuses that page's credential editor in
+ * shipped Z.ai route. The step reuses the Models page's credential editor in
  * the onboarding plugin's shared modal, so the key is entered once.
  */
 
@@ -12,14 +12,14 @@ import type { IApiClient } from '@deepseek-ai/dsh-api-remotes/client'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { InjectFace, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ModelsSettingsState, ModelsSettingsStore } from './store.ts'
-import { onboardingReadiness } from './store.ts'
+import { ONBOARDING_PROVIDER, ONBOARDING_SETTINGS_NS, isOnboardingSettingsPath, onboardingReadiness } from './store.ts'
 import { ProviderEditor } from './ProviderEditor.tsx'
 import type { ModelsKey } from './locales.ts'
 import { OnboardingModal } from './OnboardingModal.tsx'
-import styles from './DeepSeekOnboardingDialog.module.css'
+import styles from './OnboardingDialog.module.css'
 
-/** Registration-side dependencies of {@link DeepSeekOnboardingDialog}. */
-export interface DeepSeekOnboardingInjected {
+/** Registration-side dependencies of {@link OnboardingDialog}. */
+export interface OnboardingInjected {
   hooks: {
     /** Shared Models-page join state, bound by the slot renderer. */
     models: SnapshotStore<ModelsSettingsState>
@@ -33,21 +33,21 @@ export interface DeepSeekOnboardingInjected {
 }
 
 /** Slot owner props plus the feature's injected dependencies. */
-export type DeepSeekOnboardingDialogProps =
-  PropsRuntime<'settings.onboarding'> & InjectFace<DeepSeekOnboardingInjected>
+export type OnboardingDialogProps =
+  PropsRuntime<'settings.onboarding'> & InjectFace<OnboardingInjected>
 
 /* v8 ignore next 3 -- closed-union defaults only defend future source widening */
 function assertNever(_value: never): never {
-  throw new Error('unexpected DeepSeek onboarding state')
+  throw new Error('unexpected onboarding state')
 }
 
 /**
- * Prompt a first-run user for the official DeepSeek credential while no
- * provider can serve requests and that credential is writable.
+ * Prompt a first-run user for the shipped Z.ai credential while no provider
+ * can serve requests and that credential is writable.
  * @param props - settings-shell owner state and Models feature dependencies.
  * @returns the onboarding modal or null when onboarding needs no intervention.
  */
-export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): ReactNode {
+export function OnboardingDialog(props: OnboardingDialogProps): ReactNode {
   const { complete, controller, useModels, api, t } = props
   const state = useModels(snapshot => snapshot)
   const readiness = onboardingReadiness(state)
@@ -78,10 +78,10 @@ export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): 
   }
 
   const row = state.rows.find(candidate =>
-    candidate.entry.provider === 'deepseek-official'
-    && candidate.entry.settingsNs === 'llm-deepseek'
-    && candidate.entry.settingsPath.length === 0)
-  const namespace = state.namespaces.get('llm-deepseek')
+    candidate.entry.provider === ONBOARDING_PROVIDER
+    && candidate.entry.settingsNs === ONBOARDING_SETTINGS_NS
+    && isOnboardingSettingsPath(candidate.entry.settingsPath))
+  const namespace = state.namespaces.get(ONBOARDING_SETTINGS_NS)
   /* v8 ignore next 2 -- credential-missing is derived only from this exact joined row. */
   if (row === undefined || namespace === undefined) return null
 
@@ -102,6 +102,7 @@ export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): 
           displayName={row.entry.displayName}
           namespace={namespace}
           settingsPath={row.entry.settingsPath}
+          {...row.entry.provisionable === true ? { provisionable: true } : {}}
           api={api}
           t={t}
           readOnly={false}

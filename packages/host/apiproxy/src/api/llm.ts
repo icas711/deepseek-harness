@@ -29,6 +29,14 @@ export interface ConfigurableProviderView {
    * surface must treat absence as "unknown", not as "shipped".
    */
   declared?: boolean
+  /**
+   * Whether the owning adapter offers to provision this route: saving a
+   * credential can fetch what the endpoint serves and write the route's
+   * stored profile without hand entry. Absent when the adapter draws no
+   * such distinction, so a surface must treat absence as "unknown", not
+   * as "no".
+   */
+  provisionable?: boolean
 }
 
 /** Llm-domain unary methods (the map keys llm.* of RpcMethodMap). */
@@ -74,6 +82,22 @@ export interface LlmApi {
     }>,
     signal?: AbortSignal,
   ): Promise<RpcResponse<{ models: DiscoveredModelView[] }>>
+
+  /**
+   * Provision one stored provider route: fetch what its endpoint serves and
+   * write the route's stored profile from it — the write half the key save
+   * should end at, with no hand entry. The route's stored credential is
+   * used; the request carries none. Refuses a route the adapter does not
+   * offer provisioning for, and every failure leaves the stored profile
+   * untouched.
+   */
+  provisionProvider(
+    request: RpcRequest<{
+      settingsNs: string
+      provider: string
+    }>,
+    signal?: AbortSignal,
+  ): Promise<RpcResponse<{ models: number }>>
 }
 
 /** Wire view of one model an interrogated endpoint advertises. */

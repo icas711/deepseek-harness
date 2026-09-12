@@ -26,6 +26,11 @@
       - img "API-ключ настроен"
       - button "Редактировать minimax-cn": Редактировать
       - button "Удалить minimax-cn": Удалить
+    - listitem:
+      - text: Z.ai
+      - img "API-ключ настроен"
+      - button "Обновить список"
+      - button "Редактировать Z.ai (zai)": Редактировать
   - button "Добавить провайдера":
     - img
     - text: Добавить провайдера

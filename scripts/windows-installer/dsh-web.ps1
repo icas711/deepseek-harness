@@ -1,4 +1,4 @@
-# Launches the DeepSeek Harness web UI: starts the bundled server hidden when
+# Launches the custom-harness web UI: starts the bundled server hidden when
 # it is not already listening, then opens the UI in the default browser.
 $ErrorActionPreference = 'Stop'
 
@@ -7,7 +7,7 @@ $url = "http://127.0.0.1:$port/"
 $root = Split-Path -Parent $PSScriptRoot
 $appDir = Join-Path $root 'app'
 $nodeExe = Join-Path $root 'node\node.exe'
-$logDir = Join-Path $env:LOCALAPPDATA 'DeepSeek Harness\logs'
+$logDir = Join-Path $env:LOCALAPPDATA 'custom-harness\logs'
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 
@@ -36,7 +36,7 @@ if (-not (Test-DshPort $port)) {
     Start-Sleep -Milliseconds 500
   }
   if (-not (Test-DshPort $port)) {
-    Write-Error "DeepSeek Harness server did not start within 90 s. Logs: $logDir"
+    Write-Error "custom-harness server did not start within 90 s. Logs: $logDir"
     exit 1
   }
 }

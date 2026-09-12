@@ -6,7 +6,9 @@
  * with no network call at all: pi-ai's registry is the authoritative list for
  * its own providers, and it carries the capacities a listing endpoint would
  * not disclose. Only a route the catalog does not describe — a gateway, a
- * self-hosted server — is interrogated over the wire.
+ * self-hosted server — is interrogated over the wire, and so is a catalog
+ * route whose stored profile serves a live listing (`liveModels`), where the
+ * endpoint is the fresher answer and the catalog stays the fallback.
  *
  * Neither path is a catalog refresh. Nothing here is stored: the request
  * carries a draft the user is still editing, and the reply is candidate
@@ -181,6 +183,67 @@ function usableProbeKey(raw: string): string {
 }
 
 /**
+ * Interrogate one configured endpoint for the models it advertises: an
+ * OpenAI-shaped `GET {baseURL}/models` with optional bearer auth.
+ * @param baseURL - the endpoint base; a deployment path keeps its segments.
+ * @param apiKey - the bearer credential, or undefined to ask unauthenticated.
+ * @param signal - the caller's cancellation signal, when any.
+ * @returns the advertised models in endpoint order.
+ * @throws LlmError when the endpoint refuses or fails the request, or the
+ *   reply is not a model listing.
+ */
+export async function fetchListing(
+  baseURL: string,
+  apiKey: string | undefined,
+  signal?: AbortSignal,
+): Promise<readonly LlmDiscoveredModel[]> {
+  const url = listingUrl(baseURL)
+  const checked = apiKey === undefined ? undefined : usableProbeKey(apiKey)
+  let response: Response
+  try {
+    response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        accept: 'application/json',
+        ...checked === undefined ? {} : { authorization: `Bearer ${checked}` },
+        ...attributionHeaders(),
+      },
+      ...signal === undefined ? {} : { signal },
+    })
+  } catch (error: unknown) {
+    if (signal?.aborted) {
+      throw new LlmError('model discovery aborted by caller', 'ABORTED', { cause: error })
+    }
+    throw new LlmError(`could not reach ${url}`, 'DISCOVERY_FAILED', { cause: error })
+  }
+  if (!response.ok) {
+    throw new LlmError(
+      `${url} answered ${response.status}${response.status === 401 || response.status === 403 ? '; check the API key' : ''}`,
+      'DISCOVERY_FAILED',
+    )
+  }
+  let text: string
+  try {
+    text = await readBounded(response, url)
+  } catch (error: unknown) {
+    // Cancellation during the body read rejects with the abort reason, which
+    // may be any value; the caller gets the same coded failure it would have
+    // for a cancellation before the request went out.
+    if (signal?.aborted) {
+      throw new LlmError('model discovery aborted by caller', 'ABORTED', { cause: error })
+    }
+    throw error
+  }
+  let body: unknown
+  try {
+    body = JSON.parse(text)
+  } catch (error: unknown) {
+    throw new LlmError(`${url} did not answer with JSON`, 'DISCOVERY_FAILED', { cause: error })
+  }
+  return readListing(body)
+}
+
+/**
  * Interrogate one draft provider endpoint for the models it advertises.
  * @param request - the endpoint, protocol, and one-shot credential to use.
  * @param storedApiKey - the credential the named route already stored, asked
@@ -188,6 +251,11 @@ function usableProbeKey(raw: string): string {
  *   network. A configuration surface never holds a stored secret — it edits a
  *   redacted descriptor — so without this an already-configured route would be
  *   interrogated unauthenticated and answer 401.
+ * @param liveRouteBaseURL - for a route whose stored profile serves a live
+ *   listing (`liveModels`), the stored endpoint to use when the draft names
+ *   none; naming one also skips the installed-catalog short-circuit below, so
+ *   the action reports what the endpoint serves now instead of what this build
+ *   shipped with.
  * @returns the advertised models in endpoint order.
  * @throws LlmError when the protocol has no readable listing, the endpoint
  *   refuses or fails the request, or the reply is not a model listing.
@@ -195,10 +263,14 @@ function usableProbeKey(raw: string): string {
 export async function discoverModels(
   request: LlmModelDiscoveryRequest,
   storedApiKey?: () => Promise<string | undefined>,
+  liveRouteBaseURL?: (provider: string) => string | undefined,
 ): Promise<readonly LlmDiscoveredModel[]> {
+  // A live route's answer lives at its endpoint, not in this build: skip the
+  // catalog short-circuit so the surface sees the served list.
+  const liveBase = request.provider === undefined ? undefined : liveRouteBaseURL?.(request.provider)
   // A catalog route already has its answer, and a better one: the installed
   // entries carry context windows and output caps no listing endpoint reports.
-  if (request.provider !== undefined) {
+  if (request.provider !== undefined && liveBase === undefined) {
     const installed = catalogModels(request.provider)
     if (installed.size > 0) {
       return [...installed.values()].map(model => ({
@@ -209,7 +281,8 @@ export async function discoverModels(
       }))
     }
   }
-  if (request.baseURL === undefined || request.baseURL.length === 0) {
+  const baseURL = request.baseURL === undefined || request.baseURL.length === 0 ? liveBase : request.baseURL
+  if (baseURL === undefined || baseURL.length === 0) {
     throw new LlmError(
       `pi-ai ships no catalog for provider "${request.provider ?? ''}", so its models can only come from its`
       + " endpoint; set a baseURL, or enter this provider's models by hand",
@@ -229,7 +302,6 @@ export async function discoverModels(
       'DISCOVERY_UNSUPPORTED',
     )
   }
-  const url = listingUrl(request.baseURL)
   // A key typed into the form wins: it is the one the user is testing, and it
   // may be the replacement for exactly the stored key that is failing. The
   // stored one is only asked for here, past the catalog short-circuit and the
@@ -238,47 +310,5 @@ export async function discoverModels(
   // A probe carrying no key stays unauthenticated, which is how a route that
   // relies on the provider's own ambient discovery is meant to be asked.
   const supplied = request.apiKey ?? await storedApiKey?.()
-  const apiKey = supplied === undefined ? undefined : usableProbeKey(supplied)
-  let response: Response
-  try {
-    response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        accept: 'application/json',
-        ...apiKey === undefined ? {} : { authorization: `Bearer ${apiKey}` },
-        ...attributionHeaders(),
-      },
-      ...request.signal === undefined ? {} : { signal: request.signal },
-    })
-  } catch (error: unknown) {
-    if (request.signal?.aborted) {
-      throw new LlmError('model discovery aborted by caller', 'ABORTED', { cause: error })
-    }
-    throw new LlmError(`could not reach ${url}`, 'DISCOVERY_FAILED', { cause: error })
-  }
-  if (!response.ok) {
-    throw new LlmError(
-      `${url} answered ${response.status}${response.status === 401 || response.status === 403 ? '; check the API key' : ''}`,
-      'DISCOVERY_FAILED',
-    )
-  }
-  let text: string
-  try {
-    text = await readBounded(response, url)
-  } catch (error: unknown) {
-    // Cancellation during the body read rejects with the abort reason, which
-    // may be any value; the caller gets the same coded failure it would have
-    // for a cancellation before the request went out.
-    if (request.signal?.aborted) {
-      throw new LlmError('model discovery aborted by caller', 'ABORTED', { cause: error })
-    }
-    throw error
-  }
-  let body: unknown
-  try {
-    body = JSON.parse(text)
-  } catch (error: unknown) {
-    throw new LlmError(`${url} did not answer with JSON`, 'DISCOVERY_FAILED', { cause: error })
-  }
-  return readListing(body)
+  return fetchListing(baseURL, supplied, request.signal)
 }

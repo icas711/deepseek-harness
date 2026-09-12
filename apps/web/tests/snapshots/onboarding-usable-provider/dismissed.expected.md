@@ -24,6 +24,11 @@
       - text: DeepSeek
       - img "API-ключ отсутствует"
       - button "Редактировать DeepSeek (deepseek-official)": Редактировать
+    - listitem:
+      - text: Z.ai
+      - img "API-ключ отсутствует"
+      - button "Обновить список"
+      - button "Редактировать Z.ai (zai)": Редактировать
   - text: Провайдер
   - combobox "Провайдер":
     - option "amazon-bedrock"
@@ -60,7 +65,6 @@
     - option "xiaomi-token-plan-ams"
     - option "xiaomi-token-plan-cn"
     - option "xiaomi-token-plan-sgp"
-    - option "zai"
     - option "zai-coding-cn"
   - text: API-ключ
   - textbox "API-ключ":

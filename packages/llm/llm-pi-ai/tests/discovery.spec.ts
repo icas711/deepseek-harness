@@ -92,6 +92,15 @@ describe('catalog-route model discovery', () => {
     await expect(ctx.llm.discoverModels('llm-pi-ai', { provider: 'deepseek' })).resolves.not.toHaveLength(0)
   })
 
+  it('interrogates a provider-less draft over its endpoint alone', async () => {
+    const server = await listingServer({ body: JSON.stringify({ data: [{ id: 'from-the-endpoint' }] }) })
+    const ctx = await harness()
+
+    await expect(ctx.llm.discoverModels('llm-pi-ai', { baseURL: server.url }))
+      .resolves.toEqual([{ id: 'from-the-endpoint' }])
+    expect(server.paths).toEqual(['/models'])
+  })
+
   it('says where a route the catalog does not describe must get its models', async () => {
     const ctx = await harness()
     await expect(ctx.llm.discoverModels('llm-pi-ai', { provider: 'acme-gateway' }))
@@ -330,6 +339,43 @@ describe('draft-provider model discovery', () => {
 
     await expect(ctx.llm.discoverModels('llm-pi-ai', { provider: 'openai' }))
       .rejects.toMatchObject({ code: 'NO_DISCOVERY' })
+  })
+})
+
+describe('live-listing routes', () => {
+  /** A configured route whose profile serves a live listing. */
+  async function liveHarness(baseURL: string, liveModels: boolean): Promise<Context> {
+    const ctx = new Context()
+    await ctx.plugin(LlmRuntime)
+    await ctx.plugin(LlmPiAi, {
+      providers: { zai: { apiKeyEnv: 'ZAI_LIVE_KEY', baseURL, liveModels } },
+    })
+    return ctx
+  }
+
+  it('interrogates a liveModels route instead of answering from the installed catalog', async () => {
+    const server = await listingServer({ body: JSON.stringify({ data: [{ id: 'glm-5.3' }] }) })
+    process.env['ZAI_LIVE_KEY'] = 'stored-key'
+    touchedEnv.push('ZAI_LIVE_KEY')
+    const ctx = await liveHarness(server.url, true)
+
+    const models = await ctx.llm.discoverModels('llm-pi-ai', { provider: 'zai' })
+
+    // The endpoint is the fresher answer for a liveModels route; the catalog
+    // stays the fallback for the fetch-failure path, not a short-circuit.
+    expect(models.map(model => model.id)).toEqual(['glm-5.3'])
+    expect(server.paths).toEqual(['/models'])
+  })
+
+  it('keeps the catalog short-circuit for a route without liveModels', async () => {
+    const server = await listingServer({ body: JSON.stringify({ data: [{ id: 'from-the-endpoint' }] }) })
+    const ctx = await liveHarness(server.url, false)
+
+    const models = await ctx.llm.discoverModels('llm-pi-ai', { provider: 'zai' })
+
+    expect(models.map(model => model.id).sort())
+      .toEqual(getBuiltinModels('zai').map(model => model.id).sort())
+    expect(server.paths).toEqual([])
   })
 })
 

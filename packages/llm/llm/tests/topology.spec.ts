@@ -266,3 +266,43 @@ describe('model discovery registry', () => {
     await expect(ctx.llm.discoverModels('llm-example', { provider: 'known-route' })).resolves.toEqual([])
   })
 })
+
+describe('model provisioning registry', () => {
+  it('offers one provisioning per settings namespace and disposes with its fiber', async () => {
+    const ctx = await setup()
+    const provision = vi.fn(() => Promise.resolve({ models: 3 }))
+
+    const dispose = ctx.llm.registerModelProvisioning('llm-example', provision)
+    await expect(ctx.llm.provisionProvider('llm-example', { provider: 'stored-route' }))
+      .resolves.toEqual({ models: 3 })
+    expect(provision).toHaveBeenCalledWith({ provider: 'stored-route' })
+
+    // Disposal is observed through the offer itself, which is the only thing
+    // the registration ever produced.
+    dispose()
+    await expect(ctx.llm.provisionProvider('llm-example', { provider: 'stored-route' }))
+      .rejects.toThrow(/no model provisioning is registered/)
+  })
+
+  it('rejects an unnamed namespace and a second registration of the same one', async () => {
+    const ctx = await setup()
+    const provision = (): Promise<{ models: number }> => Promise.resolve({ models: 0 })
+
+    expect(() => ctx.llm.registerModelProvisioning('', provision)).toThrow(/non-empty settings namespace/)
+    ctx.llm.registerModelProvisioning('llm-example', provision)
+    expect(() => ctx.llm.registerModelProvisioning('llm-example', provision)).toThrow(/already registered/)
+    // The refused second registration left the first one serving.
+    await expect(ctx.llm.provisionProvider('llm-example', { provider: 'stored-route' }))
+      .resolves.toEqual({ models: 0 })
+  })
+
+  it('refuses a namespace nothing serves and a request with no route', async () => {
+    const ctx = await setup()
+    ctx.llm.registerModelProvisioning('llm-example', () => Promise.resolve({ models: 0 }))
+
+    await expect(ctx.llm.provisionProvider('llm-absent', { provider: 'stored-route' }))
+      .rejects.toMatchObject({ code: 'NO_PROVISIONING' })
+    await expect(ctx.llm.provisionProvider('llm-example', { provider: '' }))
+      .rejects.toMatchObject({ code: 'INVALID_PROVISION' })
+  })
+})

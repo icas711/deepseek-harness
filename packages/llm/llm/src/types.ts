@@ -184,6 +184,15 @@ export interface LlmConfigurableProvider {
    * from outside.
    */
   declared?: boolean
+  /**
+   * Whether the owning adapter offers to provision this route: saving a
+   * credential can fetch what the endpoint serves and write the route's
+   * stored profile without hand entry. Absent means the adapter draws no
+   * such distinction, so a surface must treat absence as "unknown", not as
+   * "no". Only the adapter can answer; the provision attempt itself stays
+   * the authority and may still refuse.
+   */
+  provisionable?: boolean
 }
 
 /**
@@ -227,6 +236,25 @@ export interface LlmDiscoveredModel {
   contextWindow?: number
   /** Maximum output tokens, when disclosed. */
   maxTokens?: number
+}
+
+/**
+ * One provisioning pass over a stored provider route. The route exists — its
+ * credential is already saved — so unlike discovery the request names the
+ * route and carries no credential: the implementation resolves the stored one
+ * itself, and the write it performs is its own settings section's business.
+ */
+export interface LlmModelProvisionRequest {
+  /** Stored provider route to provision. */
+  provider: string
+  /** Caller cancellation; implementations must settle promptly after it aborts. */
+  signal?: AbortSignal
+}
+
+/** What one provisioning pass changed on the stored route. */
+export interface LlmProvisionResult {
+  /** Number of models the route's stored profile now serves. */
+  models: number
 }
 
 /** One adapter-discovered model; catalog membership is advisory, not request validation. */

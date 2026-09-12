@@ -193,7 +193,11 @@ describe('real Loader composition', () => {
     })
     expect(() => server.registerUpgrade({ path: '/events', handler: () => {} }))
       .toThrow(/duplicate upgrade route/)
+    // Presence signal: zero before any browser connects, one while the
+    // upgraded socket lives, and zero again once the server side closes it.
+    expect(server.openUpgradeCount).toBe(0)
     const upgraded = await upgrade(port, '/events?stream=mux')
+    expect(server.openUpgradeCount).toBe(1)
     disposeUpgrade()
     expect(() => server.registerUpgrade({ path: '/events', handler: () => {} })).not.toThrow()
 
@@ -224,6 +228,7 @@ describe('real Loader composition', () => {
     // Teardown closes both ordinary and upgraded sockets before it resolves.
     await loaded.fiber.dispose()
     expect(upgradedServerClosed).toBe(true)
+    expect(server.openUpgradeCount).toBe(0)
     upgraded.destroy()
     await expect(request(port, '/probe')).rejects.toThrow()
   })

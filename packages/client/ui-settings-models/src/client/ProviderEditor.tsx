@@ -59,6 +59,14 @@ export interface ProviderEditorProps {
    * override every one of them and the card does not offer it.
    */
   declared?: boolean
+  /**
+   * Whether the adapter offers to provision this route: after a committed
+   * save the card asks the endpoint what it serves and the host writes the
+   * route's stored profile from it — the models list and its capacities
+   * without hand entry. A failed provision keeps the card open on its retry
+   * affordance; the saved profile is untouched and already usable.
+   */
+  provisionable?: boolean
   /** The owning namespace view (schema, layers, secrets). */
   namespace: SettingsNamespaceView
   /** Path from the section root to this provider's profile. */
@@ -149,6 +157,10 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
   const [keyState, setKeyState] = useState<CredentialView | undefined>(undefined)
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string | undefined>(undefined)
+  /** Lifecycle of the post-save provisioning pass (idle until the first save). */
+  const [provision, setProvision] = useState<
+    { phase: 'idle' } | { phase: 'busy' } | { phase: 'failed'; message: string } | { phase: 'done'; models: number }
+  >({ phase: 'idle' })
   // A settings success advances both retry baselines immediately. Keeping the
   // derived fields in the draft prevents a pushed namespace refresh from
   // turning them into deletions when the following credential write is retried.
@@ -286,6 +298,28 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
     return undefined
   }
 
+  /**
+   * One provisioning pass against the route as it is stored right now. The
+   * saved credential is the host's to use; the card only surfaces the
+   * outcome, and every failure leaves the stored profile untouched.
+   * @returns whether the endpoint's answer landed.
+   */
+  const runProvision = async (): Promise<boolean> => {
+    setProvision({ phase: 'busy' })
+    try {
+      const response = await api.llm.provisionProvider({ settingsNs: namespace.ns, provider: props.provider })
+      if (!response.result.ok) {
+        setProvision({ phase: 'failed', message: response.result.error.message })
+        return false
+      }
+      setProvision({ phase: 'done', models: response.result.value.models })
+      return true
+    } catch (error) {
+      setProvision({ phase: 'failed', message: messageOf(error) })
+      return false
+    }
+  }
+
   const apply = async (): Promise<void> => {
     setBusy(true)
     setFailure(undefined)
@@ -294,6 +328,14 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
       if (failure !== undefined) {
         setFailure(failure)
         return
+      }
+      // A provisionable route ends its first save at the endpoint: the host
+      // completes the stored profile from what the endpoint serves. A failure
+      // keeps the card open on the retry below — the saved profile is already
+      // usable, so closing over the error would hide the one thing left to do.
+      if (layout === 'pi-ai' && props.provisionable === true) {
+        const landed = await runProvision()
+        if (!landed) return
       }
       props.onClose(true)
     } catch (error) {
@@ -483,6 +525,31 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
         ? <p className={styles['advancedHint']}>{`${t('advancedHint')} (${namespace.ns})`}</p>
         : curatedFields(layout)}
       {failure !== undefined ? <p className={styles['error']}>{failure}</p> : null}
+      {provision.phase === 'failed'
+        ? (
+          <>
+            <p className={styles['error']}>{provision.message}</p>
+            <div className={styles['editorActions']}>
+              <button
+                type="button"
+                className={styles['secondaryButton']}
+                disabled={disabled}
+                onClick={() => {
+                  void runProvision().then((landed) => {
+                    if (landed) props.onClose(true)
+                  })
+                }}
+              >
+                {t('retry')}
+              </button>
+            </div>
+          </>
+        )
+        : provision.phase === 'busy'
+          ? <p className={styles['advancedHint']}>{t('provisionBusy')}</p>
+          : provision.phase === 'done'
+            ? <p className={styles['advancedHint']}>{t('provisionDone').replace('{n}', String(provision.models))}</p>
+            : null}
       {props.credentialOnly === true || modelFailure === undefined
         ? null
         : (

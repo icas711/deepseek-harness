@@ -70,6 +70,24 @@ export function deriveKeyRef(provider: string): string {
   return `${provider.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}_API_KEY`
 }
 
+/** The provider route the first-run onboarding step offers. */
+export const ONBOARDING_PROVIDER = 'zai'
+/** The settings namespace the onboarding provider's profile lives in. */
+export const ONBOARDING_SETTINGS_NS = 'llm-pi-ai'
+/** The settings path of the onboarding provider's profile within its namespace. */
+const ONBOARDING_SETTINGS_PATH = ['providers', ONBOARDING_PROVIDER] as const
+
+/**
+ * Whether one directory entry's settings path is exactly the onboarding
+ * provider's profile address.
+ * @param path - the entry's settings path.
+ * @returns whether the path names the onboarding profile.
+ */
+export function isOnboardingSettingsPath(path: readonly string[]): boolean {
+  return path.length === ONBOARDING_SETTINGS_PATH.length
+    && ONBOARDING_SETTINGS_PATH.every((segment, index) => segment === path[index])
+}
+
 /**
  * The wire protocols a hand-declared route may name, read out of the owning
  * namespace's own schema. This stays a schema read rather than a wire field so
@@ -224,10 +242,10 @@ export type OnboardingReadiness =
 /**
  * Project first-run readiness from the provider/settings/credential join used
  * by the Models page. The step exists to leave the user with a model to talk
- * to, so ANY usable provider ends it; only when none exists does the official
- * DeepSeek route — the one route the prompt can offer a key field for — decide
- * whether prompting can help. A missing official configurable-provider
- * declaration means the adapter is not repairable by navigating to Models.
+ * to, so ANY usable provider ends it; only when none exists does the shipped
+ * Z.ai route — the one route the prompt can offer a key field for — decide
+ * whether prompting can help. A missing configurable-provider declaration for
+ * it means the adapter is not repairable by navigating to Models.
  * @param state - current shared Models join snapshot.
  * @returns the onboarding state without reading a parallel fact source.
  */
@@ -243,9 +261,9 @@ export function onboardingReadiness(state: ModelsSettingsState): OnboardingReadi
   }
   if (state.rows.some(providerUsable)) return { kind: 'provider-ready' }
   const row = state.rows.find(candidate =>
-    candidate.entry.provider === 'deepseek-official'
-    && candidate.entry.settingsNs === 'llm-deepseek'
-    && candidate.entry.settingsPath.length === 0)
+    candidate.entry.provider === ONBOARDING_PROVIDER
+    && candidate.entry.settingsNs === ONBOARDING_SETTINGS_NS
+    && isOnboardingSettingsPath(candidate.entry.settingsPath))
   if (row === undefined) return { kind: 'adapter-absent' }
   if (!row.entry.active) {
     return {

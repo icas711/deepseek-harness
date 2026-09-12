@@ -25,6 +25,11 @@ describe('web e2e: plugin configuration section', () => {
   let browser: Browser
   let page: Page
   let tripwire: ReturnType<typeof watchConsole>
+  // The Shell row's composed timeout default is platform-shaped: the shipped
+  // bash row carries 60000 while the win32 pwsh row has none (schema 120000).
+  // The scenarios chain document state, so they capture it once and assert
+  // relative to it instead of hardcoding either value.
+  let composedDefault = ''
 
   beforeAll(async () => {
     scaffold = await launchWebScaffold({})
@@ -94,7 +99,8 @@ describe('web e2e: plugin configuration section', () => {
     const timeout = dialog.getByLabel('Таймаут команды (мс)')
     await timeout.waitFor({ timeout: 10_000 })
     // The composed default this deployment ships, before any user layer.
-    expect(await timeout.inputValue()).toBe('60000')
+    composedDefault = await timeout.inputValue()
+    expect(composedDefault).toMatch(/^\d+$/)
     await timeout.fill('12000')
     await timeout.blur()
 
@@ -158,14 +164,14 @@ describe('web e2e: plugin configuration section', () => {
     // The reset stages the composed default; the document still carries the
     // override until the save lands.
     await dialog.getByRole('button', { name: 'Сбросить по умолчанию' }).click()
-    await expect.poll(() => timeout.inputValue(), { timeout: 5_000 }).toBe('60000')
+    await expect.poll(() => timeout.inputValue(), { timeout: 5_000 }).toBe(composedDefault)
     expect(await settingsDocument()).toContain('timeoutMs: 12000')
 
     await dialog.getByRole('button', { name: 'Сохранить', exact: true }).click()
 
     await expect.poll(async () => (await settingsDocument()).includes('timeoutMs'), { timeout: 10_000 })
       .toBe(false)
-    expect(await timeout.inputValue()).toBe('60000')
+    expect(await timeout.inputValue()).toBe(composedDefault)
     expect(await dialog.getByText('Переопределено').count()).toBe(0)
     expect(tripwire.pageErrors).toEqual([])
   }, 60_000)

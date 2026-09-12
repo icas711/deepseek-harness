@@ -86,6 +86,15 @@ export interface RpcErrorDetailsMap {
    * details name the endpoint asked, never the credential offered.
    */
   'model-discovery-failed': { settingsNs: string; baseURL?: string }
+  /**
+   * Provisioning a stored provider route did not complete: no adapter offers
+   * provisioning for the namespace, the route is not provisionable, or the
+   * endpoint was unreachable, refused the credential, or answered with
+   * something else. The stored profile is untouched — the message is the
+   * adapter's own text for the retry the surface offers, and the details
+   * name the route, never the credential.
+   */
+  'model-provisioning-failed': { settingsNs: string; provider: string }
   'title-invalid': { sessionId: SessionId }
   'fork-unavailable': { sessionId: SessionId }
   'subagent-parent-unavailable': { parentSessionId: SessionId }

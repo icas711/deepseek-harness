@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assertServiceable, Config } from '../src/config.ts'
+import { assertServiceable, Config, resolveProfiles } from '../src/config.ts'
 
 /** Validate one hand-declared route, with the caller's fields layered onto it. */
 const routeWith = (profile: Record<string, unknown>): (() => unknown) =>
@@ -37,30 +37,40 @@ describe('reasoning schema boundary', () => {
   })
 })
 
-describe('modality schema boundary', () => {
-  it('rejects a modality pi-ai does not know, at either level', () => {
-    expect(configWith({ input: ['audio'] })).toThrow(/expected/)
-    expect(routeWith({ defaultInput: ['text', 'audio'] })).toThrow(/expected/)
+describe('liveModels schema boundary', () => {
+  it('refuses a live listing without the endpoint it would interrogate', () => {
+    expect(() => resolveProfiles({ zai: { liveModels: true } }))
+      .toThrow(/sets liveModels without a baseURL/)
+    expect(() => resolveProfiles({ zai: { baseURL: 'https://api.z.ai/api/paas/v4', liveModels: true } }))
+      .not.toThrow()
+    // An explicitly disabled flag needs no endpoint either.
+    expect(() => resolveProfiles({ zai: { liveModels: false } })).not.toThrow()
   })
+})
 
-  it('refuses a route whose models could accept nothing', () => {
-    // The pair the settings seam runs: the schema accepts the empty list as
-    // well-typed, and the namespace validator is what refuses it. Asserting
-    // only the schema would report this route as writable.
-    expect(routeWith({ defaultInput: [] })).not.toThrow()
-    expect(() => { assertServiceable(routeWith({ defaultInput: [] })() as Config) })
-      .toThrow(/defaultInput must name at least one modality/)
-  })
+describe('modality schema boundary', () => {  it('rejects a modality pi-ai does not know, at either level', () => {
+  expect(configWith({ input: ['audio'] })).toThrow(/expected/)
+  expect(routeWith({ defaultInput: ['text', 'audio'] })).toThrow(/expected/)
+})
 
-  type Materialized = {
-    providers: Record<string, { defaultInput?: unknown; models?: { input?: unknown }[] }>
-  }
+it('refuses a route whose models could accept nothing', () => {
+  // The pair the settings seam runs: the schema accepts the empty list as
+  // well-typed, and the namespace validator is what refuses it. Asserting
+  // only the schema would report this route as writable.
+  expect(routeWith({ defaultInput: [] })).not.toThrow()
+  expect(() => { assertServiceable(routeWith({ defaultInput: [] })() as Config) })
+    .toThrow(/defaultInput must name at least one modality/)
+})
 
-  it('materializes an absent entry list as empty and an absent route list as text', () => {
-    // The empty-list inheritance rule exists because of exactly this: an entry
-    // that declares nothing reaches resolution as `[]`, not as `undefined`.
-    const absent = configWith({})() as Materialized
-    expect(absent.providers['acme-gateway']?.models?.[0]?.input).toEqual([])
-    expect(absent.providers['acme-gateway']?.defaultInput).toEqual(['text'])
-  })
+type Materialized = {
+  providers: Record<string, { defaultInput?: unknown; models?: { input?: unknown }[] }>
+}
+
+it('materializes an absent entry list as empty and an absent route list as text', () => {
+  // The empty-list inheritance rule exists because of exactly this: an entry
+  // that declares nothing reaches resolution as `[]`, not as `undefined`.
+  const absent = configWith({})() as Materialized
+  expect(absent.providers['acme-gateway']?.models?.[0]?.input).toEqual([])
+  expect(absent.providers['acme-gateway']?.defaultInput).toEqual(['text'])
+})
 })

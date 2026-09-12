@@ -26,6 +26,11 @@
       - button "Редактировать minimax-cn": Редактировать
       - button "Удалить minimax-cn": Удалить
     - listitem:
+      - text: Z.ai
+      - img "API-ключ настроен"
+      - button "Обновить список"
+      - button "Редактировать Z.ai (zai)": Редактировать
+    - listitem:
       - text: Acme Gateway Свой
       - button "Редактировать Acme Gateway (acme-gateway)": Редактировать
       - button "Удалить Acme Gateway (acme-gateway)": Удалить

@@ -1,9 +1,9 @@
 // Keyless browser e2e: a user who configures some OTHER provider is not asked
-// for the official DeepSeek key again, and the first-run setup card is a card
-// they can close. The shipped DeepSeek adapter stays mounted without a
-// credential throughout, so the only thing that ends onboarding here is the
-// pi-ai route the user configures through the real wire. Zero model calls:
-// configuration is pure settings/credentials/llm-domain traffic.
+// for the shipped Z.ai key again, and the first-run setup card is a card they
+// can close. The shipped DeepSeek adapter stays mounted without a credential
+// and the z.ai seed is withheld, so the only thing that ends onboarding here
+// is the pi-ai route the user configures through the real wire. Zero model
+// calls: configuration is pure settings/credentials/llm-domain traffic.
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
@@ -28,7 +28,7 @@ describe.skipIf(MODE === 'record')('web e2e: another usable provider ends first-
   let tripwire: ReturnType<typeof watchConsole>
 
   beforeAll(async () => {
-    scaffold = await launchWebScaffold({ deepSeekMissingCredential: true })
+    scaffold = await launchWebScaffold({ deepSeekMissingCredential: true, zaiCredentialMissing: true })
     browser = await chromium.launch()
     page = await browser.newPage({ viewport: { width: 1440, height: 960 } })
     tripwire = watchConsole(page)
@@ -84,19 +84,21 @@ describe.skipIf(MODE === 'record')('web e2e: another usable provider ends first-
     expect(tripwire.pageErrors).toEqual([])
   }, 60_000)
 
-  it('stops prompting for DeepSeek once the other provider can serve requests', async () => {
+  it('stops prompting once another provider can serve requests', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-onboarding-other-provider'))
     const settings = page.getByRole('dialog', { name: 'Настройки' })
     await settings.getByRole('textbox', { name: 'API-ключ', exact: true }).fill('sk-e2e-minimax')
     await settings.getByRole('button', { name: 'Применить', exact: true }).click()
     await settings.getByText('Провайдер minimax-cn сохранён.', { exact: true }).waitFor({ timeout: 15_000 })
 
-    // Only minimax-cn is reachable; DeepSeek still holds no credential.
+    // Only minimax-cn is reachable; the shipped z.ai route and DeepSeek both
+    // hold no credential.
     const document = await readFile(join(scaffold.harnessHome, 'settings.yaml'), 'utf8')
     expect(document).toContain('apiKeyEnv: MINIMAX_CN_API_KEY')
     const credentials = await readFile(join(scaffold.harnessHome, '.credentials.yaml'), 'utf8')
     expect(credentials).toContain('MINIMAX_CN_API_KEY: sk-e2e-minimax')
     expect(credentials).not.toContain('DEEPSEEK_API_KEY')
+    expect(credentials).not.toContain('ZAI_API_KEY')
 
     const warningsBefore = tripwire.warnings.length
     await page.reload({ waitUntil: 'load' })
