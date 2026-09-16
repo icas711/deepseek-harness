@@ -9,7 +9,8 @@
  */
 
 import { spawn } from 'node:child_process'
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, statSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { cp, lstat, mkdir, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { join, dirname, resolve, sep } from 'node:path'
 import { parseArgs } from 'node:util'
@@ -320,10 +321,19 @@ class InstallerBuild {
       console.log(`build-windows-installer: [dry-run] ${nodeExe} ${join(this.appStaging, ...APP_ENTRY)} web --port 0 (smoke)`)
       return
     }
+    const smokeHomes: string[] = []
     const url = await new Promise<string>((resolvePromise, reject) => {
+      // The smoke home starts empty on purpose: the fallback directory under a
+      // developer's real DSH_HOME hides exactly the resolution breakage an
+      // installed app hits (its fallback must self-heal from the staged tree).
+      const smokeHome = mkdtempSync(join(tmpdir(), 'dsh-smoke-home-'))
+      smokeHomes.push(smokeHome)
       const child = spawn(nodeExe, [join(this.appStaging, ...APP_ENTRY), 'web', '--port', '0'], {
         cwd: this.appStaging,
         stdio: ['ignore', 'pipe', 'inherit'],
+        // The smoke runs on a packaging machine: no tray icon, ever, and no
+        // developer home to lean on.
+        env: { ...process.env, DSH_WEB_TRAY: '0', DSH_HOME: smokeHome },
       })
       const timer = setTimeout(() => {
         child.kill()
@@ -358,6 +368,7 @@ class InstallerBuild {
       console.log(`build-windows-installer: smoke passed: ${url} → HTTP ${response.status}`)
     } finally {
       await stopServerOn(url)
+      for (const home of smokeHomes) await rm(home, { recursive: true, force: true })
     }
   }
 

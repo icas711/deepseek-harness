@@ -24,7 +24,7 @@
 
 import { createRequire } from 'node:module'
 import {
-  existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, symlinkSync, unlinkSync, writeFileSync,
+  existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, realpathSync, symlinkSync, unlinkSync, writeFileSync,
 } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import type { EntryOptions } from '@deepseek-ai/cordis-plugin-loader'
@@ -213,7 +213,10 @@ function ensureSymlink(link: string, target: string): void {
  * Definition packages (`dsh-compaction`, `dsh-invariants`, ...) that the app
  * reaches only through its Service Provider packages. Symlinked packages
  * resolve their own dependencies from their real directories (Node's default
- * symlink-following), so each package needs only its one flat link.
+ * symlink-following), so each package needs only its one flat link. The BFS
+ * walks realpath'ed directories: an isolated pnpm layout houses a package's
+ * own dependencies beside its store location, invisible from the junction
+ * path the deployment root surfaces.
  * Idempotent: correct links are kept and moved installations are
  * re-pointed; a stale link to a vanished package stays until its name is
  * reused (dangling links are invisible to resolution).
@@ -227,7 +230,7 @@ export function healProfilesModuleFallback(installAnchor: string, home: string =
   const appManifest = JSON.parse(readFileSync(installAnchor, 'utf8')) as ProfileManifest
   const links = new Map<string, string>()
   /* v8 ignore next -- a real app manifest always declares its name */
-  if (appManifest.name !== undefined) links.set(appManifest.name, dirname(installAnchor))
+  if (appManifest.name !== undefined) links.set(appManifest.name, realpathSync(dirname(installAnchor)))
   // BFS over the resolvable dependency graph; the visited set is the link
   // map itself (first resolution wins, matching Node's own nearest-wins).
   const queue: { anchor: string; manifest: ProfileManifest }[] = [{ anchor: installAnchor, manifest: appManifest }]
@@ -242,8 +245,16 @@ export function healProfilesModuleFallback(installAnchor: string, home: string =
       // A declared-but-uninstalled dependency cannot be a loader-visible
       // plugin; skip it rather than fail the whole boot.
       if (dir === undefined) continue
-      links.set(dep, dir)
-      const manifestPath = join(dir, 'package.json')
+      // Isolated pnpm layouts surface a package as a junction whose own
+      // dependencies live beside its REAL store directory, not beside the
+      // junction. Walking the junction path sees only the deployment root's
+      // top level, so the closure would silently shrink to what the deploy
+      // root hoisted and an installed app would lose nearly every in-box
+      // plugin; realpath before the walk, and store the real dir as the link
+      // target so a fallback link resolves the same way.
+      const real = realpathSync(dir).replace(/^\\\\\?\\/, '')
+      links.set(dep, real)
+      const manifestPath = join(real, 'package.json')
       queue.push({ anchor: manifestPath, manifest: JSON.parse(readFileSync(manifestPath, 'utf8')) as ProfileManifest })
     }
   }

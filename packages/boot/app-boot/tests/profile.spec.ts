@@ -239,6 +239,30 @@ describe('healProfilesModuleFallback', () => {
     expect(before).toContain('dep-of-a')
   })
 
+  it('walks realpaths so an isolated store layout links junction-hidden transitives', () => {
+    // A pnpm-isolated deployment surfaces a package as a junction while its
+    // own dependencies live beside its REAL store directory; a BFS that walks
+    // the junction path never sees them and the fallback silently shrinks to
+    // the deployment root's top level.
+    const root = tmp()
+    const appDir = join(root, 'app')
+    const store = join(root, 'store')
+    mkdirSync(join(appDir, 'node_modules'), { recursive: true })
+    mkdirSync(join(store, 'node_modules', 'transitive-dep'), { recursive: true })
+    writeFileSync(join(store, 'node_modules', 'transitive-dep', 'package.json'), JSON.stringify({ name: 'transitive-dep', version: '0.0.0' }))
+    const pkgDir = join(store, 'store-pkg')
+    mkdirSync(pkgDir, { recursive: true })
+    writeFileSync(join(pkgDir, 'package.json'), JSON.stringify({ name: 'store-pkg', version: '0.0.0', dependencies: { 'transitive-dep': '0.0.0' } }))
+    symlinkSync(pkgDir, join(appDir, 'node_modules', 'store-pkg'), 'junction')
+    const anchor = join(appDir, 'package.json')
+    writeFileSync(anchor, JSON.stringify({ name: 'dsh-app', dependencies: { 'store-pkg': '0.0.0' } }))
+    const home = tmp()
+    healProfilesModuleFallback(anchor, home)
+    const fallback = join(home, 'profiles', 'node_modules')
+    expect(readlinkSync(join(fallback, 'store-pkg'))).toContain(join('store', 'store-pkg'))
+    expect(readlinkSync(join(fallback, 'transitive-dep'))).toContain(join('store', 'node_modules', 'transitive-dep'))
+  })
+
   it('throws when a fallback entry is a real directory', () => {
     const anchor = stageInstallation({})
     const home = tmp()
