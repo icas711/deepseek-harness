@@ -22,6 +22,33 @@ vi.mock('node:os', async importOriginal => ({
   }),
 }))
 
+/** The fake native tray instances spawned through the mocked systray2 module. */
+const trayInstances = vi.hoisted(() => [] as Array<{
+  items: Array<{ title: string; enabled?: boolean }>
+}>)
+
+vi.mock('systray2', () => ({
+  // The CJS-wrapper shape resolveSysTray reads: the class on `.default.default`.
+  default: {
+    default: class FakeSysTray {
+      static separator = { title: '---' }
+      items: Array<{ title: string; enabled?: boolean }>
+      constructor(config: { menu: { items: Array<{ title: string; enabled?: boolean }> } }) {
+        this.items = config.menu.items
+        trayInstances.push(this)
+      }
+      async sendAction(action: { item: { title: string; enabled?: boolean } }): Promise<void> {
+        const target = this.items.find(item => item.title === action.item.title)
+        if (target !== undefined) Object.assign(target, action.item)
+      }
+      async onClick(listener: (event: { item: { title: string } }) => void): Promise<void> {
+        void listener
+      }
+      async kill(): Promise<void> {}
+    },
+  },
+}))
+
 let dist: string | undefined
 
 afterEach(() => {
@@ -85,7 +112,7 @@ describe('web-app runtime glue', () => {
     } as never)
     provideLoader(ctx)
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-    apply(ctx, new Config({ printUrl: true, surfaceContext: true, trustedHosts: ['lab.internal'], idleExitMs: 600_000 }))
+    apply(ctx, new Config({ printUrl: true, surfaceContext: true, trustedHosts: ['lab.internal'], tray: false }))
     await ctx.plugin(SystemPrompt, { persona: '' })
     // Settle the injected registrations.
     await new Promise(resolve => setTimeout(resolve, 0))
@@ -113,7 +140,7 @@ describe('web-app runtime glue', () => {
     const ctx = new Context()
     ctx.provide('webServer', fakeHttpServer().server)
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-    apply(ctx, new Config({ printUrl: false, surfaceContext: true, trustedHosts: [], idleExitMs: 600_000 }))
+    apply(ctx, new Config({ printUrl: false, surfaceContext: true, trustedHosts: [], tray: false }))
     await ctx.plugin(SystemPrompt, { persona: '' })
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(log).not.toHaveBeenCalled()
@@ -134,7 +161,7 @@ describe('web-app runtime glue', () => {
         return () => {}
       },
     } as never)
-    apply(ctx, new Config({ printUrl: false, surfaceContext: false, trustedHosts: [], idleExitMs: 600_000 }))
+    apply(ctx, new Config({ printUrl: false, surfaceContext: false, trustedHosts: [], tray: false }))
     await ctx.plugin(SystemPrompt, { persona: '' })
     await new Promise(resolve => setTimeout(resolve, 0))
     const assembly = await ctx.systemPrompt.assemble()
@@ -149,7 +176,7 @@ describe('web-app runtime glue', () => {
     const ctx = new Context()
     ctx.provide('webServer', fakeHttpServer().server)
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-    apply(ctx, new Config({ printUrl: true, surfaceContext: true, trustedHosts: [], idleExitMs: 600_000 }))
+    apply(ctx, new Config({ printUrl: true, surfaceContext: true, trustedHosts: [], tray: false }))
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(log).toHaveBeenCalledWith('dsh web: http://127.0.0.1:4567')
     await ctx.fiber.dispose()
@@ -160,7 +187,7 @@ describe('web-app runtime glue', () => {
     const ctx = new Context()
     ctx.provide('webServer', fakeHttpServer('0.0.0.0', 's3cr/3t=').server)
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-    apply(ctx, new Config({ printUrl: true, surfaceContext: true, trustedHosts: [], idleExitMs: 600_000 }))
+    apply(ctx, new Config({ printUrl: true, surfaceContext: true, trustedHosts: [], tray: false }))
     await ctx.plugin(SystemPrompt, { persona: '' })
     await new Promise(resolve => setTimeout(resolve, 0))
     // The credential is URL-encoded and reaches both the loopback and the LAN URL;
@@ -183,7 +210,7 @@ describe('web-app runtime glue', () => {
     const settlement = new Promise<void>((resolve) => { release = resolve })
     provideLoader(settled, () => settlement)
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-    apply(settled, new Config({ printUrl: true, surfaceContext: true, trustedHosts: [], idleExitMs: 600_000 }))
+    apply(settled, new Config({ printUrl: true, surfaceContext: true, trustedHosts: [], tray: false }))
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(log).not.toHaveBeenCalled()
     release!()
@@ -197,7 +224,7 @@ describe('web-app runtime glue', () => {
     const failed = new Context()
     failed.provide('webServer', fakeHttpServer().server)
     provideLoader(failed, async () => { throw new Error('boot failed') })
-    apply(failed, new Config({ printUrl: true, surfaceContext: true, trustedHosts: [], idleExitMs: 600_000 }))
+    apply(failed, new Config({ printUrl: true, surfaceContext: true, trustedHosts: [], tray: false }))
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(log).not.toHaveBeenCalled()
     await failed.fiber.dispose()
@@ -213,7 +240,7 @@ describe('web-app runtime glue', () => {
     let releaseTorn: () => void
     const tornSettlement = new Promise<void>((resolve) => { releaseTorn = resolve })
     provideLoader(torn, () => tornSettlement)
-    apply(torn, new Config({ printUrl: true, surfaceContext: true, trustedHosts: [], idleExitMs: 600_000 }))
+    apply(torn, new Config({ printUrl: true, surfaceContext: true, trustedHosts: [], tray: false }))
     await child.dispose() // the webServer service goes away
     releaseTorn!()
     await new Promise(resolve => setTimeout(resolve, 0))
@@ -229,7 +256,7 @@ describe('web-app runtime glue', () => {
     const { server } = fakeHttpServer()
     Object.defineProperty(server, 'port', { get: () => undefined })
     ctx.provide('webServer', server)
-    apply(ctx, new Config({ printUrl: false, surfaceContext: true, trustedHosts: [], idleExitMs: 600_000 }))
+    apply(ctx, new Config({ printUrl: false, surfaceContext: true, trustedHosts: [], tray: false }))
     await ctx.plugin(SystemPrompt, { persona: '' })
     await new Promise(resolve => setTimeout(resolve, 0))
     await expect(ctx.systemPrompt.assemble()).rejects.toThrow('webServer service missing')
@@ -249,105 +276,39 @@ describe('web-app runtime glue', () => {
   })
 })
 
-/** A fake webServer whose presence signal the test drives directly. */
-function presenceServer(count: () => number): WebServer {
-  return {
-    host: '127.0.0.1',
-    port: 4567,
-    token: undefined,
-    get openUpgradeCount() { return count() },
-    registerFallback: () => () => {},
-    applyIndexTaps: (html: string) => html,
-  } as unknown as WebServer
-}
-
-describe('idle exit', () => {
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-
-  it('requests the bounded exit after the configured window following the last browser', async () => {
+/** The fake native tray instances spawned through the mocked systray2 module. */
+describe('web-app tray state sync', () => {
+  it('converges the menu to the running server regardless of what started it', async () => {
+    const hadEnvGuard = 'DSH_WEB_TRAY' in process.env
+    const previousEnv = process.env['DSH_WEB_TRAY']
+    delete process.env['DSH_WEB_TRAY']
     vi.useFakeTimers()
     try {
       stageDist()
       const ctx = new Context()
-      let upgrades = 0
-      ctx.provide('webServer', presenceServer(() => upgrades))
-      const exits: number[] = []
-      ctx.provide('appExit', (code: number) => { exits.push(code) })
-      const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-      apply(ctx, new Config({ printUrl: false, surfaceContext: false, trustedHosts: [], idleExitMs: 60_000 }))
-      // A server no browser ever connected to never exits: boot smokes and
-      // headless probes stay alive.
-      await vi.advanceTimersByTimeAsync(120_000)
-      expect(exits).toEqual([])
-      // A browser connects; the window only starts when it leaves.
-      upgrades = 1
-      await vi.advanceTimersByTimeAsync(30_000)
-      expect(exits).toEqual([])
-      upgrades = 0
-      await vi.advanceTimersByTimeAsync(59_000)
-      expect(exits).toEqual([])
-      await vi.advanceTimersByTimeAsync(31_000)
-      expect(exits).toEqual([0])
-      expect(log).toHaveBeenCalledWith(expect.stringContaining('no browser connected'))
-      // Disposal stops the poll: plugin teardown owns the interval.
-      await ctx.fiber.dispose()
-      upgrades = 1
-      await vi.advanceTimersByTimeAsync(30_000)
-      upgrades = 0
-      await vi.advanceTimersByTimeAsync(120_000)
-      expect(exits).toEqual([0])
+      const { server } = fakeHttpServer()
+      let listening = false
+      Object.defineProperty(server, 'listening', { get: () => listening })
+      ctx.provide('webServer', server)
+      provideLoader(ctx)
+      expect(trayInstances).toHaveLength(0)
+      apply(ctx, new Config({ printUrl: false, surfaceContext: false, trustedHosts: [], tray: true }))
+      // The boot bind happens outside the tray verbs, so the mount face starts
+      // at the stopped state and must flip from the periodic sample alone.
+      const tray = trayInstances.at(-1)!
+      expect(tray.items.find(item => item.title === 'Запустить')?.enabled).toBe(true)
+      expect(tray.items.find(item => item.title === 'Остановить')?.enabled).toBe(false)
+      listening = true
+      await vi.advanceTimersByTimeAsync(1000)
+      expect(tray.items.find(item => item.title === 'Запустить')?.enabled).toBe(false)
+      expect(tray.items.find(item => item.title === 'Остановить')?.enabled).toBe(true)
+      expect(vi.getTimerCount()).toBeGreaterThan(0)
     } finally {
+      // The raw-Context disposal does not run plugin effects, so the sample
+      // interval is stopped here; production disposal rides ctx.effect.
+      vi.clearAllTimers()
       vi.useRealTimers()
-    }
-  })
-
-  it('keeps a connected browser alive and resets the window on reconnect', async () => {
-    vi.useFakeTimers()
-    try {
-      stageDist()
-      const ctx = new Context()
-      let upgrades = 0
-      ctx.provide('webServer', presenceServer(() => upgrades))
-      const exits: number[] = []
-      ctx.provide('appExit', (code: number) => { exits.push(code) })
-      apply(ctx, new Config({ printUrl: false, surfaceContext: false, trustedHosts: [], idleExitMs: 60_000 }))
-      // An open connection holds the server indefinitely.
-      upgrades = 1
-      await vi.advanceTimersByTimeAsync(600_000)
-      expect(exits).toEqual([])
-      // A blip shorter than the window followed by a reconnect restarts it.
-      upgrades = 0
-      await vi.advanceTimersByTimeAsync(45_000)
-      upgrades = 1
-      await vi.advanceTimersByTimeAsync(30_000)
-      expect(exits).toEqual([])
-      upgrades = 0
-      await vi.advanceTimersByTimeAsync(61_000)
-      expect(exits).toEqual([0])
-    } finally {
-      vi.useRealTimers()
-    }
-  })
-
-  it('never exits with idleExitMs 0', async () => {
-    vi.useFakeTimers()
-    try {
-      stageDist()
-      const ctx = new Context()
-      let upgrades = 0
-      ctx.provide('webServer', presenceServer(() => upgrades))
-      const exits: number[] = []
-      ctx.provide('appExit', (code: number) => { exits.push(code) })
-      apply(ctx, new Config({ printUrl: false, surfaceContext: false, trustedHosts: [], idleExitMs: 0 }))
-      upgrades = 1
-      await vi.advanceTimersByTimeAsync(60_000)
-      upgrades = 0
-      await vi.advanceTimersByTimeAsync(3_600_000)
-      expect(exits).toEqual([])
-    } finally {
-      vi.useRealTimers()
+      if (hadEnvGuard) process.env['DSH_WEB_TRAY'] = previousEnv
     }
   })
 })

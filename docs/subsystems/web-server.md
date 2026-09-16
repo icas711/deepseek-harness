@@ -70,6 +70,21 @@ The browser HTTP carrier service. Activation listens immediately. Route registra
 
 ```ts cordis-catalog
 /**
+ * Close the listener and every connection (downlink upgrades included);
+ * routes and registrations survive, so start() restores the same surface.
+ * Converges when already stopped.
+ */
+async stop(): Promise<void>
+
+/**
+ * Re-bind after a stop. The port is the one the first bind landed on — the
+ * printed URL, `DSH_WEB_URL`, and browser bookmarks all name it — even when
+ * the config asked for an OS-assigned one. Rejection (the port was taken
+ * while stopped) leaves the server stopped; the caller retries.
+ */
+async start(): Promise<void>
+
+/**
  * Register a named route. Duplicate (kind, path) throws — route patterns are
  * a composition-level contract, so a collision is a misconfiguration.
  * @param route - kind, path, and the owning handler.
@@ -112,5 +127,5 @@ tapIndex(transform: (html: string) => string): () => void
 applyIndexTaps(html: string): string
 ```
 
-Source: [`packages/host/webserver/src/index.ts:141`](../../packages/host/webserver/src/index.ts)
+Source: [`packages/host/webserver/src/index.ts:142`](../../packages/host/webserver/src/index.ts)
 <!-- END GENERATED cordis-surface -->

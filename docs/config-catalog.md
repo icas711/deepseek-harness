@@ -809,7 +809,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/host/webserver/src/index.ts:57`](../packages/host/webserver/src/index.ts)
+Source: [`packages/host/webserver/src/index.ts:58`](../packages/host/webserver/src/index.ts)
 
 <a id="deepseek-aidsh-invariants"></a>
 
@@ -2920,11 +2920,11 @@ export interface Config {
   /** Explicit `--trusted-host` authorities from this invocation. */
   trustedHosts: string[]
   /**
-   * Shut the server down after the last browser connection has been gone this
-   * long (default 10 minutes; 0 disables). A server no browser ever connected
-   * to never exits, so boot-time smokes and headless probing keep working.
+   * Show the system-tray icon whose menu starts and stops the web server and
+   * exits the process (default true). A headless layer can turn it off; the
+   * tray also degrades to a logged no-op when no native helper can run.
    */
-  idleExitMs: number
+  tray: boolean
 }
 ```
 

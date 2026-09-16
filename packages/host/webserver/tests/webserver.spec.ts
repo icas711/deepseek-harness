@@ -193,11 +193,7 @@ describe('real Loader composition', () => {
     })
     expect(() => server.registerUpgrade({ path: '/events', handler: () => {} }))
       .toThrow(/duplicate upgrade route/)
-    // Presence signal: zero before any browser connects, one while the
-    // upgraded socket lives, and zero again once the server side closes it.
-    expect(server.openUpgradeCount).toBe(0)
     const upgraded = await upgrade(port, '/events?stream=mux')
-    expect(server.openUpgradeCount).toBe(1)
     disposeUpgrade()
     expect(() => server.registerUpgrade({ path: '/events', handler: () => {} })).not.toThrow()
 
@@ -228,7 +224,6 @@ describe('real Loader composition', () => {
     // Teardown closes both ordinary and upgraded sockets before it resolves.
     await loaded.fiber.dispose()
     expect(upgradedServerClosed).toBe(true)
-    expect(server.openUpgradeCount).toBe(0)
     upgraded.destroy()
     await expect(request(port, '/probe')).rejects.toThrow()
   })
@@ -308,5 +303,27 @@ describe('real Loader composition', () => {
       if (root !== undefined) await rm(root, { recursive: true, force: true })
       root = firstRoot
     }
+  })
+})
+
+describe('stop and start', () => {
+  it('unbinds and rebinds on the first-bound port with routes intact', async () => {
+    const loaded = await loadComposition(0)
+    const server = loaded.webServer
+    const port = server.port
+    server.register({ kind: 'exact', path: '/probe', handler: (_req, res) => { res.writeHead(200); res.end('EXACT') } })
+    expect(await request(port, '/probe')).toMatchObject({ status: 200, body: 'EXACT' })
+
+    await server.stop()
+    expect(server.listening).toBe(false)
+    await expect(request(port, '/probe')).rejects.toThrow()
+    await server.stop()
+    await server.start()
+    expect(server.listening).toBe(true)
+    expect(server.port).toBe(port)
+    expect(await request(port, '/probe')).toMatchObject({ status: 200, body: 'EXACT' })
+    // Already listening: a repeated start converges instead of double-binding.
+    await server.start()
+    expect(server.listening).toBe(true)
   })
 })

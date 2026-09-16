@@ -49,7 +49,8 @@ const AUTH_COOKIE = 'dsh_web_token'
 const AUTH_QUERY = 'token'
 
 /** The 401 body; its byte length is the upgrade denial's Content-Length. */
-const UNAUTHORIZED_BODY = 'unauthorized'
+/** The 401 body the token gate answers with; exported for instance probes. */
+export const UNAUTHORIZED_BODY = 'unauthorized'
 
 /**
  * Gateway config: the listen address and the optional shared credential.
@@ -153,6 +154,7 @@ export class WebServer extends Service {
   private fallback: WebRoute['handler'] | undefined
   private server!: Server
   private listenedPort!: number
+  private listenerUp = false
 
   constructor(ctx: Context, private config: Config) {
     super(ctx, 'webServer')
@@ -168,19 +170,36 @@ export class WebServer extends Service {
     return this.config.host
   }
 
-  /** The token every request must present, or undefined when the gate is off. */
-  get token(): string | undefined {
-    return this.config.token
+  /** Whether the listener is bound right now (false between stop and start). */
+  get listening(): boolean {
+    return this.listenerUp
   }
 
   /**
-   * How many upgraded sockets are open right now. The browser surface holds
-   * one or more event-downlink upgrades for as long as a page is alive, so
-   * this count is the server-side browser-presence signal: zero across an
-   * extended interval means no client UI is connected.
+   * Close the listener and every connection (downlink upgrades included);
+   * routes and registrations survive, so start() restores the same surface.
+   * Converges when already stopped.
    */
-  get openUpgradeCount(): number {
-    return this.upgradedSockets.size
+  async stop(): Promise<void> {
+    if (!this.listenerUp) return
+    this.listenerUp = false
+    await this.closeListener()
+  }
+
+  /**
+   * Re-bind after a stop. The port is the one the first bind landed on — the
+   * printed URL, `DSH_WEB_URL`, and browser bookmarks all name it — even when
+   * the config asked for an OS-assigned one. Rejection (the port was taken
+   * while stopped) leaves the server stopped; the caller retries.
+   */
+  async start(): Promise<void> {
+    if (this.listenerUp) return
+    await this.bind(this.listenedPort)
+  }
+
+  /** The token every request must present, or undefined when the gate is off. */
+  get token(): string | undefined {
+    return this.config.token
   }
 
   /**
@@ -368,29 +387,40 @@ export class WebServer extends Service {
       }
     })
 
-    await new Promise<void>((resolve, reject) => {
-      this.server.once('error', reject)
-      this.server.listen(this.config.port, this.config.host, () => {
-        this.server.off('error', reject)
-        this.server.on('error', (err) => { this.ctx.logger.error(err) })
-        this.listenedPort = (this.server.address() as AddressInfo).port
-        resolve()
-      })
-    })
+    await this.bind(this.config.port)
 
     // Node does not include upgraded sockets in closeAllConnections(). The service
     // owns them with the other connections, so it tracks and destroys them explicitly.
     this.ctx.effect(() => async () => {
-      const serverClosed = new Promise<void>((resolve) => {
-        this.server.close(() => { resolve() })
-      })
-      this.server.closeAllConnections()
-      const upgradedClosed = [...this.upgradedSockets].map(socket => new Promise<void>((resolve) => {
-        socket.once('close', () => { resolve() })
-        socket.destroy()
-      }))
-      await Promise.all([serverClosed, ...upgradedClosed])
+      await this.closeListener()
     }, 'webServer.listen')
+  }
+
+  /** Bind the listener; resolves once the socket is bound (rejection = bind failure). */
+  private bind(port: number): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      this.server.once('error', reject)
+      this.server.listen(port, this.config.host, () => {
+        this.server.off('error', reject)
+        this.server.on('error', (err) => { this.ctx.logger.error(err) })
+        this.listenedPort = (this.server.address() as AddressInfo).port
+        this.listenerUp = true
+        resolve()
+      })
+    })
+  }
+
+  /** Close the listener, every connection, and every tracked upgraded socket. */
+  private async closeListener(): Promise<void> {
+    const serverClosed = new Promise<void>((resolve) => {
+      this.server.close(() => { resolve() })
+    })
+    this.server.closeAllConnections()
+    const upgradedClosed = [...this.upgradedSockets].map(socket => new Promise<void>((resolve) => {
+      socket.once('close', () => { resolve() })
+      socket.destroy()
+    }))
+    await Promise.all([serverClosed, ...upgradedClosed])
   }
 
   /** Longest-prefix-wins over the prefix table after an exact-table miss. */

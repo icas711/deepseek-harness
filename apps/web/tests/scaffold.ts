@@ -488,8 +488,12 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     // The bundle's web-runtime row resolves the same built dist under test
     // (apps/web IS @deepseek-ai/dsh-web-frontend); only the URL line is silenced.
     // Preserve the composed surface-context choice because a patch replaces
-    // the row's complete config.
-    { id: 'web-runtime', config: { printUrl: false, surfaceContext } },
+    // the row's complete config. The tray stays off: a test lane must not
+    // spawn native tray icons.
+    { id: 'web-runtime', config: { printUrl: false, surfaceContext, tray: false } },
+    // The single-instance gate stays off: a test lane must not open browsers
+    // or exit on behalf of a port that happens to be occupied.
+    { id: 'web-startup', config: { singleInstance: false } },
     ...options.remoteAuthority === undefined
       ? []
       : [{ id: 'connection', config: { trustedHosts: [options.remoteAuthority] } }],

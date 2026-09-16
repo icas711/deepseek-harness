@@ -17,14 +17,14 @@ import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { addHarnessSourceSection } from '@deepseek-ai/dsh-app-boot'
 import * as FrontendStatic from '@deepseek-ai/dsh-host-frontend-static'
+import { installTray } from './tray.ts'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-system-prompt'
 import type {} from '@deepseek-ai/dsh-shell-env'
 // Type-only: pulls the cmdline Context merge (the launcher-provided appExit)
-// into this program for the idle exit.
+// into this program for the tray's exit action.
 import type {} from '@deepseek-ai/dsh-cmdline'
-import { installIdleExit } from './idle-exit.ts'
 
 /** Stable Cordis plugin name. */
 export const name = 'web-app'
@@ -52,18 +52,18 @@ export interface Config {
   /** Explicit `--trusted-host` authorities from this invocation. */
   trustedHosts: string[]
   /**
-   * Shut the server down after the last browser connection has been gone this
-   * long (default 10 minutes; 0 disables). A server no browser ever connected
-   * to never exits, so boot-time smokes and headless probing keep working.
+   * Show the system-tray icon whose menu starts and stops the web server and
+   * exits the process (default true). A headless layer can turn it off; the
+   * tray also degrades to a logged no-op when no native helper can run.
    */
-  idleExitMs: number
+  tray: boolean
 }
 
 export const Config: z<Config> = z.object({
   printUrl: z.boolean().default(true),
   surfaceContext: z.boolean().default(true),
   trustedHosts: z.array(String).default([]),
-  idleExitMs: z.natural().default(600_000),
+  tray: z.boolean().default(true),
 })
 
 /** Bind-dependent Web values shared by the trust fence and URL display. */
@@ -159,7 +159,35 @@ export function apply(ctx: Context, config: Config): void {
   // Release dependent rows only after bind-dependent trust has been sampled once.
   ctx.provide(WEB_RUNTIME_SERVICE, runtime)
   ctx.plugin(FrontendStatic, { distIndex: internals.resolveDistIndex() })
-  if (config.idleExitMs > 0) installIdleExit(ctx, config.idleExitMs)
+  // DSH_WEB_TRAY=0 is the headless escape hatch: the installer-build smoke and
+  // service-style launches set it, because a tray icon belongs to an
+  // interactive desktop, not to a packaging run or a daemon.
+  if (config.tray && process.env['DSH_WEB_TRAY'] !== '0') {
+    const tray = installTray({
+      onStart: () => {
+        void ctx.webServer.start().then(() => { tray?.setRunning(true) }, (error: unknown) => {
+          console.log(`dsh web: server did not start (${error instanceof Error ? error.message : String(error)})`)
+        })
+      },
+      onStop: () => {
+        void ctx.webServer.stop().then(() => { tray?.setRunning(false) }, (error: unknown) => {
+          console.log(`dsh web: server did not stop (${error instanceof Error ? error.message : String(error)})`)
+        })
+      },
+      onExit: () => { ctx.get('appExit')?.(0) },
+    })
+    if (tray !== undefined) {
+      // The server binds from its own row, not through the tray verbs, so the
+      // mount face (stopped) would otherwise stick for the whole uptime. The
+      // one-second sample converges the menu after the boot bind and after
+      // any stop or start, from any cause; the click handlers above only add
+      // immediacy on top of it.
+      const syncRunning = (): void => { tray?.setRunning(ctx.webServer.listening) }
+      syncRunning()
+      const statePoll = setInterval(syncRunning, 1000)
+      ctx.effect(() => () => { clearInterval(statePoll); void tray?.close() }, 'web-app: tray')
+    }
+  }
   if (config.surfaceContext) {
     ctx.inject(['systemPrompt'], (promptCtx) => {
       addHarnessSourceSection(promptCtx, SOURCE_ROOT)
