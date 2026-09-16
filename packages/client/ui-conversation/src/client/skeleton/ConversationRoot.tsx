@@ -186,6 +186,7 @@ export function ConversationRoot({
   return (
     <div className={css.root} data-phase={phase}>
       {renderSlot('conversation.session.header', {})}
+      {renderSlot('conversation.connection', {})}
       <div className={css.scrollBody} data-conversation-scroll="">
         {renderSlot('conversation.session', {})}
         {composerSeat}

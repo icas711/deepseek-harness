@@ -2096,6 +2096,16 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     description: 'The browser HTTP carrier service. Activation listens immediately. Route registration order does not affect requests because configured named routes must be distinct, and the fallback handler answers anything not yet claimed during startup with 404 until its owner registers. A configured `token` gates every HTTP request and upgrade before route dispatch. A listen failure rejects initialization, and the boot process reports the failed fiber.',
     methods: [
       {
+        signature: 'async stop(): Promise<void>',
+        description: 'Close the listener and every connection (downlink upgrades included); routes and registrations survive, so start() restores the same surface. Converges when already stopped.',
+        parameters: [],
+      },
+      {
+        signature: 'async start(): Promise<void>',
+        description: 'Re-bind after a stop. The port is the one the first bind landed on — the printed URL, `DSH_WEB_URL`, and browser bookmarks all name it — even when the config asked for an OS-assigned one. Rejection (the port was taken while stopped) leaves the server stopped; the caller retries.',
+        parameters: [],
+      },
+      {
         signature: 'register(route: WebRoute): () => void',
         description: 'Register a named route. Duplicate (kind, path) throws — route patterns are a composition-level contract, so a collision is a misconfiguration.',
         parameters: [{ name: 'route', description: 'kind, path, and the owning handler.' }],

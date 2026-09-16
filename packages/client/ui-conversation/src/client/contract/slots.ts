@@ -6,7 +6,7 @@ import type {
   SlotHookFactory, SnapshotSelectorHook,
 } from '@deepseek-ai/dsh-client-ui-slots'
 import type {
-  CommandNode, CompactionSummaryNode, ConversationSnapshot, ConversationTurnDataMap,
+  CommandNode, CompactionSummaryNode, ConnectionHealth, ConversationSnapshot, ConversationTurnDataMap,
   ObservableSnapshot, PendingInteraction, PendingWait, SessionId, ToolCallBlock,
   TurnLocation, WorkspaceId,
 } from '@deepseek-ai/dsh-client-runtime/client'
@@ -143,6 +143,13 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      * the next one rather than applied to a current one.
      */
     'conversation.hero.agentPreset': { kind: 'single'; scope: 'root'; owner: HeroAgentPresetOwnerProps }
+    /**
+     * A full-width strip between the session header and the conversation
+     * body — the seat for process-reachability chrome (the shipped banner
+     * shows while the backend connection is down). Root scope:
+     * reachability is global, never per-session.
+     */
+    'conversation.connection': { kind: 'single'; scope: 'root' }
     // 'conversation.input.overlay' merges in ui-input-trigger (the dependency
     // direction is the hard constraint — ui-input-trigger cannot import
     // this package, while this package's input contract already imports
@@ -583,8 +590,20 @@ export type ConversationSlotProps =
     | 'conversation.input.left' | 'conversation.input.right'
     | 'conversation.hero.workspace'
     | 'conversation.hero.agentPreset'
+    | 'conversation.connection'
   >
   & InjectFace<ConversationInjected>
+  & PropsLocale<'conversation'>
+
+/** Injected face for the connection banner: the process-reachability source. */
+export interface ConnectionBannerInjected {
+  hooks: { connectionHealth: ObservableSnapshot<ConnectionHealth> }
+}
+
+/** Connection-banner props: root runtime share, the health hook, and the locale seat. */
+export type ConnectionBannerSlotProps =
+  PropsRuntime<'conversation.connection'>
+  & InjectFace<ConnectionBannerInjected>
   & PropsLocale<'conversation'>
 
 /** Full strict-session body props: per-session store, view ring, and draft mirror. */

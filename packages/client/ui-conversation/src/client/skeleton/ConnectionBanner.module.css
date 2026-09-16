@@ -1,0 +1,9 @@
+.strip {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  background: var(--dsw-alias-interactive-bg-hover-danger);
+  color: var(--dsw-alias-state-error-primary);
+  border-bottom: 1px solid var(--dsw-alias-border-l4);
+  font-size: 13px;
+}

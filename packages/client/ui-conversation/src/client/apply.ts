@@ -3,7 +3,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import { resolveSlotLabel, type BoundActions } from '@deepseek-ai/dsh-client-ui-slots'
 import {
-  resolveWorkspacePath, type ISessions, type SessionId,
+  resolveWorkspacePath, type ConnectionHealth, type ISessions, type ObservableSnapshot, type SessionId,
 } from '@deepseek-ai/dsh-client-runtime/client'
 // Type-only: the ctx.settingsScope Context merge. Cross-plugin collaboration
 // goes through the service, never a value import (client bundle purity gate).
@@ -14,7 +14,8 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type { ViewTab } from './contract/views.ts'
 import type {
   ApprovalWait, ChatNodeTurnDataInjected, ChatScrollPosition, ChatViewInjected, ComposerBarInjected,
-  ComposerChainProps, ConversationInjected, ConversationSessionHeaderInjected, ConversationSessionInjected,
+  ComposerChainProps, ConnectionBannerInjected, ConversationInjected, ConversationSessionHeaderInjected,
+  ConversationSessionInjected,
   DetailsInjected,
 } from './contract/slots.ts'
 import type { InputNotice } from './input/contract.ts'
@@ -34,6 +35,7 @@ import { ApprovalPanel } from './skeleton/ApprovalPanel.tsx'
 import { todoDockEntry } from './skeleton/TodoPanel.tsx'
 import { queueDockEntry } from './queue/QueueDock.tsx'
 import { ConversationRoot } from './skeleton/ConversationRoot.tsx'
+import { ConnectionBanner } from './skeleton/ConnectionBanner.tsx'
 import { ConversationSession, ConversationSessionHeader } from './skeleton/ConversationSession.tsx'
 import { DetailsPanel } from './skeleton/DetailsPanel.tsx'
 import { NS, ru, type ConversationKey } from './locales.ts'
@@ -73,6 +75,11 @@ const ABSENT_LEXICON = {
 }
 const ABSENT_MENU_LAUNCHER = {
   getSnapshot: (): string | null => null,
+  subscribe: () => () => {},
+}
+/** No runtime service (test runtimes), therefore no outage; same one-identity rule. */
+const ABSENT_CONNECTION_HEALTH: ObservableSnapshot<ConnectionHealth> = {
+  getSnapshot: (): ConnectionHealth => 'connecting',
   subscribe: () => () => {},
 }
 
@@ -222,6 +229,7 @@ export function apply(ctx: Context): void {
       'conversation.input.right': { kind: 'list', scope: 'session' },
       'conversation.hero.workspace': { kind: 'single', scope: 'root' },
       'conversation.hero.agentPreset': { kind: 'single', scope: 'root' },
+      'conversation.connection': { kind: 'single', scope: 'root' },
     },
     inject: (sessionId: SessionId | undefined): ConversationInjected => ({
       hooks: { composerBlock: sessionId === undefined ? ABSENT_BLOCK : composerBlocks.storeFor(sessionId) },
@@ -246,6 +254,17 @@ export function apply(ctx: Context): void {
       },
     }),
   }, ConversationRoot)
+
+  // The process-reachability strip: the runtime's `connectionHealth`
+  // observable feeds the banner's hook seat; absent service (test runtimes)
+  // degrades to the static absent source so hook identity stays stable.
+  slots.register({
+    name: 'conversation.connection',
+    locale: NS,
+    inject: (): ConnectionBannerInjected => ({
+      hooks: { connectionHealth: ctx.get('connectionHealth') ?? ABSENT_CONNECTION_HEALTH },
+    }),
+  }, ConnectionBanner)
 
   // The strict session body fills the resident scrollport without owning it;
   // the Hero/composer path therefore stays fixed while the first blank

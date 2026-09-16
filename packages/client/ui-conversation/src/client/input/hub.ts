@@ -8,7 +8,7 @@
  * bail events) and owns the default-sink choreography: every session is a
  * real host entity, so the sink is one unconditional prompt path.
  */
-import type { ClientContext, ISessions, SessionBinding, SessionFace, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
+import type { ClientContext, ConnectionHealth, ISessions, SessionBinding, SessionFace, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import type { InputTriggerController } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-locale/client'
 import { queueReadFaceOf } from '../queue/store.ts'
@@ -31,6 +31,21 @@ interface ConversationAttachmentFace {
     mode: InputSubmitMode,
   ): Promise<void>
   releaseDraftImage(id: DraftAttachmentId): void
+}
+
+/**
+ * Composer notice text for a rejected prompt dispatch: the process-down copy
+ * while the connection is dead, the generic failure otherwise. The rejection
+ * itself carries no reason — the health source is the discriminator.
+ * @param health - the connection health snapshot, or undefined when no runtime published one.
+ * @param translate - conversation-namespace translate thunk.
+ * @returns the localized composer notice text.
+ */
+export function sendFailureNotice(
+  health: ConnectionHealth | undefined,
+  translate: TranslateNS<'conversation'>,
+): string {
+  return health === 'reconnecting' ? translate('send.processDown') : translate('send.failed')
 }
 
 /** Session-addressed input facade registry (SessionInputResolver face + composer-layer extras). */
@@ -160,11 +175,17 @@ export class InputHub implements SessionInputResolver {
       if (this.shells.get(session.sessionId) === shell) {
         shell?.restoreImages(imageIds)
         if (shell?.snapshot.draft === '') shell.setDraft(text)
+        shell?.notify('error', sendFailureNotice(this.health(), this.t))
         return
       }
       const conversation = this.rootCtx.get('conversation') as ConversationAttachmentFace | undefined
       for (const id of imageIds) conversation?.releaseDraftImage(id)
     })
+  }
+
+  /** The health source's snapshot, or undefined when no runtime published one (test runtimes). */
+  private health(): ConnectionHealth | undefined {
+    return this.rootCtx.get('connectionHealth')?.getSnapshot()
   }
 
   /**
