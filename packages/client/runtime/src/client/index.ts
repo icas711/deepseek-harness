@@ -61,6 +61,9 @@ export type {
 } from './sessions/service.ts'
 export type { SessionListPhase, SessionSearchResultItem, SubagentCatalogSnapshot } from './sessions/manager.ts'
 export type { SubagentAddress, JobView } from '@deepseek-ai/dsh-client-connection/client'
+// The banner strip's health states: the runtime's connection loop publishes
+// them; the conversation shell renders them (see ui-conversation's inject).
+export type { ConnectionHealth } from './connection-health.ts'
 export type { WorkspaceListPhase } from './workspaces/manager.ts'
 export type { WorkspaceListState } from './workspaces/service.ts'
 export type {
