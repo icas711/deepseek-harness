@@ -72,6 +72,17 @@
     - id: jobs
       name: '@deepseek-ai/dsh-jobs-local'
 
+    # Git-worktree capability: bounded git children through the subprocess
+    # seam; worktree lifecycle plus the diff/merge verbs fleets use.
+    - id: worktrees
+      name: '@deepseek-ai/dsh-worktree'
+
+    # Worktree-fanout orchestration: one prompt to N parallel top-level
+    # sessions in isolated worktrees, each a normal session visible in every
+    # existing surface.
+    - id: fleet
+      name: '@deepseek-ai/dsh-fleet'
+
     - id: llm-retry
       name: '@deepseek-ai/dsh-llm-retry'
 
@@ -242,6 +253,9 @@
 
     - id: tool-jobs
       name: '@deepseek-ai/dsh-tool-jobs'
+
+    - id: tool-fleet
+      name: '@deepseek-ai/dsh-tool-fleet'
 
     - id: fs-observation-policy
       name: '@deepseek-ai/dsh-fs-observation-policy'

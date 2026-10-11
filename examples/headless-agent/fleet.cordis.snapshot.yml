@@ -1,0 +1,36 @@
+# Keyless assembled-app coverage for the worktree-fanout fleet: the orchestrator
+# drives the full fleet_* tool cycle in a temporary git repository (created by
+# the test's prepare step with pinned commit dates, so the base sha is stable),
+# the single member replays a scripted text answer, and the owner receives the
+# first-turn-end completion notice before its final answer.
+
+- id: base
+  name: '@deepseek-ai/cordis-plugin-include'
+  config:
+    path: ./cordis.yml
+    patches:
+      - id: llm-deepseek
+        name: '@deepseek-ai/dsh-llm-deepseek'
+        disabled: true
+      - insert:
+          # Members take their provider/model route from the default selection
+          # (the pre-created main agent carries its own); the replay waterfall
+          # intercepts every stream call regardless of route.
+          - id: agent-default-model
+            name: '@deepseek-ai/dsh-agent-default-model'
+            config:
+              provider: deepseek-official
+              model: deepseek-v4-flash
+          - id: worktree
+            name: '@deepseek-ai/dsh-worktree'
+          - id: fleet
+            name: '@deepseek-ai/dsh-fleet'
+          - id: tool-fleet
+            name: '@deepseek-ai/dsh-tool-fleet'
+          - id: llm-replay
+            name: '@deepseek-ai/dsh-llm-replay'
+
+# Hold the owner's second step until the member completion notice is admitted,
+# so notice position and the observed member state do not depend on git timing.
+- id: fleet-fence
+  name: './tests/fixtures/fleet-fence.ts'

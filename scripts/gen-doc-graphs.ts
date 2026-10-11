@@ -90,12 +90,29 @@ const GROUP_ORDER = [
   'telemetry',
   'storage',
   'workspace',
+  'fleet',
   'support',
   'acp',
   'ui',
 ]
 
 const SERVICE_ROLES: ServiceRole[] = [
+  {
+    key: 'worktrees',
+    pkg: 'worktree',
+    title: 'Git worktree lifecycle and branch verbs',
+    mode: 'seam',
+    consumers: ['fleet'],
+    note: 'Every verb runs one bounded git child through the subprocess seam; diff reports the working tree against the merge base with untracked files listed, and merge aborts a conflicting branch.',
+  },
+  {
+    key: 'fleet',
+    pkg: 'fleet',
+    title: 'Worktree-fanout orchestration',
+    mode: 'seam',
+    consumers: ['tool-fleet'],
+    note: 'One prompt fans out to N top-level attempt sessions in isolated worktrees of the base repository; status, diff, merge, and cleanup are fenced to the owning session, and the first attempt turn end notifies the owner.',
+  },
   {
     key: 'attachments',
     pkg: 'attachment',

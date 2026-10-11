@@ -7,6 +7,11 @@ A service can be a core spine service, a swappable capability seam, or a bundle/
 
 ```mermaid
 flowchart LR
+  pkg_worktree["worktree"]
+  svc_worktrees["ctx.worktrees<br/>Git worktree lifecycle and branch verbs"]
+  pkg_fleet["fleet"]
+  svc_fleet["ctx.fleet<br/>Worktree-fanout orchestration"]
+  pkg_tool_fleet["tool-fleet"]
   pkg_attachment["attachment"]
   svc_attachments["ctx.attachments<br/>Durable binary attachment storage"]
   pkg_attachment_local["attachment-local"]
@@ -222,6 +227,7 @@ flowchart LR
   pkg_directory_picker_browse --> svc_directoryPicker
   pkg_directory_picker_native --> svc_directoryPicker
   pkg_e2b --> svc_e2b
+  pkg_fleet --> svc_fleet
   pkg_fs --> svc_fs
   pkg_fs_e2b --> svc_fs
   pkg_fs_local --> svc_fs
@@ -299,6 +305,7 @@ flowchart LR
   pkg_workflow --> svc_workflowEngine
   pkg_workflow_worker_thread --> svc_workflowEngine
   pkg_workspace --> svc_workspaceRegistry
+  pkg_worktree --> svc_worktrees
   svc_agentDefaultModel --> pkg_headless
   svc_agentDefaultModel --> pkg_host_apiproxy
   svc_agentLoop --> pkg_agent_spine_demo
@@ -321,6 +328,7 @@ flowchart LR
   svc_dynamicCordisRunner --> pkg_tool_cordis
   svc_e2b --> pkg_fs_e2b
   svc_e2b --> pkg_subprocess_e2b
+  svc_fleet --> pkg_tool_fleet
   svc_fs --> pkg_tool_fs
   svc_invariants --> pkg_agent
   svc_invariants --> pkg_agent_loop
@@ -412,11 +420,14 @@ flowchart LR
   svc_workflowEngine --> pkg_tool_ralph
   svc_workflowEngine --> pkg_tool_workflow
   svc_workspaceRegistry --> pkg_apiproxy
+  svc_worktrees --> pkg_fleet
   svc_fs -. event gate .-> pkg_fs_observation_policy
 ```
 
 | ctx key | Role | Owner | Implementations | Direct consumers | Companion plugins | Note |
 | --- | --- | --- | --- | --- | --- | --- |
+| `ctx.worktrees` | `seam` | [`worktree`](../packages/fleet/worktree) | - | [`fleet`](../packages/fleet/fleet) | - | Every verb runs one bounded git child through the subprocess seam; diff reports the working tree against the merge base with untracked files listed, and merge aborts a conflicting branch. |
+| `ctx.fleet` | `seam` | [`fleet`](../packages/fleet/fleet) | - | [`tool-fleet`](../packages/fleet/tool-fleet) | - | One prompt fans out to N top-level attempt sessions in isolated worktrees of the base repository; status, diff, merge, and cleanup are fenced to the owning session, and the first attempt turn end notifies the owner. |
 | `ctx.attachments` | `seam` | [`attachment`](../packages/attachment/attachment) | [`attachment-local`](../packages/attachment/attachment-local) | `host-runtime`, [`llm-pi-ai`](../packages/llm/llm-pi-ai) | - | The host commits accepted images before session events; provider adapters resolve authorized durable references into provider-native content. |
 | `ctx.llm` | `seam` | [`llm`](../packages/llm/llm) | [`llm-deepseek`](../packages/llm/llm-deepseek), [`llm-pi-ai`](../packages/llm/llm-pi-ai), [`llm-replay`](../packages/test-support/llm-replay) | [`agent-loop`](../packages/core/agent-loop), [`compaction-basic`](../packages/compaction/compaction-basic) | - | Adapters register provider implementations; the loop and compaction call the provider-neutral stream service. |
 | `ctx.tokenMeter` | `core` | [`token-meter`](../packages/llm/token-meter) | - | [`compaction-basic`](../packages/compaction/compaction-basic) | - | Owns isolated per-session replay folds; pressure consumers share immutable revisioned measurements. |

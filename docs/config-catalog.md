@@ -585,6 +585,24 @@ export interface Config {
 
 Source: [`packages/e2b/e2b/src/index.ts:43`](../packages/e2b/e2b/src/index.ts)
 
+<a id="deepseek-aidsh-fleet"></a>
+
+## `@deepseek-ai/dsh-fleet`
+
+Requires: `worktrees` · `agents`
+
+```ts config-catalog
+/** Service configuration. */
+export interface Config {
+  /** Maximum attempts one fanout may start. */
+  maxMembers: number
+  /** Maximum `delegationDepth` a session may fan out at; member depth is the owner's plus one. */
+  maxFanoutDepth: number
+}
+```
+
+Source: [`packages/fleet/fleet/src/index.ts:46`](../packages/fleet/fleet/src/index.ts)
+
 <a id="deepseek-aidsh-fs-local"></a>
 
 ## `@deepseek-ai/dsh-fs-local`
@@ -2407,6 +2425,22 @@ export interface Config {
 
 Source: [`packages/shell/tool-bash-persistent/src/index.ts:405`](../packages/shell/tool-bash-persistent/src/index.ts)
 
+<a id="deepseek-aidsh-tool-fleet"></a>
+
+## `@deepseek-ai/dsh-tool-fleet`
+
+Requires: `tools` · `fleet`
+
+```ts config-catalog
+/** Tool configuration. */
+export interface Config {
+  /** Byte cap for one attempt's diff text returned by `fleet_diff`; longer diffs keep the head with a marker. */
+  maxDiffBytes: number
+}
+```
+
+Source: [`packages/fleet/tool-fleet/src/index.ts:21`](../packages/fleet/tool-fleet/src/index.ts)
+
 <a id="deepseek-aidsh-tool-fs"></a>
 
 ## `@deepseek-ai/dsh-tool-fs`
@@ -3085,6 +3119,28 @@ export interface Config {
 ```
 
 Source: [`packages/workflow/workflow-worker-thread/src/index.ts:32`](../packages/workflow/workflow-worker-thread/src/index.ts)
+
+<a id="deepseek-aidsh-worktree"></a>
+
+## `@deepseek-ai/dsh-worktree`
+
+Requires: `subprocess`
+
+```ts config-catalog
+/** Service configuration. */
+export interface Config {
+  /** Git executable (bare PATH name or absolute path). */
+  command: string
+  /** Per-invocation timeout in milliseconds. */
+  timeoutMs: number
+  /** Per-stream in-memory output cap; a longer tail is truncated from the head. */
+  maxOutputBytes: number
+  /** SIGTERM→SIGKILL grace for a timed-out git child. */
+  graceMs: number
+}
+```
+
+Source: [`packages/fleet/worktree/src/index.ts:48`](../packages/fleet/worktree/src/index.ts)
 
 ## Loadable plugins with no config
 

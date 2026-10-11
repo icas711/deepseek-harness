@@ -37,6 +37,7 @@ This table connects model-visible tool names to the plugin package and service s
 | `@deepseek-ai/dsh-tool-subagent-report` | `report` | `ctx.subagents`, `ctx.systemPrompt`, `a live continuable in-process child Agent` | `tool/call`, `tool/result`, `a user-role message in the direct parent session` | - | Registered per continuable in-process child rather than globally, so this schema is visible only inside such a child and survives its global `toolFilter`. The same contribution installs the child-scoped `tool:report` prompt section, which this catalog does not render. The parent-facing `send_message` tool is installed independently. |
 | `@deepseek-ai/dsh-tool-jobs` | `job_kill`, `job_list`, `job_output` | `ctx.tools`, `ctx.jobs`, `ctx.systemPrompt` | `tool/call`, `tool/result`, `user/message via agent.inject() for background completion notices` | - | The kind-agnostic background-job controller: background bash commands, PTY sends, and subagents are read, listed, and killed through the same three tools. Loading the plugin attaches the controller that arms producers' `ctx.jobs.start()`. |
 | `@deepseek-ai/dsh-tool-todo` | `todo_write` | `ctx.tools`, `owning Agent session` | `tool/call`, `todo/write`, `tool/result` | - | todo_write is session-owned state; UIs render the latest todo/write event as a checklist. `allowParallelInProgress` is required with no default, so the catalog states its choice: `true`, whose description invites several `in_progress` items. A deployment choosing `false` receives the same tool with a description asking for exactly one active task. |
+| `@deepseek-ai/dsh-tool-fleet` | `fleet_cleanup`, `fleet_diff`, `fleet_fanout`, `fleet_merge`, `fleet_status` | `ctx.tools`, `ctx.fleet`, `owning Agent session` | `tool/call`, `tool/result`, `user/message via agent.inject()/followup() for attempt completion notices` | - | The model-facing consumer of the worktree-fanout fleet: one prompt fans out to N top-level attempt sessions, each in its own git worktree of the base repository. Every verb is fenced to the owning session, diffs are truncated to a byte budget, and exactly one winner merges before cleanup. |
 | `@deepseek-ai/dsh-tool-workflow` | `workflow` | `ctx.tools`, `ctx.workflowEngine`, `ctx.systemPrompt`, `a calling Agent (exec.agent parents the script children)` | `tool/call`, `tool/result` | - | - |
 | `@deepseek-ai/dsh-tool-web` | `web_fetch`, `web_search` | `ctx.tools`, `ctx.web`, `ctx.systemPrompt` | `tool/call`, `tool/result` | - | web_search and web_fetch keep provider selection behind ctx.web so model-visible schemas stay stable across backend swaps. |
 
@@ -1728,6 +1729,133 @@ Record and update a structured task list for the current work. Send the ENTIRE l
 Source: [`packages/todo/tool-todo/src/index.ts`](../packages/todo/tool-todo/src/index.ts)
 
 todo_write is session-owned state; UIs render the latest todo/write event as a checklist. `allowParallelInProgress` is required with no default, so the catalog states its choice: `true`, whose description invites several `in_progress` items. A deployment choosing `false` receives the same tool with a description asking for exactly one active task.
+
+<a id="deepseek-aidsh-tool-fleet"></a>
+
+## `@deepseek-ai/dsh-tool-fleet`
+
+### `fleet_cleanup`
+
+Remove one fleet after its winner is merged (or its attempts stopped mattering): stops member agents, deletes their worktrees and branches, and unregisters their workspaces. Persisted member sessions stay readable.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "fanout_id": {
+      "type": "string",
+      "description": "The fanout to remove."
+    }
+  },
+  "required": [
+    "fanout_id"
+  ]
+}
+```
+
+Source: [`packages/fleet/tool-fleet/src/index.ts`](../packages/fleet/tool-fleet/src/index.ts)
+
+### `fleet_diff`
+
+Diff every attempt of one fleet against the shared base commit: per member a stat summary and the unified diff. Compare attempts with this before choosing a winner.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "fanout_id": {
+      "type": "string",
+      "description": "The fanout to diff."
+    }
+  },
+  "required": [
+    "fanout_id"
+  ]
+}
+```
+
+Source: [`packages/fleet/tool-fleet/src/index.ts`](../packages/fleet/tool-fleet/src/index.ts)
+
+### `fleet_fanout`
+
+Start N parallel attempts on one task, each in its own git worktree branched from the same base: every attempt is a separate session receiving the same prompt, and you are notified when each finishes. Use for genuinely uncertain, independent tries of the same goal where comparing results adds value (alternative implementations, competing fixes). Skip it for trivial or sequential work. Track the fanout id and member session ids; observe with fleet_status, compare with fleet_diff, then merge exactly one winner with fleet_merge and remove the fanout with fleet_cleanup.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "repo_path": {
+      "type": "string",
+      "description": "Path of the repository the attempts branch from; relative paths resolve from your session cwd."
+    },
+    "count": {
+      "type": "integer",
+      "description": "Number of parallel attempts (at least 1)."
+    },
+    "prompt": {
+      "type": "string",
+      "description": "The task every attempt receives verbatim; one self-contained instruction performs best."
+    },
+    "base_ref": {
+      "type": "string",
+      "description": "Base committish for every attempt branch (default: the repository HEAD)."
+    }
+  },
+  "required": [
+    "repo_path",
+    "count",
+    "prompt"
+  ]
+}
+```
+
+Source: [`packages/fleet/tool-fleet/src/index.ts`](../packages/fleet/tool-fleet/src/index.ts)
+
+### `fleet_merge`
+
+Merge exactly one finished attempt's branch into the base repository's current HEAD. The attempt must not be running. A conflicting merge is aborted and reported — resolve conflicts yourself in the base repository, then retry.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "fanout_id": {
+      "type": "string",
+      "description": "The fanout holding the attempt."
+    },
+    "session_id": {
+      "type": "string",
+      "description": "The winning attempt's session id."
+    }
+  },
+  "required": [
+    "fanout_id",
+    "session_id"
+  ]
+}
+```
+
+Source: [`packages/fleet/tool-fleet/src/index.ts`](../packages/fleet/tool-fleet/src/index.ts)
+
+### `fleet_status`
+
+List your worktree fleets with each attempt's live state (starting, running, idle, gone), or read one fanout by id. Collect every fleet's status before giving a final answer.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "fanout_id": {
+      "type": "string",
+      "description": "Restrict the answer to one fanout id."
+    }
+  }
+}
+```
+
+Source: [`packages/fleet/tool-fleet/src/index.ts`](../packages/fleet/tool-fleet/src/index.ts)
+
+The model-facing consumer of the worktree-fanout fleet: one prompt fans out to N top-level attempt sessions, each in its own git worktree of the base repository. Every verb is fenced to the owning session, diffs are truncated to a byte budget, and exactly one winner merges before cleanup.
 
 <a id="deepseek-aidsh-tool-workflow"></a>
 

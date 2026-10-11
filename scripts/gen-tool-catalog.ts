@@ -58,6 +58,10 @@ import * as ToolSkill from '@deepseek-ai/dsh-tool-skill'
 import * as ToolSessionQuery from '@deepseek-ai/dsh-tool-session-query'
 import * as ToolTasks from '@deepseek-ai/dsh-tool-jobs'
 import * as ToolTodo from '@deepseek-ai/dsh-tool-todo'
+import * as ToolFleet from '@deepseek-ai/dsh-tool-fleet'
+import Fleet from '@deepseek-ai/dsh-fleet'
+import Worktrees from '@deepseek-ai/dsh-worktree'
+import SubprocessLocal from '@deepseek-ai/dsh-subprocess-local'
 import * as ToolSubagent from '@deepseek-ai/dsh-tool-subagent'
 import * as ToolWeb from '@deepseek-ai/dsh-tool-web'
 import VmWorkflowEngine from '@deepseek-ai/dsh-workflow-worker-thread'
@@ -517,6 +521,22 @@ const TOOL_PACKAGES: ToolPackage[] = [
     },
     note:
       'todo_write is session-owned state; UIs render the latest todo/write event as a checklist. `allowParallelInProgress` is required with no default, so the catalog states its choice: `true`, whose description invites several `in_progress` items. A deployment choosing `false` receives the same tool with a description asking for exactly one active task.',
+  },
+  {
+    pkg: '@deepseek-ai/dsh-tool-fleet',
+    dir: 'tool-fleet',
+    source: 'packages/fleet/tool-fleet/src/index.ts',
+    requires: ['ctx.tools', 'ctx.fleet', 'owning Agent session'],
+    writes: ['tool/call', 'tool/result', 'user/message via agent.inject()/followup() for attempt completion notices'],
+    async mount(ctx) {
+      await ctx.plugin(AgentRegistry)
+      await ctx.plugin(SubprocessLocal)
+      await ctx.plugin(Worktrees)
+      await ctx.plugin(Fleet)
+      await ctx.plugin(ToolFleet)
+    },
+    note:
+      'The model-facing consumer of the worktree-fanout fleet: one prompt fans out to N top-level attempt sessions, each in its own git worktree of the base repository. Every verb is fenced to the owning session, diffs are truncated to a byte budget, and exactly one winner merges before cleanup.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-workflow',
