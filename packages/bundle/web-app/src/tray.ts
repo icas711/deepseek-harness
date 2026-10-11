@@ -18,6 +18,7 @@ import { TRAY_ICON_BASE64 } from './tray-icon.ts'
  * Node ESM the default import is the whole `module.exports`, so the
  * constructor is resolved off the wrapper with a whole-module fallback for
  * alternative packagings.
+ * @returns the systray2 constructor.
  */
 export function resolveSysTray(): SysTrayCtor {
   return (systray2 as { default?: SysTrayCtor }).default ?? (systray2 as unknown as SysTrayCtor)

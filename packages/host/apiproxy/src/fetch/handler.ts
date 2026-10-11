@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto'
 import type { z } from 'zod'
 import type { ApiProxy, MuxFrame, HostFrame } from '../api/index.ts'
 import { sessionLogQuerySchema } from '../api/downloads.schema.ts'
+import { runWithWebRequestHeaders } from '../web-identity.ts'
 import type { RequestPayload, ResponseValue, RpcMethodMap } from '../api/rpc-map.ts'
 import type { ClientRequest, RpcError, RpcRequest, RpcResponse, ServerRequest, ServerResponse } from '../api/rpc.ts'
 import { RpcId } from '../api/rpc.ts'
@@ -251,75 +252,83 @@ export function toFetchHandler(api: ApiProxy): { fetch: typeof fetch } {
     // Clients call in (url, init) form — normalize to Request before handling.
     async fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
       const req = input instanceof Request ? input : new Request(input, init)
-      const url = new URL(req.url)
-      const path = url.pathname
-
-      // No-envelope read channels (SSE GET streams + host-only download):
-      // physical routes that answer directly, without a wire envelope.
-      if (path === '/api/events.mux' && req.method === 'GET') {
-        return sseResponse(api.events.mux({ rpcId: RpcId(randomUUID()), payload: {} }, req.signal))
-      }
-      if (path === '/api/events.host' && req.method === 'GET') {
-        return sseResponse(api.events.host({ rpcId: RpcId(randomUUID()), payload: {} }, req.signal))
-      }
-      if (path === '/api/session.export' && (req.method === 'GET' || req.method === 'HEAD')) {
-        // Query params are a different boundary from the POST envelope, but
-        // the request still casts its brands only through the domain schema.
-        const parsed = sessionLogQuerySchema.safeParse(Object.fromEntries(url.searchParams))
-        if (!parsed.success) {
-          return new Response('missing or invalid sessionId query parameter', { status: 400 })
-        }
-        const response = await api.downloads.sessionLog(parsed.data, req.signal)
-        if (req.method === 'GET') return response
-        await response.body?.cancel()
-        return new Response(null, { status: response.status, headers: response.headers })
-      }
-
-      if (req.method !== 'POST' || !path.startsWith('/api/')) {
-        return new Response('not found', { status: 404 })
-      }
-
-      // Cross-site write fence: browsers send "simple" POSTs (text/plain,
-      // form encodings) without a CORS preflight, so a malicious page could
-      // otherwise execute side-effectful RPCs blind — the response stays
-      // unreadable cross-origin, but session.prompt would still run. Only the
-      // JSON media type is accepted; anything else is forced into a preflight
-      // this server never answers. 415 = carrier layer, like the 400 below.
-      const mediaType = req.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase()
-      if (mediaType !== 'application/json') {
-        return new Response('content type must be application/json', { status: 415 })
-      }
-
-      let body: unknown
-      try {
-        body = await req.json()
-      } catch {
-        // 400 = carrier layer (body is not even JSON); valid JSON with a bad shape goes 200 + bad-request.
-        return new Response('body is not JSON', { status: 400 })
-      }
-
-      if (path === '/api/respond') {
-        const parsed = clientResponseSchema.safeParse(body)
-        if (!parsed.success) return Response.json({ accepted: false, reason: 'bad-response' })
-        return Response.json(await api.respond(parsed.data))
-      }
-
-      const method = methodFor(path.slice('/api/'.length))
-      if (method === undefined) return new Response('not found', { status: 404 })
-
-      const envelope = clientRequestSchema.safeParse(body)
-      if (!envelope.success) {
-        // Best effort at correlation: salvage a string rpcId from the raw body;
-        // otherwise the fixed sentinel keeps the response a valid ServerResponse.
-        const rawId = (body as { rpcId?: unknown } | null)?.rpcId
-        const rpcId = typeof rawId === 'string' ? RpcId(rawId) : INVALID_REQUEST_RPC_ID
-        return errorResponse(rpcId, { code: 'bad-request', message: 'invalid client-request message', details: { issues: envelope.error.issues } })
-      }
-      const message: ClientRequest = envelope.data
-      if (message.method !== method) {
-        return errorResponse(message.rpcId, { code: 'bad-request', message: `method "${message.method}" does not match path "${method}"`, details: { issues: [] } })
-      }
-      return handleUnary(api, method, message, req.signal)
+      // Every serving pass runs under its request's headers so the gateway's
+      // scoping points can resolve the calling web user's identity; the store
+      // dies with the pass (an SSE stream keeps its open-time snapshot).
+      return runWithWebRequestHeaders(req.headers, () => handle(req, api))
     },
   }
+}
+
+/** One serving pass over a normalized Request (see toFetchHandler.fetch). */
+async function handle(req: Request, api: ApiProxy): Promise<Response> {
+  const url = new URL(req.url)
+  const path = url.pathname
+
+  // No-envelope read channels (SSE GET streams + host-only download):
+  // physical routes that answer directly, without a wire envelope.
+  if (path === '/api/events.mux' && req.method === 'GET') {
+    return sseResponse(api.events.mux({ rpcId: RpcId(randomUUID()), payload: {} }, req.signal))
+  }
+  if (path === '/api/events.host' && req.method === 'GET') {
+    return sseResponse(api.events.host({ rpcId: RpcId(randomUUID()), payload: {} }, req.signal))
+  }
+  if (path === '/api/session.export' && (req.method === 'GET' || req.method === 'HEAD')) {
+    // Query params are a different boundary from the POST envelope, but
+    // the request still casts its brands only through the domain schema.
+    const parsed = sessionLogQuerySchema.safeParse(Object.fromEntries(url.searchParams))
+    if (!parsed.success) {
+      return new Response('missing or invalid sessionId query parameter', { status: 400 })
+    }
+    const response = await api.downloads.sessionLog(parsed.data, req.signal)
+    if (req.method === 'GET') return response
+    await response.body?.cancel()
+    return new Response(null, { status: response.status, headers: response.headers })
+  }
+
+  if (req.method !== 'POST' || !path.startsWith('/api/')) {
+    return new Response('not found', { status: 404 })
+  }
+
+  // Cross-site write fence: browsers send "simple" POSTs (text/plain,
+  // form encodings) without a CORS preflight, so a malicious page could
+  // otherwise execute side-effectful RPCs blind — the response stays
+  // unreadable cross-origin, but session.prompt would still run. Only the
+  // JSON media type is accepted; anything else is forced into a preflight
+  // this server never answers. 415 = carrier layer, like the 400 below.
+  const mediaType = req.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase()
+  if (mediaType !== 'application/json') {
+    return new Response('content type must be application/json', { status: 415 })
+  }
+
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    // 400 = carrier layer (body is not even JSON); valid JSON with a bad shape goes 200 + bad-request.
+    return new Response('body is not JSON', { status: 400 })
+  }
+
+  if (path === '/api/respond') {
+    const parsed = clientResponseSchema.safeParse(body)
+    if (!parsed.success) return Response.json({ accepted: false, reason: 'bad-response' })
+    return Response.json(await api.respond(parsed.data))
+  }
+
+  const method = methodFor(path.slice('/api/'.length))
+  if (method === undefined) return new Response('not found', { status: 404 })
+
+  const envelope = clientRequestSchema.safeParse(body)
+  if (!envelope.success) {
+    // Best effort at correlation: salvage a string rpcId from the raw body;
+    // otherwise the fixed sentinel keeps the response a valid ServerResponse.
+    const rawId = (body as { rpcId?: unknown } | null)?.rpcId
+    const rpcId = typeof rawId === 'string' ? RpcId(rawId) : INVALID_REQUEST_RPC_ID
+    return errorResponse(rpcId, { code: 'bad-request', message: 'invalid client-request message', details: { issues: envelope.error.issues } })
+  }
+  const message: ClientRequest = envelope.data
+  if (message.method !== method) {
+    return errorResponse(message.rpcId, { code: 'bad-request', message: `method "${message.method}" does not match path "${method}"`, details: { issues: [] } })
+  }
+  return handleUnary(api, method, message, req.signal)
 }

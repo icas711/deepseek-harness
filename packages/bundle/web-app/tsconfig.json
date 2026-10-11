@@ -30,6 +30,12 @@
       "path": "../../host/webserver"
     },
     {
+      "path": "../../host/apiproxy"
+    },
+    {
+      "path": "../../workspace/workspace"
+    },
+    {
       "path": "../../core/system-prompt"
     },
     {

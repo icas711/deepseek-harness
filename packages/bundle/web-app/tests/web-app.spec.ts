@@ -71,12 +71,11 @@ function stageDist(): string {
 }
 
 /** A fake webServer capturing the fallback seat and index taps. */
-function fakeHttpServer(host: '127.0.0.1' | '0.0.0.0' = '127.0.0.1', token?: string): { server: WebServer; seat: () => unknown } {
+function fakeHttpServer(host: '127.0.0.1' | '0.0.0.0' = '127.0.0.1'): { server: WebServer; seat: () => unknown } {
   let fallback: unknown
   const server = {
     host,
     port: 4567,
-    token,
     registerFallback: (handler: unknown) => {
       fallback = handler
       return () => { fallback = undefined }
@@ -179,24 +178,6 @@ describe('web-app runtime glue', () => {
     apply(ctx, new Config({ printUrl: true, surfaceContext: true, trustedHosts: [], tray: false }))
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(log).toHaveBeenCalledWith('dsh web: http://127.0.0.1:4567')
-    await ctx.fiber.dispose()
-  })
-
-  it('appends the one-shot token suffix to both printed URLs when the gate is on', async () => {
-    stageDist()
-    const ctx = new Context()
-    ctx.provide('webServer', fakeHttpServer('0.0.0.0', 's3cr/3t=').server)
-    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-    apply(ctx, new Config({ printUrl: true, surfaceContext: true, trustedHosts: [], tray: false }))
-    await ctx.plugin(SystemPrompt, { persona: '' })
-    await new Promise(resolve => setTimeout(resolve, 0))
-    // The credential is URL-encoded and reaches both the loopback and the LAN URL;
-    // the model-facing prompt and DSH_WEB_URL stay token-less.
-    expect(log).toHaveBeenCalledWith('dsh web: http://127.0.0.1:4567/?token=s3cr%2F3t%3D (LAN: http://192.168.1.5:4567/?token=s3cr%2F3t%3D)')
-    const assembly = await ctx.systemPrompt.assemble()
-    const section = assembly.sections.find(entry => entry.name === 'app:web-surface')
-    expect(section?.text).toContain('http://127.0.0.1:4567')
-    expect(section?.text).not.toContain('s3cr')
     await ctx.fiber.dispose()
   })
 

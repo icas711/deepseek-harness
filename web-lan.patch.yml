@@ -5,17 +5,19 @@
 # browser-trust fence (строки `web-runtime` и `connection` bundle-патча).
 #
 # Применение:
-#   pnpm dsh web --patch web-lan.patch.yml --token <секрет>
-# или задайте секрет через окружение (флаг приоритетнее):
-#   $env:DSH_WEB_TOKEN = '<секрет>'; pnpm dsh web --patch web-lan.patch.yml
+#   pnpm dsh web --patch web-lan.patch.yml
+#
+# Вход по логину и паролю включает строка `web-auth` из патча бандла web-app:
+# она читает DSH_WEB_USERS / DSH_WEB_ADMINS из окружения. Для LAN-запуска
+# задайте пользователей (хэш — `node deploy/hash-password.mjs <логин>`):
+#   $env:DSH_WEB_USERS = 'alice:scrypt$...'; pnpm dsh web --patch web-lan.patch.yml
 #
 # ВНИМАНИЕ: GUI управляет агентом, который исполняет команды на этой машине;
-# бинд на все интерфейсы открывает его всей локальной сети. Без токена
+# бинд на все интерфейсы открывает его всей локальной сети. Без DSH_WEB_USERS
 # единственной защитой остаётся Host-fence (анти-DNS-rebinding), а не
-# аутентификация — задавайте токен.
+# аутентификация — задавайте пользователей.
 - id: webserver
   config:
     host: '0.0.0.0'
     # 3080 занят GUI работающей сессии, 3081 занят сторонним процессом.
     port: 3082
-    token: !!js ctx.webStartup.token ?? (process.env.DSH_WEB_TOKEN || undefined)

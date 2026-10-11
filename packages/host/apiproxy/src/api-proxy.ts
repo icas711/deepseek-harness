@@ -115,6 +115,24 @@ import {
   inspectApiRemoteSession,
 } from '@deepseek-ai/dsh-api-remotes'
 import { canOpenNativePath, openNativePath, openNativeTextFile } from './native-path-opener.ts'
+import { isWithinRoot, scopingIdentity } from './web-identity.ts'
+import { realpathSync } from 'node:fs'
+import { resolve } from 'node:path'
+
+/**
+ * Canonicalize a caller-named path for root-containment checks: realpath when
+ * the path exists (the same canon the cabinet roots and session cwds carry),
+ * absolute resolution otherwise.
+ * @param path - the caller-named path.
+ * @returns the canonical form for comparison.
+ */
+function canonicalPath(path: string): string {
+  try {
+    return realpathSync(path)
+  } catch {
+    return resolve(path)
+  }
+}
 
 /** Page size when history is called without maxMessages. */
 const DEFAULT_MAX_MESSAGES = 50
@@ -1773,6 +1791,14 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
    */
   async function listVisibleSessionSummaries(signal?: AbortSignal): Promise<SessionSummary[]> {
     signal?.throwIfAborted()
+    // Web isolation boundary: a scoped (non-admin) web user sees only the
+    // sessions whose cwd lives inside their cabinet root. Admins and non-web
+    // callers (TUI, headless, in-process) list everything; an attached
+    // session stays visible to them even without a header cwd, while a cold
+    // record without cwd is never served (the standing rule below).
+    const scope = scopingIdentity(ctx)
+    const visibleCwd = (cwd: string | undefined): boolean =>
+      scope === undefined || (cwd !== undefined && isWithinRoot(cwd, scope.root))
     const summarizeAttached = (session: Session): SessionSummary => {
       const agent = ctx.agents.get(session.id)
       const projections = listProjectionsFor(ctx, session.header, session)
@@ -1781,13 +1807,15 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         ...projections === undefined ? {} : { projections },
       }
     }
-    const items = ctx.sessions.list().map(summarizeAttached)
+    const items = ctx.sessions.list()
+      .filter(session => visibleCwd(session.header.cwd))
+      .map(summarizeAttached)
     signal?.throwIfAborted()
     const attached = new Set(items.map(item => item.sessionId))
     const persistence = ctx.get('sessionPersistence')
     if (persistence !== undefined) {
       const cold = (await persistence.list(signal))
-        .filter(meta => !attached.has(meta.id) && meta.cwd !== undefined)
+        .filter(meta => !attached.has(meta.id) && meta.cwd !== undefined && visibleCwd(meta.cwd))
       signal?.throwIfAborted()
       for (let offset = 0; offset < cold.length; offset += COLD_SUMMARY_BATCH_SIZE) {
         signal?.throwIfAborted()
@@ -2215,6 +2243,10 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
 
       async create(request) {
         const sessionId = request.payload.sessionId ?? `session-${randomUUID()}` as SessionId
+        // Web isolation: a scoped user's new session lives inside their
+        // cabinet. An explicit cwd or workspace outside it is refused loud;
+        // an omitted project defaults to the cabinet root, not the host cwd.
+        const scope = scopingIdentity(ctx)
         let workspace: Workspace | undefined
         if (request.payload.workspaceId !== undefined) {
           workspace = ctx.workspaceRegistry.get(brandWorkspaceId(request.payload.workspaceId))
@@ -2225,8 +2257,25 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
               details: { workspaceId: request.payload.workspaceId },
             })
           }
+          if (scope !== undefined && !isWithinRoot(workspace.path, scope.root)) {
+            return err(request, {
+              code: 'workspace-outside-root',
+              message: `workspace "${request.payload.workspaceId}" lies outside your directory`,
+              details: { path: workspace.path, root: scope.root },
+            })
+          }
         }
-        const cwd = workspace?.path ?? request.payload.cwd ?? defaults.cwd
+        if (scope !== undefined && workspace === undefined && request.payload.cwd !== undefined) {
+          const canonical = canonicalPath(request.payload.cwd)
+          if (!isWithinRoot(canonical, scope.root)) {
+            return err(request, {
+              code: 'session-outside-root',
+              message: `directory "${request.payload.cwd}" lies outside your directory`,
+              details: { path: canonical, root: scope.root },
+            })
+          }
+        }
+        const cwd = workspace?.path ?? request.payload.cwd ?? scope?.root ?? defaults.cwd
         const requestedPreset = request.payload.agentPreset
         try {
           await ensureSession(sessionId, cwd, request.payload.sessionId !== undefined, requestedPreset)
@@ -2292,6 +2341,15 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         const { sessionId, beforeSeq, maxMessages } = request.payload
         try {
           const source = await historySourceFor(sessionId)
+          // Web isolation: a scoped user reads only sessions inside their
+          // cabinet; anything else answers exactly like an unknown id.
+          const identity = scopingIdentity(ctx)
+          if (identity !== undefined) {
+            const cwd = sourceSession(source).header.cwd
+            if (cwd === undefined || !isWithinRoot(cwd, identity.root)) {
+              throw new SessionNotFound(sessionId)
+            }
+          }
           // Both awaits happen BEFORE the cut. Ensuring the recorded
           // composition's standing mount is what registers its projection
           // units, so a first cold read would otherwise serve a baseline
@@ -2944,14 +3002,33 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
 
     workspace: {
       list(request) {
+        // Web isolation: a scoped user's roster carries only the workspaces
+        // inside their cabinet; admins and non-web callers see the registry.
+        const scope = scopingIdentity(ctx)
+        const items = scope === undefined
+          ? ctx.workspaceRegistry.list()
+          : ctx.workspaceRegistry.list().filter(workspace => isWithinRoot(workspace.path, scope.root))
         return Promise.resolve(ok(request, {
-          items: ctx.workspaceRegistry.list().map(workspaceView),
+          items: items.map(workspaceView),
           archivedSessionIds: [...ctx.workspaceRegistry.archivedSessionIds],
         }))
       },
 
       async create(request) {
         const { path } = request.payload
+        // Web isolation: a scoped user registers workspaces only inside their
+        // cabinet; the registry's own path validation stays the second gate.
+        const scope = scopingIdentity(ctx)
+        if (scope !== undefined) {
+          const canonical = canonicalPath(path)
+          if (!isWithinRoot(canonical, scope.root)) {
+            return err(request, {
+              code: 'workspace-outside-root',
+              message: `directory "${path}" lies outside your directory`,
+              details: { path: canonical, root: scope.root },
+            })
+          }
+        }
         try {
           const { workspace, created } = await ensureWorkspace(path)
           return ok(request, { workspace: workspaceView(workspace), created })
@@ -3118,10 +3195,25 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
             details: { capability: capability.kind },
           })
         }
+        // Web isolation: the browse surface (workspace dialogs) serves a
+        // scoped user only inside their cabinet; an absent path lists the
+        // cabinet root rather than the host home.
+        const scope = scopingIdentity(ctx)
+        if (scope !== undefined && request.payload.path !== undefined) {
+          const canonical = canonicalPath(request.payload.path)
+          if (!isWithinRoot(canonical, scope.root)) {
+            return err(request, {
+              code: 'workspace-outside-root',
+              message: `directory "${request.payload.path}" lies outside your directory`,
+              details: { path: canonical, root: scope.root },
+            })
+          }
+        }
+        const listPath = scope === undefined ? request.payload.path : request.payload.path ?? scope.root
         try {
           // The carrier's signal follows the caller: a disconnect or timeout
           // stops the backend's directory scan instead of outliving it.
-          return ok(request, await capability.list(request.payload.path, signal))
+          return ok(request, await capability.list(listPath, signal))
         } catch (error: unknown) {
           // An abort is the caller's own timeout/disconnect, not a server
           // failure — same code pickDirectory and command.execute report.
@@ -3140,6 +3232,19 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
             message: `host.createDirectory needs the browse capability; the composed picker serves "${capability.kind}"`,
             details: { capability: capability.kind },
           })
+        }
+        // Web isolation: same confinement as listing; the joined target keeps
+        // a traversal-carrying `name` from escaping the cabinet.
+        const scope = scopingIdentity(ctx)
+        if (scope !== undefined) {
+          const canonical = canonicalPath(resolve(request.payload.path, request.payload.name))
+          if (!isWithinRoot(canonical, scope.root)) {
+            return err(request, {
+              code: 'workspace-outside-root',
+              message: 'the new directory would lie outside your directory',
+              details: { path: canonical, root: scope.root },
+            })
+          }
         }
         try {
           return ok(request, { path: await capability.createDirectory(request.payload.path, request.payload.name) })

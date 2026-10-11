@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type {
   SidebarFooterActionOwnerProps, SidebarRootComponentProps, SidebarSectionOwnerProps,
   SidebarSettingsOwnerProps,
 } from '../src/client/contract/slots.ts'
-import { SidebarRoot } from '../src/client/SidebarRoot.tsx'
+import { SidebarRoot, internals } from '../src/client/SidebarRoot.tsx'
 import { ru } from '../src/client/locales.ts'
 
 // Shipped-dictionary translate stub: the shell renders the same copy the
@@ -115,5 +115,44 @@ describe('SidebarRoot shell', () => {
     const b = mountShell({ collapsed: true })
     expect(b.regionOwner().wide).toBe(false)
     expect(screen.getByRole('button', { name: 'Открыть боковую панель' })).toBeTruthy()
+  })
+})
+
+describe('SidebarRoot logout control (web-auth marker)', () => {
+  const MARKER = 'dsh-web-auth'
+
+  function shipMarker(): void {
+    document.head.appendChild(Object.assign(document.createElement('meta'), { name: MARKER, content: 'on' }))
+  }
+
+  afterEach(() => {
+    document.querySelector(`meta[name="${MARKER}"]`)?.remove()
+    vi.unstubAllGlobals()
+  })
+
+  it('renders only when the served page carries the auth marker', () => {
+    mountShell()
+    expect(screen.queryByRole('button', { name: 'Выйти' })).toBeNull()
+    cleanup()
+    shipMarker()
+    mountShell()
+    expect(screen.getByRole('button', { name: 'Выйти' })).toBeTruthy()
+  })
+
+  it('revokes the session server-side and lands on the login page', async () => {
+    shipMarker()
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 303 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const navigate = vi.fn()
+    const realNavigate = internals.navigate
+    internals.navigate = navigate
+    try {
+      mountShell()
+      fireEvent.click(screen.getByRole('button', { name: 'Выйти' }))
+      expect(fetchMock).toHaveBeenCalledWith('/logout', { method: 'POST' })
+      await waitFor(() => { expect(navigate).toHaveBeenCalledWith('/login') })
+    } finally {
+      internals.navigate = realNavigate
+    }
   })
 })

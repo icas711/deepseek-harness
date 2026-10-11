@@ -18,8 +18,7 @@
 import { useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
-  BrandWordmark, FishLogo,
-  IconNewChatOutline16, IconPanelLeftOutline16,
+  BrandWordmark, FishLogo, IconLogoutOutline16, IconNewChatOutline16, IconPanelLeftOutline16,
   Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SidebarRootComponentProps } from './contract/slots.ts'
@@ -27,6 +26,32 @@ import css from './SidebarRoot.module.css'
 
 /** Wide-content unmount delay; matches the 150ms wide-content fade-out. */
 const COLLAPSE_SETTLE_MS = 150
+
+/**
+ * Whether the served page carries the login-password marker: the web-auth
+ * host plugin injects `<meta name="dsh-web-auth" content="on">` into the
+ * index only while the auth seat is active. Without it there is no session
+ * to end, so the control stays out of the shell.
+ */
+function webAuthEnabled(): boolean {
+  return document.querySelector('meta[name="dsh-web-auth"]') !== null
+}
+
+/**
+ * End the browser session: revoke the cookie server-side, then land on the
+ * login page. The navigation runs even when the revocation call fails — a
+ * dead session cookie cannot log back in either way.
+ */
+function logout(): void {
+  void fetch('/logout', { method: 'POST' }).finally(() => { internals.navigate('/login') })
+}
+
+/** Test seam: the post-logout navigation (specs substitute; production assigns). */
+export const internals = {
+  navigate(this: void, url: string): void {
+    window.location.assign(url)
+  },
+}
 
 /**
  * How long the column's scrollbars stay drawn after the pointer leaves it.
@@ -49,6 +74,9 @@ export function SidebarRoot({
   t,
   renderSlot,
 }: SidebarRootComponentProps) {
+  // The auth marker is a page-load fact; reading it once per mount keeps the
+  // footer stable while the column folds.
+  const authed = webAuthEnabled()
   // Wide content stays mounted while the collapse animates (fading via
   // .collapsed .wide), unmounts at settle, and remounts right away on expand.
   const [settled, setSettled] = useState(collapsed)
@@ -178,9 +206,23 @@ export function SidebarRoot({
         })}
       </div>
 
-      {/* Footer actions stack above Settings in both sidebar widths. */}
+      {/* Footer actions stack above Settings in both sidebar widths; the
+          shell's own logout control leads when web auth is active. */}
       <div className={css.footArea}>
         <div className={css.footerActions}>
+          {authed && (
+            <Tooltip label={t('logout')} delayMs={500} disabled={wide}>
+              <button
+                type="button"
+                className={css.logoutButton}
+                aria-label={t('logout')}
+                onClick={logout}
+              >
+                <IconLogoutOutline16 size={wide ? 14 : 18} />
+                {wide && <span className={clsx(css.logoutLabel, css.wide)}>{t('logout')}</span>}
+              </button>
+            </Tooltip>
+          )}
           {renderSlot('sidebar.footer.action', { wide })}
         </div>
         <div className={css.settingsArea}>

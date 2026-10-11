@@ -35,11 +35,16 @@
     "./client": {
       "types": "./lib/types/fetch/client.d.ts",
       "default": "./lib/types/fetch/client.js"
+    },
+    "./web-identity": {
+      "types": "./lib/types/web-identity.d.ts",
+      "default": "./lib/web-identity.js"
     }
   },
   "files": [
     "lib/index.js",
     "lib/invariant.js",
+    "lib/web-identity.js",
     "lib/types/**/*.js",
     "lib/types/**/*.d.ts"
   ],

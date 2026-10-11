@@ -9,4 +9,5 @@ export const ru = {
   'session.new.label': 'Создать сессию',
   'toggle.open': 'Открыть боковую панель',
   'toggle.collapse': 'Свернуть боковую панель',
+  'logout': 'Выйти',
 } satisfies Record<string, string>

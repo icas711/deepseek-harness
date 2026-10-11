@@ -123,17 +123,6 @@ function localWebUrl(ctx: Context): string {
   return `http://${LOOPBACK_HOST}:${String(port)}`
 }
 
-/**
- * The URL suffix presenting the token once, so the first page load exchanges
- * it for the session cookie. The prompt section and `DSH_WEB_URL` stay
- * token-less: the credential must not enter session logs.
- * @param token - the active webserver token, or undefined when the gate is off.
- * @returns the empty string, or `/?token=<encoded>` to append to a printed URL.
- */
-function credentialSuffix(token: string | undefined): string {
-  return token === undefined ? '' : `/?token=${encodeURIComponent(token)}`
-}
-
 /** Dist location is workspace knowledge of this bundle: resolved through the frontend package exports, not configured. */
 function resolveDistIndex(): string {
   const require = createRequire(import.meta.url)
@@ -216,8 +205,7 @@ export function apply(ctx: Context, config: Config): void {
       // Reuse the exact LAN snapshot provided to the /api trust fence.
       const lanCandidate = runtime.lanAddresses[0]
       const port = ctx.webServer.port
-      const auth = credentialSuffix(ctx.webServer.token)
-      console.log(`dsh web: ${localWebUrl(ctx)}${auth}${lanCandidate === undefined ? '' : ` (LAN: http://${lanCandidate}:${String(port)}${auth})`}`)
+      console.log(`dsh web: ${localWebUrl(ctx)}${lanCandidate === undefined ? '' : ` (LAN: http://${lanCandidate}:${String(port)})`}`)
     }
     // This row's own activation can precede a sibling failure. The app owns
     // readiness by waiting for its Loader tree, or prints at once in a

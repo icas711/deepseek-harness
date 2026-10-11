@@ -34,6 +34,10 @@ flowchart LR
   cfg --> plugin_dsh_base_agent_default_model
   plugin_dsh_base_jobs["jobs<br/>@deepseek-ai/dsh-jobs-local"]
   cfg --> plugin_dsh_base_jobs
+  plugin_dsh_base_worktrees["worktrees<br/>@deepseek-ai/dsh-worktree"]
+  cfg --> plugin_dsh_base_worktrees
+  plugin_dsh_base_fleet["fleet<br/>@deepseek-ai/dsh-fleet"]
+  cfg --> plugin_dsh_base_fleet
   plugin_dsh_base_llm_retry["llm-retry<br/>@deepseek-ai/dsh-llm-retry"]
   cfg --> plugin_dsh_base_llm_retry
   plugin_dsh_base_quota_pause["quota-pause<br/>@deepseek-ai/dsh-quota-pause"]
@@ -76,6 +80,8 @@ flowchart LR
   cfg --> plugin_dsh_base_tool_pwsh
   plugin_dsh_base_tool_jobs["tool-jobs<br/>@deepseek-ai/dsh-tool-jobs"]
   cfg --> plugin_dsh_base_tool_jobs
+  plugin_dsh_base_tool_fleet["tool-fleet<br/>@deepseek-ai/dsh-tool-fleet"]
+  cfg --> plugin_dsh_base_tool_fleet
   plugin_dsh_base_fs_observation_policy["fs-observation-policy<br/>@deepseek-ai/dsh-fs-observation-policy"]
   cfg --> plugin_dsh_base_fs_observation_policy
   plugin_dsh_base_tool_fs["tool-fs<br/>@deepseek-ai/dsh-tool-fs"]
@@ -185,6 +191,8 @@ flowchart LR
 | `agent` | `@deepseek-ai/dsh-agent` |
 | `agent-default-model` | `@deepseek-ai/dsh-agent-default-model` |
 | `jobs` | `@deepseek-ai/dsh-jobs-local` |
+| `worktrees` | `@deepseek-ai/dsh-worktree` |
+| `fleet` | `@deepseek-ai/dsh-fleet` |
 | `llm-retry` | `@deepseek-ai/dsh-llm-retry` |
 | `quota-pause` | `@deepseek-ai/dsh-quota-pause` |
 | `settings` | `@deepseek-ai/dsh-settings-file` |
@@ -206,6 +214,7 @@ flowchart LR
 | `tool-bash` | `@deepseek-ai/dsh-tool-bash` |
 | `tool-pwsh` | `@deepseek-ai/dsh-tool-pwsh` |
 | `tool-jobs` | `@deepseek-ai/dsh-tool-jobs` |
+| `tool-fleet` | `@deepseek-ai/dsh-tool-fleet` |
 | `fs-observation-policy` | `@deepseek-ai/dsh-fs-observation-policy` |
 | `tool-fs` | `@deepseek-ai/dsh-tool-fs` |
 | `tool-fs-search` | `@deepseek-ai/dsh-tool-fs-search` |

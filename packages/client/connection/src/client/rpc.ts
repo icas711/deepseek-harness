@@ -7,6 +7,7 @@ import {
 } from '@deepseek-ai/dsh-host-apiproxy/api'
 import type { ClientConnectionRpc } from '../rpc.ts'
 import { randomUuid } from './random-uuid.ts'
+import { redirectToLoginWhenUnauthorized } from './session-expired.ts'
 
 const INTERNAL_BASE = 'http://dsh.internal'
 const CHANNEL_PATTERN = /^\/[A-Za-z0-9._~-]+$/
@@ -37,6 +38,7 @@ export function createWebConnectionRpc(): ClientConnectionRpc {
         },
       )
       if (!response.ok) {
+        redirectToLoginWhenUnauthorized(response.status)
         throw new Error(`transport failure for ${channel}/${endpoint}: HTTP ${response.status}`)
       }
       const full = serverResponseSchema.parse(await response.json())

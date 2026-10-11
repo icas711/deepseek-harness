@@ -41,6 +41,13 @@ export interface RpcErrorDetailsMap {
   'workspace-invalid-path': { path: string }
   'workspace-name-conflict': { name: string }
   'workspace-move-invalid': { workspaceId: string; sessionId: SessionId; beforeSessionId?: SessionId }
+  /**
+   * A scoped web user named a new-session cwd outside their cabinet root.
+   * `path` is the canonical requested path; `root` the canonical cabinet.
+   */
+  'session-outside-root': { path: string; root: string }
+  /** A scoped web user named a workspace path outside their cabinet root. */
+  'workspace-outside-root': { path: string; root: string }
   'directory-unreadable': { path: string }
   'directory-exists': { path: string }
   'directory-create-failed': { path: string }

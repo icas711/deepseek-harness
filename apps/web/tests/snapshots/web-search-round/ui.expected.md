@@ -17,9 +17,9 @@
   - img
   - text: Внедрение контекста @deepseek-ai/dsh-system-prompt
 - text: Сбой
-- 'button "Search Error: Z.ai search has no API key for \"ZAI_API_KEY\"; store it through the credentials service, or set \"apiKey\" in the web-search-zai config"':
+- 'button "Search Error: token expired or incorrect"':
   - img
-  - text: "Search Error: Z.ai search has no API key for \"ZAI_API_KEY\"; store it through the credentials service, or set \"apiKey\" in the web-search-zai config"
+  - text: "Search Error: token expired or incorrect"
 - paragraph: SEARCH_DONE
 - button "Копировать":
   - img

@@ -1,6 +1,6 @@
 /**
  * The web app's command-line provider: it parses the `dsh --profile web` flag
- * family (`--host`, `--port`, `--token`, `--trusted-host`) and its `--help`
+ * family (`--host`, `--port`, `--trusted-host`) and its `--help`
  * text, then provides the immutable values as {@link WEB_STARTUP_SERVICE}.
  * Ordinary rows inject that service before reading it from lazy config.
  *
@@ -65,8 +65,6 @@ export interface WebStartupValues {
   host?: string
   /** `--port`, absent when the invocation did not name one. */
   port?: number
-  /** `--token`, absent when the invocation did not name one. */
-  token?: string
   /** Explicit `--trusted-host` authorities, in argument order. */
   trustedHosts: string[]
 }
@@ -75,13 +73,12 @@ export interface WebStartupValues {
 interface WebOptions {
   host?: string
   port?: string
-  token?: string
   trustedHost?: string[]
 }
 
 /**
  * Whether a custom-harness surface already answers on this loopback port.
- * The marker is the served index's boot injection, or — with the token gate
+ * The marker is the served index's boot injection, or — with the login gate
  * on — the exact 401 body the webserver answers unauthenticated probes with.
  * Any other answer (or no answer) reads as "not this app": the port is free,
  * or something else holds it and the bind will fail loud as before.
@@ -126,13 +123,11 @@ function webCommand(): Command {
     .helpOption('-h, --help', 'show this help')
     .option('--host <host>', 'bind host')
     .option('--port <port>', `listen port; pass 0 to let the OS pick a free one (default ${String(DEFAULT_WEB_PORT)})`)
-    .option('--token <secret>', 'shared token every browser request must present (?token=, Bearer, or cookie)')
     .option('--trusted-host <authority...>', 'extra authority the /api browser-trust fence accepts (host or host:port; repeatable)')
     .addHelpText('after', `
 Examples:
   dsh --profile web                          serve on the composed host and port
   dsh --profile web --port 8080              serve on another port
-  dsh web --patch lan.yml --token SECRET     all-interfaces overlay with token auth
 `)
 }
 
@@ -166,13 +161,9 @@ export function apply(ctx: Context, pluginConfig: Config | undefined): void {
     if (options.port !== undefined && !/^\d+$/.test(options.port)) {
       program.error(`error: --port must be a number, got ${JSON.stringify(options.port)}`)
     }
-    if (options.token === '') {
-      program.error('error: --token must not be empty')
-    }
     const values: WebStartupValues = {
       ...options.host !== undefined && { host: options.host },
       ...options.port !== undefined && { port: Number(options.port) },
-      ...options.token !== undefined && { token: options.token },
       trustedHosts: options.trustedHost ?? [],
     }
     const provide = (): void => { ctx.provide(WEB_STARTUP_SERVICE, values) }

@@ -28,25 +28,18 @@ Match order is fixed: exact table first, then longest matching prefix, then the 
 
 ```ts type-equiv
 /**
- * Gateway config: the listen address and the optional shared credential.
+ * Gateway config: the listen address. Admission is not configured here: a
+ * composition mounts the auth seat through {@link WebServer.registerAuth}.
  */
 interface Config {
   /** Listen host; the two supported values are loopback and all-interfaces. */
   host: '127.0.0.1' | '0.0.0.0'
   /** Listen port; zero requests an OS-assigned port. */
   port: number
-  /**
-   * Shared credential every browser request must present — the `?token=`
-   * query, an `Authorization: Bearer` header, or the session cookie a
-   * presentation issues; absent admits every request. Validation rejects an
-   * empty value: an empty secret would be a disabled gate, not a configured
-   * one.
-   */
-  token?: string
 }
 ```
 
-`host` accepts only `127.0.0.1` (default posture) and `0.0.0.0` (deliberate network exposure); there is no TLS or origin policy, so a non-loopback bind exposes the server to that network — set `token` when the bind leaves the loopback. The dist location is an assembly fact of the frontend plugin that claims the seat.
+`host` accepts only `127.0.0.1` (default posture) and `0.0.0.0` (deliberate network exposure); there is no TLS or origin policy, so a non-loopback bind exposes the server to that network — mount the login-password auth seat ([`dsh-web-app`](../../packages/bundle/web-app/README.md)) when the bind leaves the loopback. The dist location is an assembly fact of the frontend plugin that claims the seat.
 
 ## The service
 
@@ -62,11 +55,28 @@ A request whose handling throws (a malformed %-escape hitting `decodeURIComponen
 
 Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — this section is byte-identical in both language sides of the page. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
+<a id="ctxwebauth--webauthservice"></a>
+
+### `ctx.webAuth` — `WebAuthService`
+
+Service Definition face of the web-auth plugin, consumed by the gateway's scoping points. Declared here (with the primary consumer) because the provider is a higher-level composition plugin of the web bundle; the provider imports this face and satisfies it structurally.
+
+```ts cordis-catalog
+/**
+ * Resolve the identity a Cookie header authenticates right now.
+ * @param cookie - the raw Cookie header value, or undefined when absent.
+ * @returns the identity, or undefined when no live session matches.
+ */
+identityFromCookie(cookie: string | undefined): WebIdentity | undefined
+```
+
+Source: [`packages/host/apiproxy/src/web-identity.ts:55`](../../packages/host/apiproxy/src/web-identity.ts)
+
 <a id="ctxwebserver--webserver"></a>
 
 ### `ctx.webServer` — `WebServer`
 
-The browser HTTP carrier service. Activation listens immediately. Route registration order does not affect requests because configured named routes must be distinct, and the fallback handler answers anything not yet claimed during startup with 404 until its owner registers. A configured `token` gates every HTTP request and upgrade before route dispatch. A listen failure rejects initialization, and the boot process reports the failed fiber.
+The browser HTTP carrier service. Activation listens immediately. Route registration order does not affect requests because configured named routes must be distinct, and the fallback handler answers anything not yet claimed during startup with 404 until its owner registers. A registered auth seat gates every HTTP request and upgrade before route dispatch. A listen failure rejects initialization, and the boot process reports the failed fiber.
 
 ```ts cordis-catalog
 /**
@@ -83,6 +93,17 @@ async stop(): Promise<void>
  * while stopped) leaves the server stopped; the caller retries.
  */
 async start(): Promise<void>
+
+/**
+ * Claim the auth seat: the admission owner consulted before route dispatch
+ * on every HTTP request and upgrade. One owner only — a second registration
+ * throws, because two admission policies cannot compose. Exempting public
+ * paths is the owner's responsibility; the webserver consults it for every
+ * request unconditionally.
+ * @param auth - the admission owner.
+ * @returns the disposer releasing the seat.
+ */
+registerAuth(auth: WebAuth): () => void
 
 /**
  * Register a named route. Duplicate (kind, path) throws — route patterns are
@@ -127,5 +148,5 @@ tapIndex(transform: (html: string) => string): () => void
 applyIndexTaps(html: string): string
 ```
 
-Source: [`packages/host/webserver/src/index.ts:142`](../../packages/host/webserver/src/index.ts)
+Source: [`packages/host/webserver/src/index.ts:92`](../../packages/host/webserver/src/index.ts)
 <!-- END GENERATED cordis-surface -->

@@ -870,3 +870,15 @@ export const IconArchiveOutline20 = ({ size = 20, className }: IconProps) => (
     <path d="M12.7962 12.5661V11.0832H7.20548V12.5661L12.7962 12.5661Z" fill="currentColor" />
   </svg>
 )
+
+/** ic_ds_logout_outline_16 (harness glyph): open door + exit arrow. */
+export const IconLogoutOutline16 = ({ size = 16, className }: IconProps) => (
+  <svg width={size} height={size} className={className} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M6.55 1.55H4.6C3.44 1.55 2.5 2.49 2.5 3.65V12.35C2.5 13.51 3.44 14.45 4.6 14.45H6.55V13.1H4.6C4.18 13.1 3.85 12.77 3.85 12.35V3.65C3.85 3.23 4.18 2.9 4.6 2.9H6.55V1.55Z"
+      fill="currentColor"
+    />
+    <path d="M6.9 7.32H9.1V8.68H6.9Z" fill="currentColor" />
+    <path d="M8.95 4.4L12.65 8.1L8.95 11.8V4.4Z" fill="currentColor" />
+  </svg>
+)

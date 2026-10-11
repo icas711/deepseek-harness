@@ -118,10 +118,21 @@
       config:
         host: !!js ctx.webStartup.host ?? '127.0.0.1'
         port: !!js ctx.webStartup.port ?? 3080
-        # `--token` (or this expression's deployment replacement) turns on the
-        # shared-secret gate; absent, the Host fence below remains the only
-        # access control.
-        token: !!js ctx.webStartup.token
+
+    # Login-password authentication: the webserver auth seat, the /login and
+    # /logout routes, server-side sessions persisted in dsh-home (one per
+    # login, 30 days), per-login cabinet directories under the process cwd,
+    # and the webAuth identity service the API gateway scopes session and
+    # workspace visibility by. DSH_WEB_USERS (login:scrypt-hash, comma-
+    # separated) turns it on; empty or absent leaves the server open for
+    # local runs. DSH_WEB_ADMINS names logins that see every cabinet.
+    - id: web-auth
+      name: '@deepseek-ai/dsh-web-app/webauth'
+      config:
+        users: !!js process.env.DSH_WEB_USERS
+        admins: !!js process.env.DSH_WEB_ADMINS
+        sessionStore: !!js dshHomePath('web-sessions.json')
+        workspaceRoot: !!js process.cwd()
 
     # Web glue owned by this bundle: resolves the built frontend dist (an
     # assembly fact of dsh-web-app, never user config), mounts the

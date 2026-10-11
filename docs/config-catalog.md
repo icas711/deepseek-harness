@@ -809,25 +809,18 @@ Source: [`packages/host/frontend-static/src/index.ts:28`](../packages/host/front
 
 ```ts config-catalog
 /**
- * Gateway config: the listen address and the optional shared credential.
+ * Gateway config: the listen address. Admission is not configured here: a
+ * composition mounts the auth seat through {@link WebServer.registerAuth}.
  */
 export interface Config {
   /** Listen host; the two supported values are loopback and all-interfaces. */
   host: '127.0.0.1' | '0.0.0.0'
   /** Listen port; zero requests an OS-assigned port. */
   port: number
-  /**
-   * Shared credential every browser request must present — the `?token=`
-   * query, an `Authorization: Bearer` header, or the session cookie a
-   * presentation issues; absent admits every request. Validation rejects an
-   * empty value: an empty secret would be a disabled gate, not a configured
-   * one.
-   */
-  token?: string
 }
 ```
 
-Source: [`packages/host/webserver/src/index.ts:58`](../packages/host/webserver/src/index.ts)
+Source: [`packages/host/webserver/src/index.ts:76`](../packages/host/webserver/src/index.ts)
 
 <a id="deepseek-aidsh-invariants"></a>
 

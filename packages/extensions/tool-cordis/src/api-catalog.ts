@@ -563,6 +563,47 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'fleet',
+    summary: 'Worktree-fanout orchestration over `ctx.worktrees`, `ctx.agents`, and the workspace registry.',
+    description: 'Worktree-fanout orchestration over `ctx.worktrees`, `ctx.agents`, and the workspace registry. Mounts as `ctx.fleet`.',
+    methods: [
+      {
+        signature: 'async fanout(request: FleetFanoutRequest, owner: Agent): Promise<FleetSnapshot>',
+        description: 'Start one fanout: create isolated worktrees, register workspaces, start member agents, deliver the prompt.',
+        parameters: [{ name: 'request', description: 'fully specified fanout request.' }, { name: 'owner', description: 'the live agent whose session owns the fanout; its depth bounds recursion.' }],
+        returns: 'the fanout snapshot after every attempt started.',
+        throws: ['when the request is invalid, the depth cap is exceeded, or git refuses a worktree (already-created attempts roll back).'],
+      },
+      {
+        signature: 'status(caller: Agent, fanoutId?: FleetFanoutId): FleetSnapshot[]',
+        description: 'Fanout snapshots visible to one caller: the caller\'s own fanouts, newest first, or one by id.',
+        parameters: [{ name: 'caller', description: 'the live agent asking.' }, { name: 'fanoutId', description: 'restrict the answer to one fanout.' }],
+        returns: 'snapshots newest-first; one fanout for an exact id.',
+        throws: ['FleetForeignOwnerError when the addressed fanout belongs to another session.'],
+      },
+      {
+        signature: 'async diff(caller: Agent, fanoutId: FleetFanoutId): Promise<FleetMemberDiff[]>',
+        description: 'Diff every attempt of one fanout against the shared base commit.',
+        parameters: [{ name: 'caller', description: 'the live agent asking; must own the fanout.' }, { name: 'fanoutId', description: 'the fanout to diff.' }],
+        returns: 'one diff per member, in attempt order.',
+        throws: ['FleetForeignOwnerError when the fanout belongs to another session.'],
+      },
+      {
+        signature: 'async merge(caller: Agent, fanoutId: FleetFanoutId, sessionId: SessionId): Promise<BranchMergeResult>',
+        description: 'Merge one attempt\'s branch into the base repository\'s current HEAD. The winner must have finished (no live running agent); a conflicting merge is aborted and reported, never auto-retried.',
+        parameters: [{ name: 'caller', description: 'the live agent asking; must own the fanout.' }, { name: 'fanoutId', description: 'the fanout to merge from.' }, { name: 'sessionId', description: 'the member whose branch wins.' }],
+        returns: 'the merge classification and combined git output.',
+        throws: ['FleetForeignOwnerError when the fanout belongs to another session, or when the member is unknown or still running.'],
+      },
+      {
+        signature: 'async cleanup(caller: Agent, fanoutId: FleetFanoutId): Promise<void>',
+        description: 'Remove one fanout: stop member agents, delete worktrees and their branches, unregister workspaces. The fanout record leaves the registry; persisted member sessions stay.',
+        parameters: [{ name: 'caller', description: 'the live agent asking; must own the fanout.' }, { name: 'fanoutId', description: 'the fanout to remove.' }],
+        throws: ['FleetForeignOwnerError when the fanout belongs to another session.'],
+      },
+    ],
+  },
+  {
     key: 'fs',
     summary: 'Abstract filesystem provider.',
     description: 'Abstract filesystem provider. Targets must preserve identity across aliases; reads expose regular UTF-8 text or typed errors, listings are stable and content-free, and mutations are atomic. Optional guards add stale protection without changing the unguarded provider contract.',
@@ -2091,9 +2132,22 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'webAuth',
+    summary: 'Service Definition face of the web-auth plugin, consumed by the gateway\'s scoping points.',
+    description: 'Service Definition face of the web-auth plugin, consumed by the gateway\'s scoping points. Declared here (with the primary consumer) because the provider is a higher-level composition plugin of the web bundle; the provider imports this face and satisfies it structurally.',
+    methods: [
+      {
+        signature: 'identityFromCookie(cookie: string | undefined): WebIdentity | undefined',
+        description: 'Resolve the identity a Cookie header authenticates right now.',
+        parameters: [{ name: 'cookie', description: 'the raw Cookie header value, or undefined when absent.' }],
+        returns: 'the identity, or undefined when no live session matches.',
+      },
+    ],
+  },
+  {
     key: 'webServer',
     summary: 'The browser HTTP carrier service.',
-    description: 'The browser HTTP carrier service. Activation listens immediately. Route registration order does not affect requests because configured named routes must be distinct, and the fallback handler answers anything not yet claimed during startup with 404 until its owner registers. A configured `token` gates every HTTP request and upgrade before route dispatch. A listen failure rejects initialization, and the boot process reports the failed fiber.',
+    description: 'The browser HTTP carrier service. Activation listens immediately. Route registration order does not affect requests because configured named routes must be distinct, and the fallback handler answers anything not yet claimed during startup with 404 until its owner registers. A registered auth seat gates every HTTP request and upgrade before route dispatch. A listen failure rejects initialization, and the boot process reports the failed fiber.',
     methods: [
       {
         signature: 'async stop(): Promise<void>',
@@ -2104,6 +2158,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         signature: 'async start(): Promise<void>',
         description: 'Re-bind after a stop. The port is the one the first bind landed on — the printed URL, `DSH_WEB_URL`, and browser bookmarks all name it — even when the config asked for an OS-assigned one. Rejection (the port was taken while stopped) leaves the server stopped; the caller retries.',
         parameters: [],
+      },
+      {
+        signature: 'registerAuth(auth: WebAuth): () => void',
+        description: 'Claim the auth seat: the admission owner consulted before route dispatch on every HTTP request and upgrade. One owner only — a second registration throws, because two admission policies cannot compose. Exempting public paths is the owner\'s responsibility; the webserver consults it for every request unconditionally.',
+        parameters: [{ name: 'auth', description: 'the admission owner.' }],
+        returns: 'the disposer releasing the seat.',
       },
       {
         signature: 'register(route: WebRoute): () => void',
@@ -2202,6 +2262,57 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Resolve by canonical directory path without creating or mutating a workspace. A missing path rejects during `realpath`; an existing unowned directory returns `undefined`.',
         parameters: [{ name: 'path', description: 'Existing directory path in any spelling.' }],
         returns: 'the workspace owning the canonical path, when one exists.',
+      },
+    ],
+  },
+  {
+    key: 'worktrees',
+    summary: 'Local git-backed worktree service.',
+    description: 'Local git-backed worktree service. Mounts as `ctx.worktrees` and spawns git through `ctx.subprocess` with this service\'s configured budgets, so a hung git child is terminated at composition teardown like every other managed process.',
+    methods: [
+      {
+        signature: 'async exec(cwd: string, args: readonly string[], signal?: AbortSignal): Promise<GitCommandResult>',
+        description: 'Run one git invocation to settlement and return its exit facts and output.',
+        parameters: [{ name: 'cwd', description: 'working directory for the child.' }, { name: 'args', description: 'git arguments after the executable.' }, { name: 'signal', description: 'caller-owned cancellation for the whole invocation.' }],
+        returns: 'exit code plus collected stdout/stderr.',
+        throws: ['when the spawn itself fails (git missing) or the invocation times out; both are fail-loud conditions.'],
+      },
+      {
+        signature: 'async resolveCommit(repoPath: string, ref: string): Promise<string>',
+        description: 'Resolve a committish to its full object name in a repository.',
+        parameters: [{ name: 'repoPath', description: 'repository to resolve in.' }, { name: 'ref', description: 'any committish (HEAD, branch, sha).' }],
+        returns: 'the full commit sha.',
+      },
+      {
+        signature: 'async create(spec: WorktreeCreateSpec): Promise<WorktreeRecord>',
+        description: 'Create one linked worktree on a new branch at a base ref.',
+        parameters: [{ name: 'spec', description: 'fully specified creation request.' }],
+        returns: 'the created record with its checked-out commit.',
+        throws: ['when git refuses (existing branch, dirty target) with git\'s stderr.'],
+      },
+      {
+        signature: 'async list(repoPath: string): Promise<WorktreeRecord[]>',
+        description: 'List the worktrees one repository has registered. Paths are normalized to the platform\'s native separators (git porcelain emits forward slashes everywhere).',
+        parameters: [{ name: 'repoPath', description: 'repository to list.' }],
+        returns: 'records in git\'s order (the main working tree first).',
+      },
+      {
+        signature: 'async remove(spec: WorktreeRemoveSpec): Promise<void>',
+        description: 'Remove one linked worktree and optionally delete its branch.',
+        parameters: [{ name: 'spec', description: 'fully specified removal request.' }],
+        throws: ['when git refuses (locked worktree, dirty without force) with git\'s stderr.'],
+      },
+      {
+        signature: 'async diff(worktreePath: string, baseRef: string, signal?: AbortSignal): Promise<WorktreeDiff>',
+        description: 'Diff one worktree\'s working tree (committed and uncommitted changes) against the merge base it shares with a base ref: an attempt\'s whole visible effect, not only its commits. Tracked changes produce unified and stat diffs; untracked files (an attempt\'s new files) are appended to the stat section as `(untracked) <path>` lines — the worktree\'s index is never mutated to force them into the unified diff.',
+        parameters: [{ name: 'worktreePath', description: 'the linked worktree whose working tree is diffed.' }, { name: 'baseRef', description: 'the other side of the merge base.' }, { name: 'signal', description: 'caller-owned cancellation.' }],
+        returns: 'unified and stat diffs.',
+      },
+      {
+        signature: 'async mergeBranch(repoPath: string, branch: string, signal?: AbortSignal): Promise<BranchMergeResult>',
+        description: 'Merge one branch into the current HEAD of a repository. A conflicting or failed merge is aborted, leaving the repository on its pre-merge state; the classification and combined output are the caller\'s to report.',
+        parameters: [{ name: 'repoPath', description: 'repository whose current HEAD receives the branch.' }, { name: 'branch', description: 'branch name to merge.' }, { name: 'signal', description: 'caller-owned cancellation.' }],
+        returns: 'the classification and combined git output.',
       },
     ],
   },
@@ -2782,6 +2893,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface BashEnvVariableInfo extends BashEnvVariable {\n    contributor: string;\n    key: DshEnvironmentKey;\n}',
   },
   {
+    name: 'BranchMergeResult',
+    declaration: 'export interface BranchMergeResult {\n    status: BranchMergeStatus;\n    output: string;\n}',
+  },
+  {
+    name: 'BranchMergeStatus',
+    declaration: 'export type BranchMergeStatus = \'merged\' | \'up-to-date\' | \'conflict\' | \'error\';',
+  },
+  {
     name: 'Branded',
     declaration: 'export type Branded<B extends string> = string & {\n    readonly [BRAND]: B;\n};',
   },
@@ -3098,6 +3217,34 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface FinishReasonMap {\n    \'stop\': {\n        kind: \'stop\';\n    };\n    \'tool-calls\': {\n        kind: \'tool-calls\';\n    };\n    \'max-tokens\': {\n        kind: \'max-tokens\';\n    };\n    \'aborted\': {\n        kind: \'aborted\';\n        failure: LlmFailure;\n    };\n    \'error\': {\n        kind: \'error\';\n        failure: LlmFailure;\n    };\n}',
   },
   {
+    name: 'FleetFanoutId',
+    declaration: 'export type FleetFanoutId = Branded<\'FleetFanoutId\'>;',
+  },
+  {
+    name: 'FleetFanoutRequest',
+    declaration: 'export interface FleetFanoutRequest {\n    repoPath: string;\n    count: number;\n    prompt: string;\n    baseRef?: string;\n}',
+  },
+  {
+    name: 'FleetMember',
+    declaration: 'export interface FleetMember {\n    sessionId: SessionId;\n    branch: string;\n    worktreePath: string;\n    workspaceId?: WorkspaceId;\n}',
+  },
+  {
+    name: 'FleetMemberDiff',
+    declaration: 'export interface FleetMemberDiff {\n    sessionId: SessionId;\n    branch: string;\n    diff: WorktreeDiff;\n}',
+  },
+  {
+    name: 'FleetMemberState',
+    declaration: 'export type FleetMemberState = \'starting\' | \'running\' | \'idle\' | \'gone\';',
+  },
+  {
+    name: 'FleetMemberStatus',
+    declaration: 'export interface FleetMemberStatus extends FleetMember {\n    state: FleetMemberState;\n}',
+  },
+  {
+    name: 'FleetSnapshot',
+    declaration: 'export interface FleetSnapshot {\n    id: FleetFanoutId;\n    ownerSession: SessionId;\n    repoPath: string;\n    baseRef: string;\n    baseSha: string;\n    prompt: string;\n    createdAt: number;\n    mergedSessionId?: SessionId;\n    members: FleetMemberStatus[];\n}',
+  },
+  {
     name: 'FsDirEntry',
     declaration: 'export interface FsDirEntry {\n    name: string;\n    type: \'file\' | \'directory\' | \'other\';\n    target: FsTarget;\n    version?: FsVersion;\n    size?: number;\n}',
   },
@@ -3152,6 +3299,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'GenericResultView',
     declaration: 'export interface GenericResultView {\n    card: \'generic\';\n    title?: string;\n    content?: ContentBlock[];\n}',
+  },
+  {
+    name: 'GitCommandResult',
+    declaration: 'export interface GitCommandResult {\n    exitCode: number | null;\n    stdout: string;\n    stderr: string;\n}',
   },
   {
     name: 'GoalActivation',
@@ -3695,7 +3846,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'RpcErrorDetailsMap',
-    declaration: 'export interface RpcErrorDetailsMap {\n    \'bad-request\': {\n        issues: ZodIssue[];\n    };\n    \'cancelled\': {};\n    \'session-not-found\': {\n        sessionId: SessionId;\n    };\n    \'model-unavailable\': {\n        provider: string;\n        model: string;\n    };\n    \'session-conflict\': {\n        sessionId: SessionId;\n        requestedCwd: string;\n        existingCwd?: string;\n    };\n    \'invalid-time-zone\': {\n        value: string;\n    };\n    \'workspace-attach-failed\': {\n        sessionId: SessionId;\n        workspaceId: string;\n    };\n    \'workspace-not-found\': {\n        workspaceId: string;\n    };\n    \'workspace-invalid-path\': {\n        path: string;\n    };\n    \'workspace-name-conflict\': {\n        name: string;\n    };\n    \'workspace-move-invalid\': {\n        workspaceId: string;\n        sessionId: SessionId;\n        beforeSessionId?: SessionId;\n    };\n    \'directory-unreadable\': {\n        path: string;\n    };\n    \'directory-exists\': {\n        path: string;\n    };\n    \'directory-create-failed\': {\n        path: string;\n    };\n    \'directory-picker-unavailable\': {\n        capability: string;\n    };\n    \'agent-preset-read-only\': {\n        agentPreset: string;\n        reason: string;\n    };\n    \'agent-preset-locked\': {\n        sessionId: SessionId;\n        agentPreset: string;\n    };\n    \'agent-preset-conflict\': {\n        sessionId: SessionId;\n        requestedPreset: string;\n        existingPreset?: string;\n    };\n    \'agent-preset-not-found\': {\n        agentPreset: string;\n      /* …truncated — full shape in source */',
+    declaration: 'export interface RpcErrorDetailsMap {\n    \'bad-request\': {\n        issues: ZodIssue[];\n    };\n    \'cancelled\': {};\n    \'session-not-found\': {\n        sessionId: SessionId;\n    };\n    \'model-unavailable\': {\n        provider: string;\n        model: string;\n    };\n    \'session-conflict\': {\n        sessionId: SessionId;\n        requestedCwd: string;\n        existingCwd?: string;\n    };\n    \'invalid-time-zone\': {\n        value: string;\n    };\n    \'workspace-attach-failed\': {\n        sessionId: SessionId;\n        workspaceId: string;\n    };\n    \'workspace-not-found\': {\n        workspaceId: string;\n    };\n    \'workspace-invalid-path\': {\n        path: string;\n    };\n    \'workspace-name-conflict\': {\n        name: string;\n    };\n    \'workspace-move-invalid\': {\n        workspaceId: string;\n        sessionId: SessionId;\n        beforeSessionId?: SessionId;\n    };\n    \'session-outside-root\': {\n        path: string;\n        root: string;\n    };\n    \'workspace-outside-root\': {\n        path: string;\n        root: string;\n    };\n    \'directory-unreadable\': {\n        path: string;\n    };\n    \'directory-exists\': {\n        path: string;\n    };\n    \'directory-create-failed\': {\n        path: string;\n    };\n    \'directory-picker-unavailable\': {\n        capability: string;\n    };\n    \'agent-preset-read-only\': {\n        agentPreset: string;\n        reason: string;\n    };\n    \'agent-preset-locked\': {\n        sessionId: SessionId;\n        agentPreset: string;\n    };\n    \'agent-preset-conflict\': {\n      /* …truncated — full shape in source */',
   },
   {
     name: 'RpcId',
@@ -4590,6 +4741,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface UserQuestionProvider {\n    ask(request: AskUserQuestionRequest): Promise<AskUserQuestionAnswer>;\n}',
   },
   {
+    name: 'WebAuth',
+    declaration: 'export interface WebAuth {\n    request(req: IncomingMessage, res: ServerResponse, url: URL): boolean | Promise<boolean>;\n    upgrade(req: IncomingMessage, url: URL): boolean | Promise<boolean>;\n}',
+  },
+  {
     name: 'WebBootEntry',
     declaration: 'export interface WebBootEntry {\n    id: string;\n    url: string;\n    rev: string;\n    inject?: string[];\n    immediately?: boolean;\n}',
   },
@@ -4616,6 +4771,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'WebFetchResultView',
     declaration: 'export interface WebFetchResultView {\n    card: \'web\';\n    kind: \'fetch\';\n    title?: string;\n    url: string;\n    statusCode: number;\n    truncated: boolean;\n}',
+  },
+  {
+    name: 'WebIdentity',
+    declaration: 'export interface WebIdentity {\n    login: string;\n    admin: boolean;\n    root: string;\n}',
   },
   {
     name: 'WebResultView',
@@ -4704,6 +4863,22 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'WorkflowStopReason',
     declaration: 'export type WorkflowStopReason = \'completed\' | \'cancelled\' | \'error\';',
+  },
+  {
+    name: 'WorktreeCreateSpec',
+    declaration: 'export interface WorktreeCreateSpec {\n    repoPath: string;\n    worktreePath: string;\n    branch: string;\n    baseRef?: string;\n    signal?: AbortSignal;\n}',
+  },
+  {
+    name: 'WorktreeDiff',
+    declaration: 'export interface WorktreeDiff {\n    worktreePath: string;\n    mergeBase: string;\n    stat: string;\n    diff: string;\n}',
+  },
+  {
+    name: 'WorktreeRecord',
+    declaration: 'export interface WorktreeRecord {\n    path: string;\n    branch: string | null;\n    head: string;\n    main: boolean;\n}',
+  },
+  {
+    name: 'WorktreeRemoveSpec',
+    declaration: 'export interface WorktreeRemoveSpec {\n    repoPath: string;\n    worktreePath: string;\n    deleteBranch?: boolean;\n    force?: boolean;\n    signal?: AbortSignal;\n}',
   },
 ]
 

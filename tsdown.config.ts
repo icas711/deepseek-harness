@@ -20,7 +20,7 @@ export default defineConfig(({ env }) => {
       include: ['vendor/*', 'packages/*/*', 'apps/cli'],
       exclude: ['**/node_modules/**'],
     },
-    entry: client ? '' : ['lib/types/{index,invariant,startup}.js'],
+    entry: client ? '' : ['lib/types/{index,invariant,startup,webauth}.js'],
     outDir: 'lib',
     format: ['esm'],
     platform: 'node',

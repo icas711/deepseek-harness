@@ -18,10 +18,11 @@ services:
     env_file:
       - .env
     environment:
-      # Секреты приходят из deploy/.env через env_file; проверки здесь —
-      # fail-loud: без токена у сервера остаётся только Host-fence, без ключа
-      # модель не ответит.
-      DSH_WEB_TOKEN: ${DSH_WEB_TOKEN:?Задайте DSH_WEB_TOKEN в deploy/.env (openssl rand -hex 24)}
+      # Пользователи веб-GUI приходят из deploy/.env через env_file; проверка
+      # здесь — fail-loud: без списка логинов сервер остаётся без аутентификации
+      # (только Host-fence), а GUI управляет агентом на сервере.
+      DSH_WEB_USERS: ${DSH_WEB_USERS:?Задайте DSH_WEB_USERS в deploy/.env — логин:scrypt-хэш через запятую (см. README и hash-password.mjs)}
+      DSH_WEB_ADMINS: ${DSH_WEB_ADMINS:-}
       DSH_HOME: /data/dsh-home
     command:
       - web
