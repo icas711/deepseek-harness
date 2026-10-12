@@ -105,6 +105,52 @@ describe('FleetLimitsController.load', () => {
 
     expect(controller.store.getSnapshot()).toMatchObject({ status: 'error', error: 'fleet: settings view is malformed' })
   })
+
+  it('carries a transport failure of the read into the snapshot', async () => {
+    const controller = new FleetLimitsController(wire(() => Promise.reject(new Error('connection down'))))
+
+    await controller.load()
+
+    expect(controller.store.getSnapshot()).toMatchObject({ status: 'error', error: 'connection down' })
+  })
+
+  it('stringifies a rejection that is not an Error', async () => {
+    const controller = new FleetLimitsController(wire(() => Promise.reject('wire cut')))
+
+    await controller.load()
+
+    expect(controller.store.getSnapshot()).toMatchObject({ status: 'error', error: 'wire cut' })
+  })
+
+  it('stops a late read success from publishing after disposal', async () => {
+    let release: (() => void) | undefined
+    const read = vi.fn(() => new Promise<Awaited<ReturnType<DescribeFace>>>((resolve) => {
+      release = () => { resolve(SERVED(VIEW)) }
+    }))
+    const controller = new FleetLimitsController(wire(read))
+
+    const pending = controller.load()
+    controller.dispose()
+    release!()
+    await pending
+
+    expect(controller.store.getSnapshot().status).toBe('loading')
+  })
+
+  it('stops a late read failure from publishing after disposal', async () => {
+    let release: (() => void) | undefined
+    const read = vi.fn(() => new Promise<Awaited<ReturnType<DescribeFace>>>((_resolve, reject) => {
+      release = () => { reject(new Error('late failure')) }
+    }))
+    const controller = new FleetLimitsController(wire(read))
+
+    const pending = controller.load()
+    controller.dispose()
+    release!()
+    await pending
+
+    expect(controller.store.getSnapshot().status).toBe('loading')
+  })
 })
 
 describe('FleetLimitsController.save', () => {
@@ -180,6 +226,37 @@ describe('FleetLimitsController.save', () => {
     let release: (() => void) | undefined
     const update = vi.fn(() => new Promise<Awaited<ReturnType<UpdateFace>>>((resolve) => {
       release = () => { resolve(okUpdate({ ok: true, value: { ...VIEW, value: { maxMembers: 2, maxFanoutDepth: 1 } } })) }
+    }))
+    const controller = new FleetLimitsController(wire(() => Promise.resolve(SERVED(VIEW)), update))
+    await controller.load()
+
+    const pending = controller.save({ maxMembers: 2, maxFanoutDepth: 1 })
+    controller.dispose()
+    release!()
+    await pending
+
+    expect(controller.store.getSnapshot().status).toBe('saving')
+  })
+
+  it('keeps the last limits and reports a transport failure of the write', async () => {
+    const controller = new FleetLimitsController(wire(
+      () => Promise.resolve(SERVED(VIEW)),
+      () => Promise.reject(new Error('update dropped')),
+    ))
+    await controller.load()
+
+    await controller.save({ maxMembers: 2, maxFanoutDepth: 1 })
+
+    const snapshot = controller.store.getSnapshot()
+    expect(snapshot.status).toBe('ready')
+    expect(snapshot.error).toBe('update dropped')
+    expect(snapshot.value).toEqual({ maxMembers: 5, maxFanoutDepth: 2 })
+  })
+
+  it('stops a late write failure from publishing after disposal', async () => {
+    let release: (() => void) | undefined
+    const update = vi.fn(() => new Promise<Awaited<ReturnType<UpdateFace>>>((_resolve, reject) => {
+      release = () => { reject(new Error('late refusal')) }
     }))
     const controller = new FleetLimitsController(wire(() => Promise.resolve(SERVED(VIEW)), update))
     await controller.load()

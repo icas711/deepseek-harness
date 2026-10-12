@@ -11,6 +11,7 @@ import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import { IconRefreshOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { FleetLimitsState, FleetLimitsValue } from './store.ts'
+import { copyText } from './clipboard.ts'
 import type { FleetLimitsKey } from './locales.ts'
 import css from './FleetLimitsRow.module.css'
 
@@ -38,6 +39,13 @@ interface Draft {
   maxFanoutDepth: string
 }
 
+/** The usage examples, as the settings row teaches the chat phrasing. */
+const EXAMPLES: ReadonlyArray<{ titleKey: FleetLimitsKey; textKey: FleetLimitsKey }> = [
+  { titleKey: 'fleetLimits.exampleParallelTitle', textKey: 'fleetLimits.exampleParallelText' },
+  { titleKey: 'fleetLimits.exampleSplitTitle', textKey: 'fleetLimits.exampleSplitText' },
+  { titleKey: 'fleetLimits.exampleCompareTitle', textKey: 'fleetLimits.exampleCompareText' },
+]
+
 /**
  * Render the fleet limits row.
  *
@@ -52,6 +60,7 @@ export function FleetLimitsRow({ load, save, useFleetLimits, t }: FleetLimitsRow
   const state = useFleetLimits(snapshot => snapshot)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [invalid, setInvalid] = useState(false)
+  const [usageOpen, setUsageOpen] = useState(false)
 
   useEffect(() => {
     void load()
@@ -72,12 +81,14 @@ export function FleetLimitsRow({ load, save, useFleetLimits, t }: FleetLimitsRow
     && (Number(current.maxMembers) !== value.maxMembers || Number(current.maxFanoutDepth) !== value.maxFanoutDepth)
 
   const edit = (field: keyof Draft, text: string): void => {
+    /* v8 ignore next -- reachable only while a value exists; the fields render only then */
     if (current === null) return
     setDraft({ ...current, [field]: text })
     setInvalid(false)
   }
 
   const apply = (): void => {
+    /* v8 ignore next -- reachable only while a value exists; the apply control renders only then */
     if (current === null) return
     const maxMembers = Number(current.maxMembers)
     const maxFanoutDepth = Number(current.maxFanoutDepth)
@@ -89,61 +100,97 @@ export function FleetLimitsRow({ load, save, useFleetLimits, t }: FleetLimitsRow
     void save({ maxMembers, maxFanoutDepth })
   }
 
+  const copyExample = (text: string): void => {
+    void copyText(text).catch(() => {
+      // The clipboard stayed unavailable; the prompt remains on screen for manual selection.
+    })
+  }
+
   return (
-    <div className={css.row}>
-      <div className={css.rowText}>
-        <div className={css.title}>{t('fleetLimits.label')}</div>
-        <div className={css.desc} role={state.error === null && !invalid ? undefined : 'alert'}>
-          {invalid ? t('fleetLimits.invalid') : state.error ?? (state.status === 'unavailable' ? t('fleetLimits.unavailable') : t('fleetLimits.description'))}
+    <div className={css.block}>
+      <div className={css.row}>
+        <div className={css.rowText}>
+          <div className={css.title}>{t('fleetLimits.label')}</div>
+          <div className={css.desc} role={state.error === null && !invalid ? undefined : 'alert'}>
+            {invalid ? t('fleetLimits.invalid') : state.error ?? (state.status === 'unavailable' ? t('fleetLimits.unavailable') : t('fleetLimits.description'))}
+          </div>
+          <button
+            type="button"
+            className={css.usage}
+            aria-expanded={usageOpen}
+            onClick={() => { setUsageOpen(!usageOpen) }}
+          >
+            {t('fleetLimits.usage')}
+          </button>
         </div>
+        <button
+          type="button"
+          className={css.refresh}
+          aria-label={t('fleetLimits.refresh')}
+          title={t('fleetLimits.refresh')}
+          disabled={busy}
+          onClick={() => { void load() }}
+        >
+          <IconRefreshOutline14 className={busy ? css.spinning : undefined} />
+        </button>
+        {value !== null && current !== null
+          ? (
+            <div className={css.fields}>
+              <label className={css.field}>
+                <span className={css.fieldLabel}>{t('fleetLimits.maxMembers')}</span>
+                <input
+                  className={css.input}
+                  type="number"
+                  min={1}
+                  step={1}
+                  aria-label={t('fleetLimits.maxMembers')}
+                  disabled={busy || !state.writable}
+                  value={current.maxMembers}
+                  onChange={(event) => { edit('maxMembers', event.target.value) }}
+                />
+              </label>
+              <label className={css.field}>
+                <span className={css.fieldLabel}>{t('fleetLimits.maxFanoutDepth')}</span>
+                <input
+                  className={css.input}
+                  type="number"
+                  min={0}
+                  step={1}
+                  aria-label={t('fleetLimits.maxFanoutDepth')}
+                  disabled={busy || !state.writable}
+                  value={current.maxFanoutDepth}
+                  onChange={(event) => { edit('maxFanoutDepth', event.target.value) }}
+                />
+              </label>
+              <button
+                type="button"
+                className={css.apply}
+                disabled={busy || !state.writable || !dirty || invalid}
+                onClick={apply}
+              >
+                {t('fleetLimits.apply')}
+              </button>
+            </div>
+          )
+          : null}
       </div>
-      <button
-        type="button"
-        className={css.refresh}
-        aria-label={t('fleetLimits.refresh')}
-        title={t('fleetLimits.refresh')}
-        disabled={busy}
-        onClick={() => { void load() }}
-      >
-        <IconRefreshOutline14 className={busy ? css.spinning : undefined} />
-      </button>
-      {value !== null && current !== null
+      {usageOpen
         ? (
-          <div className={css.fields}>
-            <label className={css.field}>
-              <span className={css.fieldLabel}>{t('fleetLimits.maxMembers')}</span>
-              <input
-                className={css.input}
-                type="number"
-                min={1}
-                step={1}
-                aria-label={t('fleetLimits.maxMembers')}
-                disabled={busy || !state.writable}
-                value={current.maxMembers}
-                onChange={(event) => { edit('maxMembers', event.target.value) }}
-              />
-            </label>
-            <label className={css.field}>
-              <span className={css.fieldLabel}>{t('fleetLimits.maxFanoutDepth')}</span>
-              <input
-                className={css.input}
-                type="number"
-                min={0}
-                step={1}
-                aria-label={t('fleetLimits.maxFanoutDepth')}
-                disabled={busy || !state.writable}
-                value={current.maxFanoutDepth}
-                onChange={(event) => { edit('maxFanoutDepth', event.target.value) }}
-              />
-            </label>
-            <button
-              type="button"
-              className={css.apply}
-              disabled={busy || !state.writable || !dirty || invalid}
-              onClick={apply}
-            >
-              {t('fleetLimits.apply')}
-            </button>
+          <div className={css.examples}>
+            <div className={css.intro}>{t('fleetLimits.usageIntro')}</div>
+            {EXAMPLES.map(example => (
+              <div key={example.titleKey} className={css.example}>
+                <div className={css.exampleTitle}>{t(example.titleKey)}</div>
+                <div className={css.exampleText}>{t(example.textKey)}</div>
+                <button
+                  type="button"
+                  className={css.copy}
+                  onClick={() => { copyExample(t(example.textKey)) }}
+                >
+                  {t('fleetLimits.copy')}
+                </button>
+              </div>
+            ))}
           </div>
         )
         : null}

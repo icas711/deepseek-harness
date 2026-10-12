@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 /**
  * The General-settings row's presentation behavior: the limits the host
- * resolved, the refresh control, the two integer fields, and the apply
- * control that appears only where the document accepts writes.
+ * resolved, the refresh control, the two integer fields, the apply control
+ * that appears only where the document accepts writes, and the collapsible
+ * prompt examples with their clipboard copy.
  */
 
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -77,7 +78,7 @@ describe('FleetLimitsRow', () => {
   it('disables the apply control until an edit diverges', async () => {
     renderRow()
 
-    await waitFor(() => { expect(screen.getByRole('button', { name: t('fleetLimits.apply') }).disabled).toBe(true) })
+    await waitFor(() => { expect(screen.getByRole<HTMLButtonElement>('button', { name: t('fleetLimits.apply') }).disabled).toBe(true) })
     fireEvent.change(screen.getByLabelText(t('fleetLimits.maxFanoutDepth')), { target: { value: '4' } })
     expect(screen.getByRole<HTMLButtonElement>('button', { name: t('fleetLimits.apply') }).disabled).toBe(false)
   })
@@ -113,5 +114,53 @@ describe('FleetLimitsRow', () => {
     act(() => { store.set({ ...store.getSnapshot(), value: { maxMembers: 8, maxFanoutDepth: 1 } }) })
     expect((screen.getByLabelText(t('fleetLimits.maxMembers')) as HTMLInputElement).value).toBe('8')
     expect((screen.getByLabelText(t('fleetLimits.maxFanoutDepth')) as HTMLInputElement).value).toBe('1')
+  })
+
+  it('expands the usage examples and collapses them again', () => {
+    renderRow({ status: 'unavailable', value: null })
+    expect(screen.queryByText(t('fleetLimits.usageIntro'))).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: t('fleetLimits.usage') }))
+    expect(screen.getByText(t('fleetLimits.usageIntro'))).toBeTruthy()
+    expect(screen.getByText(t('fleetLimits.exampleParallelTitle'))).toBeTruthy()
+    expect(screen.getByText(t('fleetLimits.exampleSplitTitle'))).toBeTruthy()
+    expect(screen.getByText(t('fleetLimits.exampleCompareTitle'))).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: t('fleetLimits.usage') }))
+    expect(screen.queryByText(t('fleetLimits.usageIntro'))).toBeNull()
+  })
+
+  it('copies a prompt through the async clipboard API', () => {
+    const writeText = vi.fn(() => Promise.resolve())
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    renderRow()
+
+    fireEvent.click(screen.getByRole('button', { name: t('fleetLimits.usage') }))
+    fireEvent.click(screen.getAllByRole<HTMLButtonElement>('button', { name: t('fleetLimits.copy') })[0]!)
+
+    expect(writeText).toHaveBeenCalledWith(t('fleetLimits.exampleParallelText'))
+  })
+
+  it('copies a prompt through the legacy command when the clipboard API is absent', () => {
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true })
+    const execCommand = vi.fn(() => true)
+    document.execCommand = execCommand as unknown as typeof document.execCommand
+    renderRow()
+
+    fireEvent.click(screen.getByRole('button', { name: t('fleetLimits.usage') }))
+    fireEvent.click(screen.getAllByRole<HTMLButtonElement>('button', { name: t('fleetLimits.copy') })[1]!)
+
+    expect(execCommand).toHaveBeenCalledWith('copy')
+  })
+
+  it('keeps the row rendered when every copy route is refused', async () => {
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true })
+    document.execCommand = (() => false) as unknown as typeof document.execCommand
+    renderRow()
+
+    fireEvent.click(screen.getByRole('button', { name: t('fleetLimits.usage') }))
+    fireEvent.click(screen.getAllByRole<HTMLButtonElement>('button', { name: t('fleetLimits.copy') })[2]!)
+
+    await waitFor(() => { expect(screen.getByText(t('fleetLimits.exampleCompareText'))).toBeTruthy() })
   })
 })
