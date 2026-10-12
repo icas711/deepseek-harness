@@ -273,6 +273,12 @@
     - id: ui-agent-preset
       name: '@deepseek-ai/dsh-client-ui-agent-preset'
 
+    # Fleet limits in General settings: the per-fanout attempt cap and the
+    # delegation-depth ceiling, edited live through the `fleet` settings
+    # namespace. A composition without the fleet service renders nothing.
+    - id: ui-fleet-settings
+      name: '@deepseek-ai/dsh-client-ui-fleet-settings'
+
     # Telemetry status in General settings: the mounted backend's sharing
     # disclosure, a refresh control, and a live mode selector where the
     # deployment applies changes without a restart.

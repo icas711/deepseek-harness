@@ -1210,6 +1210,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     occupants: [
       'client-ui-agent-preset AgentPresetRow id \'agent-preset\'',
       'client-ui-conversation EnterBehaviorRow id \'composer-enter\'',
+      'client-ui-fleet-settings FleetLimitsRow id \'fleet-limits\'',
       'client-ui-permission-presets PermissionRow id \'permission\'',
       'client-ui-settings-models RetrySettingsRow id \'llm-retries\'',
       'client-ui-telemetry-status TelemetryStatusRow id \'telemetry-status\'',

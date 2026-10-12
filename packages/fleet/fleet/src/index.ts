@@ -17,6 +17,7 @@ import type { Agent, AgentHandle, AgentOptions } from '@deepseek-ai/dsh-agent'
 import type AgentDefaultModelConfig from '@deepseek-ai/dsh-agent-default-model'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { SessionId } from '@deepseek-ai/dsh-session'
+import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 import type { BranchMergeResult } from '@deepseek-ai/dsh-worktree'
 import type {} from '@deepseek-ai/dsh-workspace'
 import type {
@@ -78,6 +79,16 @@ export class FleetForeignOwnerError extends Error {
   }
 }
 
+/** Reject a limits value the fanout caps could not act on, shared by Config and the settings namespace. */
+function assertLimits(value: Config): void {
+  if (!Number.isInteger(value.maxMembers) || value.maxMembers < 1) {
+    throw new Error('fleet: maxMembers must be a positive integer')
+  }
+  if (!Number.isInteger(value.maxFanoutDepth) || value.maxFanoutDepth < 0) {
+    throw new Error('fleet: maxFanoutDepth must be a non-negative integer')
+  }
+}
+
 /**
  * Worktree-fanout orchestration over `ctx.worktrees`, `ctx.agents`, and the workspace registry.
  * Mounts as `ctx.fleet`.
@@ -92,14 +103,28 @@ export class Fleet extends Service {
 
   constructor(ctx: Context, config: Config) {
     super(ctx, 'fleet')
-    if (!Number.isInteger(config.maxMembers) || config.maxMembers < 1) {
-      throw new Error('fleet: maxMembers must be a positive integer')
-    }
-    if (!Number.isInteger(config.maxFanoutDepth) || config.maxFanoutDepth < 0) {
-      throw new Error('fleet: maxFanoutDepth must be a non-negative integer')
-    }
-    this.config = config
+    assertLimits(config)
+    this.limits = { ...config }
     this.entries = new Map()
+    // Live limits override: the settings namespace `fleet` wins while a settings
+    // provider is mounted, and its detach falls back to the composition entry.
+    // The registration rides the service's own fiber, so a composition without
+    // a settings provider keeps the entry limits standing.
+    ctx.inject(['settings'], (settingsCtx) => {
+      const scope = settingsCtx.settings.register(settingsNamespace('fleet'), Fleet.Config, {
+        base: { ...config },
+        validate: assertLimits,
+      })
+      const read = (): void => {
+        this.limits = { maxMembers: scope.get().maxMembers, maxFanoutDepth: scope.get().maxFanoutDepth }
+      }
+      read()
+      const stop = scope.watch(read)
+      settingsCtx.effect(() => stop, 'fleet: settings-limits watch')
+      settingsCtx.effect(() => () => {
+        this.limits = { ...config }
+      }, 'fleet: settings-detach fallback')
+    })
     // One listener serves every member session's first turn/end with an owner notice.
     ctx.on('session/event', (session, event) => {
       if (event.type === 'turn/end') this.onTurnEnd(session.id)
@@ -112,7 +137,7 @@ export class Fleet extends Service {
     })
   }
 
-  private readonly config: Config
+  private limits: Config
   private readonly entries: Map<FleetFanoutId, FanoutEntry>
 
   /**
@@ -126,12 +151,12 @@ export class Fleet extends Service {
     const prompt = request.prompt.trim()
     if (prompt.length === 0) throw new Error('fleet: prompt must be a non-empty string')
     if (!isAbsolute(request.repoPath)) throw new Error('fleet: repoPath must be an absolute path')
-    if (!Number.isInteger(request.count) || request.count < 1 || request.count > this.config.maxMembers) {
-      throw new Error(`fleet: count must be an integer between 1 and ${String(this.config.maxMembers)}`)
+    if (!Number.isInteger(request.count) || request.count < 1 || request.count > this.limits.maxMembers) {
+      throw new Error(`fleet: count must be an integer between 1 and ${String(this.limits.maxMembers)}`)
     }
     const depth = owner.session.header.delegationDepth ?? 0
-    if (depth >= this.config.maxFanoutDepth) {
-      throw new Error(`fleet: fanout depth cap reached (${String(this.config.maxFanoutDepth)})`)
+    if (depth >= this.limits.maxFanoutDepth) {
+      throw new Error(`fleet: fanout depth cap reached (${String(this.limits.maxFanoutDepth)})`)
     }
     const baseRef = request.baseRef ?? 'HEAD'
     const baseSha = await this.ctx.worktrees.resolveCommit(request.repoPath, baseRef)

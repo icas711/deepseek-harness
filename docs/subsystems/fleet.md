@@ -72,7 +72,7 @@ async cleanup(caller: Agent, fanoutId: FleetFanoutId): Promise<void>
 
 Types: [Agent](core.md) · [SessionId](core.md)
 
-Source: [`packages/fleet/fleet/src/index.ts:84`](../../packages/fleet/fleet/src/index.ts)
+Source: [`packages/fleet/fleet/src/index.ts:96`](../../packages/fleet/fleet/src/index.ts)
 
 <a id="ctxworktrees--worktrees"></a>
 
