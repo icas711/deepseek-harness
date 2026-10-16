@@ -21,7 +21,7 @@ import type { CredentialRef } from '@deepseek-ai/dsh-credentials'
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
 import { resolveRetryPolicy, RetryPolicySchema } from '@deepseek-ai/dsh-llm'
 import type { ResolvedRetryPolicy, RetryPolicyConfig } from '@deepseek-ai/dsh-llm'
-import { MODALITIES, resolveRouteModels, SUPPORTED_THINKING_FORMATS, THINKING_LEVELS } from './catalog.ts'
+import { isZaiRoute, MODALITIES, resolveRouteModels, SUPPORTED_THINKING_FORMATS, THINKING_LEVELS } from './catalog.ts'
 import type {
   PiAiCompatProfile,
   PiAiModality,
@@ -146,6 +146,13 @@ export interface PiAiProviderProfile {
   streamIdleTimeoutMs?: number
   /** Provider-owned model-request retry policy; omission uses normal defaults. */
   retryPolicy?: RetryPolicyConfig
+  /**
+   * Carry the official Zhipu MCP server entry (\`mcp code\`) in every request
+   * on this route. Valid only on a Z.AI route: the endpoint connects to the
+   * server and executes the model's MCP tool calls itself, inside the
+   * request, so the capability adds no harness tool and no round trip.
+   */
+  mcp?: boolean
 }
 
 /** Validated profile with its route stamped and every adapter-owned default resolved. */
@@ -258,6 +265,7 @@ const profile = z.object({
   websocketConnectTimeoutMs: z.natural(),
   streamIdleTimeoutMs: z.number().min(Number.MIN_VALUE).max(MAX_TIMER_DELAY_MS).default(DEFAULT_STREAM_IDLE_TIMEOUT_MS),
   retryPolicy: RetryPolicySchema,
+  mcp: z.boolean(),
 })
 
 /** Runtime schema for {@link Config}. */
@@ -328,6 +336,12 @@ export function resolveProfiles(
       throw new Error(
         `llm-pi-ai: provider "${provider}" sets liveModels without a baseURL;`
         + ' the endpoint to interrogate for the model list would be ambiguous',
+      )
+    }
+    if (source.mcp === true && !isZaiRoute(provider, source)) {
+      throw new Error(
+        `llm-pi-ai: provider "${provider}" sets mcp, which only a Z.AI route serves;`
+        + ' every other endpoint refuses an MCP server entry it does not understand',
       )
     }
     const streamIdleTimeoutMs = source.streamIdleTimeoutMs ?? DEFAULT_STREAM_IDLE_TIMEOUT_MS

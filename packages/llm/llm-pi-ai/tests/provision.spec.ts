@@ -16,7 +16,7 @@ import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 import { FileSettingsProvider } from '@deepseek-ai/dsh-settings-file'
 import { LocalCredentialProvider } from '@deepseek-ai/dsh-credentials-local'
 import * as LlmPiAi from '@deepseek-ai/dsh-llm-pi-ai'
-import { isZaiRoute } from '../src/provision.ts'
+import { isZaiRoute } from '../src/catalog.ts'
 
 const NS = settingsNamespace('llm-pi-ai')
 

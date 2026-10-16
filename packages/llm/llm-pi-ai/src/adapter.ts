@@ -46,6 +46,7 @@ import { resolveRouteModels } from './catalog.ts'
 import { toPiContext } from './context.ts'
 import { fetchListing } from './discovery.ts'
 import { toStreamChunks } from './stream.ts'
+import { withZaiMcpServer } from './zai-mcp.ts'
 
 /** How long one route's live listing stays authoritative before a refetch. */
 const LIVE_MODELS_TTL_MS = 5 * 60_000
@@ -421,6 +422,10 @@ export class PiAiAdapter extends LlmAdapter {
         // Profile headers are deployment-owned; attribution names are
         // Harness-owned and therefore win collisions.
         headers: requestHeaders(profile.headers),
+        // The profile's `mcp` switch carries the official Zhipu MCP server
+        // entry: the endpoint connects to the server and executes those tool
+        // calls itself, inside the request.
+        ...profile.mcp === true ? { onPayload: withZaiMcpServer } : {},
       })
       const iterator = toStreamChunks(events, model.contextWindow)[Symbol.asyncIterator]()
       let exhausted = false

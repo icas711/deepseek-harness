@@ -15,12 +15,9 @@
 
 import { LlmError } from '@deepseek-ai/dsh-llm'
 import type { LlmDiscoveredModel, LlmProvisionResult } from '@deepseek-ai/dsh-llm'
-import { catalogProvider } from './catalog.ts'
+import { catalogProvider, isZaiRoute, ZAI_CATALOG_ROUTES } from './catalog.ts'
 import type { Config, PiAiCompatProfile, PiAiModelProfile, PiAiProviderProfile, PiAiReasoningEfforts } from './config.ts'
 import { fetchListing } from './discovery.ts'
-
-/** Catalog routes the Z.AI provisioning template covers. */
-const ZAI_CATALOG_ROUTES: ReadonlySet<string> = new Set(['zai', 'zai-coding-cn'])
 
 /**
  * The credential reference each Z.AI catalog route's key is stored under —
@@ -33,9 +30,6 @@ const ZAI_CATALOG_CREDENTIAL_REFS: Readonly<Record<string, string>> = {
   zai: 'ZAI_API_KEY',
   'zai-coding-cn': 'ZAI_CODING_CN_API_KEY',
 }
-
-/** Endpoint hosts the Z.AI documentation publishes for its model APIs. */
-const ZAI_HOSTS = /^(?:api\.z\.ai|open\.bigmodel\.cn)$/
 
 /**
  * GLM-5.3 family capacities, published at docs.z.ai/guides/llm/glm-5.3:
@@ -53,29 +47,6 @@ const GLM_53_MAX_TOKENS = 131_072
  */
 const GLM_53_REASONING_EFFORTS: PiAiReasoningEfforts = { low: 'low', high: 'high', max: 'max' }
 const GLM_53_COMPAT: PiAiCompatProfile = { thinkingFormat: 'zai', supportsReasoningEffort: true }
-
-/**
- * Whether provisioning is offered for this route: a Z.AI catalog route, or
- * one whose stored endpoint points at a documented Z.AI host.
- * @param provider - the route key.
- * @param stored - the route's stored profile shape, when one is stored; only
- *   its endpoint matters here.
- * @returns whether the route is a Z.AI route.
- */
-export function isZaiRoute(provider: string, stored: { baseURL?: string } | undefined): boolean {
-  if (ZAI_CATALOG_ROUTES.has(provider)) return true
-  if (stored?.baseURL === undefined) return false
-  let host: string
-  try {
-    host = new URL(stored.baseURL).host
-  } catch {
-    // A malformed stored baseURL fails later where it is used, with the
-    // URL in the message; for gating, an unreadable URL simply names no
-    // Z.AI host.
-    return false
-  }
-  return ZAI_HOSTS.test(host)
-}
 
 /** Whether the GLM-5.3 documentation's facts apply to this model id. */
 function isGlm53Family(id: string): boolean {

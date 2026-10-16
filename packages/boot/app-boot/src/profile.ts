@@ -66,6 +66,8 @@ export interface ProfileManifest {
   name?: string
   dependencies?: Record<string, string>
   peerDependencies?: Record<string, string>
+  /** Optional-peer flags: a name flagged here may be legitimately absent from a complete install. */
+  peerDependenciesMeta?: Record<string, { optional?: boolean }>
   dsh?: DshManifestSection
 }
 
@@ -201,50 +203,75 @@ function ensureSymlink(link: string, target: string): void {
   }
 }
 
+/** Settle walks before an incomplete closure fails loud. */
+const HEAL_FALLBACK_SETTLE_ATTEMPTS = 2
+
+/** Millis between settle walks: a fresh install or an antivirus first pass usually completes within seconds. */
+const HEAL_FALLBACK_SETTLE_DELAY_MS = 2_000
+
+/** Seams of {@link healProfilesModuleFallback}; every field is optional and the defaults fit a real launch. */
+export interface HealProfilesModuleFallbackOptions {
+  /** Total closure walks; the last incomplete one fails loud. Default: `HEAL_FALLBACK_SETTLE_ATTEMPTS` (2). */
+  attempts?: number
+  /** Replaces the default settle wait between walks; tests inject a step that completes the tree mid-settle. */
+  settle?: () => void
+}
+
+/** One declared-but-unresolved dependency; the declarer turns the list into a diagnosis. */
+interface MissingDependency {
+  /** The unresolvable package name. */
+  name: string
+  /** The installed package whose manifest declares it. */
+  requiredBy: string
+}
+
 /**
- * Maintain the flat module fallback `$DSH_HOME/profiles/node_modules`: one
- * symlink per package in the dsh app's resolvable dependency CLOSURE (BFS
- * over `dependencies` from the app manifest), each resolved from its own
- * real location. Node's parent-directory walk from any profile finds this
- * directory after the profile's own `node_modules`, so every in-box plugin
- * resolves without pnpm ever managing it — the exact "bundles come from the
- * installation" contract. The closure (not just direct dependencies) is
- * required for out-of-tree plugins: their peer dependencies name Service
- * Definition packages (`dsh-compaction`, `dsh-invariants`, ...) that the app
- * reaches only through its Service Provider packages. Symlinked packages
- * resolve their own dependencies from their real directories (Node's default
- * symlink-following), so each package needs only its one flat link. The BFS
- * walks realpath'ed directories: an isolated pnpm layout houses a package's
- * own dependencies beside its store location, invisible from the junction
- * path the deployment root surfaces.
- * Idempotent: correct links are kept and moved installations are
- * re-pointed; a stale link to a vanished package stays until its name is
- * reused (dangling links are invisible to resolution).
- * @param installAnchor - absolute path of the dsh app's package.json.
- * @param home - the Harness home; defaults to {@link resolveDshHome}.
+ * One BFS pass over the resolvable dependency closure, filling `links` and reporting
+ * the names this pass could not resolve. A name another declarer resolves later in the
+ * same pass leaves the missing list again; the visited set is the link map itself
+ * (first resolution wins, matching Node's own nearest-wins).
  */
-export function healProfilesModuleFallback(installAnchor: string, home: string = resolveDshHome()): void {
-  const profilesDir = join(home, PROFILES_DIR)
-  const modulesDir = join(profilesDir, 'node_modules')
-  mkdirSync(modulesDir, { recursive: true })
+function walkInstallationClosure(installAnchor: string, links: Map<string, string>): MissingDependency[] {
   const appManifest = JSON.parse(readFileSync(installAnchor, 'utf8')) as ProfileManifest
-  const links = new Map<string, string>()
   /* v8 ignore next -- a real app manifest always declares its name */
   if (appManifest.name !== undefined) links.set(appManifest.name, realpathSync(dirname(installAnchor)))
-  // BFS over the resolvable dependency graph; the visited set is the link
-  // map itself (first resolution wins, matching Node's own nearest-wins).
+  const missing = new Map<string, MissingDependency>()
+  // Manifests whose declarations this walk has scheduled. A re-walk must
+  // re-derive the declarations of every package it kept from the previous
+  // walk: a name that failed then can succeed now, and a kept package can
+  // expose a dependency the fresh tree only now makes visible.
+  const traversed = new Set<string>()
   const queue: { anchor: string; manifest: ProfileManifest }[] = [{ anchor: installAnchor, manifest: appManifest }]
   for (let next = queue.shift(); next !== undefined; next = queue.shift()) {
+    if (traversed.has(next.anchor)) continue
+    traversed.add(next.anchor)
+    /* v8 ignore next -- every closure manifest declares its name */
+    const requiredBy = next.manifest.name ?? basename(dirname(next.anchor))
     // Peer dependencies participate: Service Definition packages (dsh-subprocess,
     // dsh-compaction, ...) are peers of their implementations, never plain
     // dependencies, yet out-of-tree plugins import them directly.
     /* v8 ignore next -- a real app manifest always declares dependencies */
     for (const dep of [...Object.keys(next.manifest.dependencies ?? {}), ...Object.keys(next.manifest.peerDependencies ?? {})]) {
-      if (links.has(dep)) continue
+      const linked = links.get(dep)
+      if (linked !== undefined) {
+        // Resolved by an earlier declarer or an earlier walk: keep the first
+        // resolution, but schedule the package so this walk still sees its
+        // own declarations.
+        const known = join(linked, 'package.json')
+        queue.push({ anchor: known, manifest: JSON.parse(readFileSync(known, 'utf8')) as ProfileManifest })
+        continue
+      }
       const dir = packageDirFromAnchor(next.anchor, dep)
-      // A declared-but-uninstalled dependency cannot be a loader-visible
-      // plugin; skip it rather than fail the whole boot.
-      if (dir === undefined) continue
+      if (dir === undefined) {
+        // Optional peers are the one legitimate absence: pnpm does not
+        // auto-install them and nothing guarantees a provider. Any other
+        // declared-but-unresolved name means the tree is being written or
+        // is broken; the caller retries the walk and then fails loud.
+        if (next.manifest.peerDependenciesMeta?.[dep]?.optional !== true) {
+          missing.set(dep, { name: dep, requiredBy })
+        }
+        continue
+      }
       // Isolated pnpm layouts surface a package as a junction whose own
       // dependencies live beside its REAL store directory, not beside the
       // junction. Walking the junction path sees only the deployment root's
@@ -254,9 +281,71 @@ export function healProfilesModuleFallback(installAnchor: string, home: string =
       // target so a fallback link resolves the same way.
       const real = realpathSync(dir).replace(/^\\\\\?\\/, '')
       links.set(dep, real)
+      missing.delete(dep)
       const manifestPath = join(real, 'package.json')
       queue.push({ anchor: manifestPath, manifest: JSON.parse(readFileSync(manifestPath, 'utf8')) as ProfileManifest })
     }
+  }
+  return [...missing.values()]
+}
+
+/**
+ * Maintain the flat module fallback `$DSH_HOME/profiles/node_modules`: one symlink per
+ * package in the dsh app's resolvable dependency CLOSURE (BFS over `dependencies` and
+ * `peerDependencies` from the app manifest), each resolved from its own real location.
+ * Node's parent-directory walk from any profile finds this directory after the
+ * profile's own `node_modules`, so every in-box plugin resolves without pnpm ever
+ * managing it — the exact "bundles come from the installation" contract. The closure
+ * (not just direct dependencies) is required for out-of-tree plugins: their peer
+ * dependencies name Service Definition packages (`dsh-compaction`, `dsh-invariants`,
+ * ...) that the app reaches only through its Service Provider packages. Symlinked
+ * packages resolve their own dependencies from their real directories (Node's
+ * default symlink-following), so each package needs only its one flat link. The BFS
+ * walks realpath'ed directories: an isolated pnpm layout houses a package's own
+ * dependencies beside its store location, invisible from the junction path the
+ * deployment root surfaces.
+ *
+ * The walk verifies its own completeness. A dependency declared by an installed
+ * package but unresolvable from it means the tree is still being written (a fresh
+ * install or update, or a real-time antivirus first pass) or is broken; the only
+ * legitimate absence is a peer flagged optional in `peerDependenciesMeta`. An
+ * incomplete walk is retried after a settle wait — seconds later the same tree is
+ * usually complete — and a closure that is still incomplete fails loud naming every
+ * missing package, instead of silently shrinking the fallback and moving the failure
+ * into the Loader's import phase where it surfaces as one error per mounted plugin.
+ * Idempotent: correct links are kept and moved installations are re-pointed; a stale
+ * link to a vanished package stays until its name is reused (dangling links are
+ * invisible to resolution).
+ * @param installAnchor - absolute path of the dsh app's package.json.
+ * @param home - the Harness home; defaults to {@link resolveDshHome}.
+ * @param options - walk attempts and the settle wait between them; the defaults fit
+ *   a real launch, tests inject smaller values.
+ * @throws when the closure stays incomplete after the settle walks.
+ */
+export function healProfilesModuleFallback(
+  installAnchor: string, home: string = resolveDshHome(), options: HealProfilesModuleFallbackOptions = {},
+): void {
+  const profilesDir = join(home, PROFILES_DIR)
+  const modulesDir = join(profilesDir, 'node_modules')
+  mkdirSync(modulesDir, { recursive: true })
+  const attempts = options.attempts ?? HEAL_FALLBACK_SETTLE_ATTEMPTS
+  /* v8 ignore next 3 -- the default blocks real wall time; tests inject settle */
+  const settle = options.settle ?? (() => {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, HEAL_FALLBACK_SETTLE_DELAY_MS)
+  })
+  const links = new Map<string, string>()
+  let missing = walkInstallationClosure(installAnchor, links)
+  for (let attempt = 1; missing.length > 0 && attempt < attempts; attempt++) {
+    settle()
+    missing = walkInstallationClosure(installAnchor, links)
+  }
+  if (missing.length > 0) {
+    const detail = missing.map(entry => `${entry.name} (needed by ${entry.requiredBy})`).join(', ')
+    throw new Error(
+      `dsh: installation dependency closure is incomplete: ${detail} unresolvable from ${dirname(installAnchor)}. ` +
+      'The tree is being written right now (a fresh install or update, or an antivirus first pass) or is broken; ' +
+      'relaunch in a moment.',
+    )
   }
   for (const [packageName, target] of links) {
     const link = join(modulesDir, packageName)
@@ -264,6 +353,7 @@ export function healProfilesModuleFallback(installAnchor: string, home: string =
     ensureSymlink(link, target)
   }
 }
+
 
 /**
  * Read a profile's manifest.

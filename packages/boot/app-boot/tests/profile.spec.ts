@@ -4,7 +4,7 @@
  * empty-root composition, and the installation module-fallback healing.
  */
 
-import { lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -214,13 +214,9 @@ describe('composeEntries', () => {
 describe('healProfilesModuleFallback', () => {
   it('links the app and bundle dependency surface flat under profiles/node_modules', () => {
     const anchor = stageInstallation({
-      'bundle-a': { patch: '[]\n', deps: { 'dep-of-a': '0.0.0', 'ghost-dep': '0.0.0' } },
+      'bundle-a': { patch: '[]\n', deps: { 'dep-of-a': '0.0.0' } },
       'plain-lib': {},
     })
-    // An app dependency that is declared but not installed: skipped, not fatal.
-    const appManifest = JSON.parse(readFileSync(anchor, 'utf8')) as { dependencies: Record<string, string> }
-    appManifest.dependencies['never-installed'] = '0.0.0'
-    writeFileSync(anchor, JSON.stringify(appManifest))
     // dep-of-a lives in the installation's node_modules too.
     const modules = join(anchor, '..', 'node_modules')
     mkdirSync(join(modules, 'dep-of-a'), { recursive: true })
@@ -235,8 +231,103 @@ describe('healProfilesModuleFallback', () => {
     }
     // Idempotent, and a moved target is re-pointed.
     healProfilesModuleFallback(anchor, home)
-    const before = readlinkSync(join(fallback, 'dep-of-a'))
-    expect(before).toContain('dep-of-a')
+    expect(readlinkSync(join(fallback, 'dep-of-a'))).toContain('dep-of-a')
+  })
+
+  it('fails loud naming every declared-but-absent package and its declarer', () => {
+    const anchor = stageInstallation({ 'bundle-a': { deps: { 'ghost-dep': '0.0.0' } } })
+    // A non-optional peer is as required as a dependency: pnpm installs the
+    // peers of its dependencies, so an absence names the same broken or
+    // mid-write tree. attempts: 1 skips the settle walk and reports at once.
+    const dir = join(anchor, '..', 'node_modules', 'bundle-a')
+    const manifest = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as Record<string, unknown>
+    manifest.peerDependencies = { 'absent-peer': '0.0.0' }
+    writeFileSync(join(dir, 'package.json'), JSON.stringify(manifest))
+    expect(() => { healProfilesModuleFallback(anchor, tmp(), { attempts: 1 }) }).toThrow('closure is incomplete')
+    expect(() => { healProfilesModuleFallback(anchor, tmp(), { attempts: 1 }) })
+      .toThrow('ghost-dep (needed by bundle-a), absent-peer (needed by bundle-a)')
+  })
+
+  it('heals a tree that completes during the settle between walks', () => {
+    const anchor = stageInstallation({ 'bundle-a': { deps: { 'late-dep': '0.0.0' } } })
+    const modules = join(anchor, '..', 'node_modules')
+    const home = tmp()
+    healProfilesModuleFallback(anchor, home, {
+      attempts: 2,
+      settle: () => {
+        mkdirSync(join(modules, 'late-dep'), { recursive: true })
+        writeFileSync(join(modules, 'late-dep', 'package.json'), JSON.stringify({ name: 'late-dep', version: '0.0.0' }))
+      },
+    })
+    expect(lstatSync(join(home, 'profiles', 'node_modules', 'late-dep')).isSymbolicLink()).toBe(true)
+  })
+
+  it('keeps a name another declarer resolves out of the missing list', () => {
+    const anchor = stageInstallation({ 'plain-lib': {} })
+    const modules = join(anchor, '..', 'node_modules')
+    // bundle-x declares shared without providing it; bundle-y provides it in
+    // its own node_modules, so the same pass resolves the name and clears it.
+    for (const name of ['bundle-x', 'bundle-y']) {
+      const dir = join(modules, name)
+      mkdirSync(dir, { recursive: true })
+      writeFileSync(join(dir, 'package.json'), JSON.stringify({ name, version: '0.0.0', dependencies: { shared: '0.0.0' } }))
+      const appManifest = JSON.parse(readFileSync(anchor, 'utf8')) as { dependencies: Record<string, string> }
+      appManifest.dependencies[name] = '0.0.0'
+      writeFileSync(anchor, JSON.stringify(appManifest))
+    }
+    mkdirSync(join(modules, 'bundle-y', 'node_modules', 'shared'), { recursive: true })
+    writeFileSync(
+      join(modules, 'bundle-y', 'node_modules', 'shared', 'package.json'),
+      JSON.stringify({ name: 'shared', version: '0.0.0' }),
+    )
+    const home = tmp()
+    healProfilesModuleFallback(anchor, home)
+    expect(readlinkSync(join(home, 'profiles', 'node_modules', 'shared')))
+      .toContain(join('bundle-y', 'node_modules', 'shared'))
+  })
+
+  it('terminates on a dependency cycle and links every member', () => {
+    const anchor = stageInstallation({ 'plain-lib': {} })
+    const modules = join(anchor, '..', 'node_modules')
+    const appManifest = JSON.parse(readFileSync(anchor, 'utf8')) as { dependencies: Record<string, string> }
+    for (const name of ['cycle-a', 'cycle-b']) {
+      const dir = join(modules, name)
+      mkdirSync(dir, { recursive: true })
+      writeFileSync(join(dir, 'package.json'), JSON.stringify({
+        name,
+        version: '0.0.0',
+        dependencies: name === 'cycle-a' ? { 'cycle-b': '0.0.0' } : { 'cycle-a': '0.0.0' },
+      }))
+      appManifest.dependencies[name] = '0.0.0'
+      writeFileSync(anchor, JSON.stringify(appManifest))
+    }
+    const home = tmp()
+    healProfilesModuleFallback(anchor, home)
+    const fallback = join(home, 'profiles', 'node_modules')
+    for (const name of ['cycle-a', 'cycle-b']) {
+      expect(lstatSync(join(fallback, name)).isSymbolicLink(), name).toBe(true)
+    }
+  })
+
+  it('treats an absent optional peer as a complete install', () => {
+    const anchor = stageInstallation({ 'plain-lib': {} })
+    const modules = join(anchor, '..', 'node_modules')
+    const dir = join(modules, 'peerful')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({
+      name: 'peerful',
+      version: '0.0.0',
+      dependencies: {},
+      peerDependencies: { 'maybe-absent': '0.0.0' },
+      peerDependenciesMeta: { 'maybe-absent': { optional: true } },
+    }))
+    const appManifest = JSON.parse(readFileSync(anchor, 'utf8')) as { dependencies: Record<string, string> }
+    appManifest.dependencies['peerful'] = '0.0.0'
+    writeFileSync(anchor, JSON.stringify(appManifest))
+    const home = tmp()
+    healProfilesModuleFallback(anchor, home)
+    expect(lstatSync(join(home, 'profiles', 'node_modules', 'peerful')).isSymbolicLink()).toBe(true)
+    expect(existsSync(join(home, 'profiles', 'node_modules', 'maybe-absent'))).toBe(false)
   })
 
   it('walks realpaths so an isolated store layout links junction-hidden transitives', () => {

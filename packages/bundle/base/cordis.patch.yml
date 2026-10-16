@@ -130,6 +130,11 @@
             # and is refused by /api/coding/paas/v4.
             baseURL: https://api.z.ai/api/paas/v4
             liveModels: true
+            # Серверные MCP-инструменты Z.AI: каждый запрос несёт запись
+            # официального сервера «mcp code», эндпоинт сам подключается к
+            # нему и сам исполняет вызовы (веб-поиск, анализ изображений и
+            # видео) — без инструмента harness и без цикла tool-result.
+            mcp: true
 
     - id: session-persistence-jsonl
       name: '@deepseek-ai/dsh-session-persistence-jsonl'

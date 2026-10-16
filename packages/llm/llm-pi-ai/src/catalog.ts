@@ -141,6 +141,35 @@ export function catalogProviderIds(): readonly string[] {
   return getBuiltinProviders()
 }
 
+/** Z.AI route keys the installed pi-ai catalog ships. */
+export const ZAI_CATALOG_ROUTES: ReadonlySet<string> = new Set(['zai', 'zai-coding-cn'])
+
+/** Endpoint hosts the Z.AI documentation publishes for its model APIs. */
+const ZAI_HOSTS = /^(?:api\.z\.ai|open\.bigmodel\.cn)$/
+
+/**
+ * Whether a route is a Z.AI route: a Z.AI catalog key, or an endpoint on a
+ * documented Z.AI host. Provisioning offers itself for these routes, and the
+ * profile's `mcp` switch is valid only on them.
+ * @param provider - the route key.
+ * @param stored - the route's stored profile shape, when one is stored; only its endpoint matters here.
+ * @returns whether the route is a Z.AI route.
+ */
+export function isZaiRoute(provider: string, stored: { baseURL?: string } | undefined): boolean {
+  if (ZAI_CATALOG_ROUTES.has(provider)) return true
+  if (stored?.baseURL === undefined) return false
+  let host: string
+  try {
+    host = new URL(stored.baseURL).host
+  } catch {
+    // A malformed stored baseURL fails later where it is used, with the
+    // URL in the message; for gating, an unreadable URL simply names no
+    // Z.AI host.
+    return false
+  }
+  return ZAI_HOSTS.test(host)
+}
+
 /**
  * Whether the installed catalog provider for one route declares an api-key
  * method — the only authentication this adapter obtains on its own.

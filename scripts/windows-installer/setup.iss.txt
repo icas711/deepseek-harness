@@ -21,7 +21,10 @@ OutputDir={{OUTPUT_DIR}}
 OutputBaseFilename=dsh-setup-{{VERSION}}-x64
 VersionInfoVersion={{NUMERIC_VERSION}}
 UninstallDisplayName={#MyAppName}
-CloseApplications=no
+; An update over a running instance fails on every locked file (a mapped
+; native module, an open log): Setup must detect and close the running app
+; through Restart Manager before replacing files.
+CloseApplications=yes
 
 ; User data (~/.dsh: sessions, settings, credentials) is intentionally not
 ; touched on uninstall; an [UninstallDelete] section must stay absent.
