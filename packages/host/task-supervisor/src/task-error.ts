@@ -12,10 +12,10 @@ export class TaskSupervisorError extends Error {
   /**
    * Construct one supervisor refusal.
    * @param message - human-readable explanation.
-   * @param code - stable caller-facing code (`unknown-task`, `invalid-transition`,
+   * @param code - stable caller-facing code (`unknown-task`, `invalid-transition`, `invalid-reason`,
    * `stopping`, `resume-unavailable`, `session-not-found`).
    */
-  constructor(message: string, readonly code: 'unknown-task' | 'invalid-transition' | 'stopping' | 'resume-unavailable' | 'session-not-found') {
+  constructor(message: string, readonly code: 'unknown-task' | 'invalid-transition' | 'invalid-reason' | 'stopping' | 'resume-unavailable' | 'session-not-found') {
     super(message)
     this.name = 'TaskSupervisorError'
   }

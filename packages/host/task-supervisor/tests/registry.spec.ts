@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import {
+  TaskId,
   REGISTRY_FORMAT_VERSION,
   RegistryFileError,
   TaskRegistryStore,
@@ -35,7 +36,7 @@ async function storeAtPath(name: string, now?: () => number): Promise<{ store: T
 describe('parseRegistryDocument', () => {
   it('round-trips records through the serialized document', () => {
     const records: TaskRecord[] = [{
-      taskId: 'task-1',
+      taskId: TaskId('task-1'),
       sessionId: SessionId('session-1'),
       title: 'Перенести отчёты',
       status: 'paused',
@@ -47,7 +48,7 @@ describe('parseRegistryDocument', () => {
   })
 
   it('rejects malformed documents with a RegistryFileError naming the file', () => {
-    const cases: [string, string][] = [
+    const cases: [string, RegExp][] = [
       ['not json at all', /not valid JSON/],
       ['[]', /not a task registry document/],
       ['{"version": 2, "tasks": []}', /expected version 1/],
