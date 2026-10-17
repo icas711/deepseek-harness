@@ -593,6 +593,11 @@ export const TYPE_LINK_EXEMPTIONS: Readonly<Record<string, string>> = {
   WorkflowAgentEndInfo: 'event-local snapshot is owned by packages/workflow/workflow/src/index.ts',
   WorkflowAgentInfo: 'event-local snapshot is owned by packages/workflow/workflow/src/index.ts',
   WorkflowResultInfo: 'event-local snapshot is owned by packages/workflow/workflow/src/index.ts',
+  TaskId: 'branded task identifier is owned by packages/host/task-supervisor/README.md',
+  TaskView: 'task registry record view is owned by packages/host/task-supervisor/README.md',
+  BindingChallenge: 'one-time binding code challenge is owned by packages/notify/notifier/README.md',
+  NotificationRequest: 'notification delivery request is owned by packages/notify/notifier/README.md',
+  SendResult: 'notification delivery outcome is owned by packages/notify/notifier/README.md',
 }
 
 /** Repository data policy consumed by the Cordis catalog projector. */

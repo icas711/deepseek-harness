@@ -597,6 +597,23 @@ const SERVICE_ROLES: ServiceRole[] = [
     consumers: ['tool-cordis'],
     note: 'Registers host inspect providers, mirrors the client provider manifest, and routes client queries through the dynamic Cordis transport.',
   },
+  {
+    key: 'taskSupervisor',
+    pkg: 'task-supervisor',
+    title: 'Durable cross-restart task registry',
+    mode: 'seam',
+    consumers: ['telegram'],
+    note: 'Tasks persist in the harness home: dispose parks running tasks with one atomic write, boot resumes parked tasks through the ordinary logged input path, and a hard crash marks running records interrupted until an explicit resume.',
+  },
+  {
+    key: 'notifier',
+    pkg: 'notifier',
+    title: 'Channel-neutral user notification seam',
+    mode: 'seam',
+    implementations: ['telegram'],
+    consumers: ['telegram'],
+    note: 'The definition owns the send vocabulary, one-time binding challenges, and durable login targets; the telegram provider delivers through its channel, answers binding codes, and its consumer watches task statuses for notifications.',
+  },
 ]
 
 function generatedHeader(title: string): string[] {
