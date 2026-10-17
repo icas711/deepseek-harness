@@ -96,8 +96,8 @@ export interface StationReject {
 
 // ---- Операции --------------------------------------------------------------
 
-/** Тип записи каталога на станции. */
-export type StationEntryType = 'file' | 'directory' | 'other'
+/** Тип записи каталога на станции; `symlink` — только ответ lstat-режима. */
+export type StationEntryType = 'file' | 'directory' | 'symlink' | 'other'
 
 /** Ответ fs/stat: отсутствие цели — валидный исход, а не ошибка. */
 export type StationStatResult =
@@ -120,7 +120,7 @@ export type StationSpawnStdin =
 
 /** Полезные нагрузки операций по имени операции. */
 export interface StationOpPayloadMap {
-  'fs/stat': { path: string }
+  'fs/stat': { path: string; lstat?: boolean }
   'fs/list': { path: string }
   'fs/read': { path: string; maxBytes: number }
   'fs/write': { path: string; data: string; createOnly: boolean }

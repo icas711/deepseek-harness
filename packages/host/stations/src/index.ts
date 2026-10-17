@@ -257,6 +257,20 @@ export class StationsService extends Service {
     return this.sessions.has(String(stationId))
   }
 
+  /**
+   * Запись реестра о станции без секретного материала — источник корня и
+   * платформы для провайдеров швов: проверка путей на хосте обязана работать
+   * и когда станция офлайн.
+   * @param stationId - идентификатор станции.
+   * @returns корень и платформа записи, или undefined для несопряжённой.
+   */
+  async describe(stationId: StationId): Promise<{ rootPath: string; platform: StationPlatform } | undefined> {
+    await this.ready
+    const record = this.store.get(String(stationId))
+    if (record === undefined) return undefined
+    return { rootPath: record.rootPath, platform: record.platform }
+  }
+
   /** Подключает новый сокет: одна сессия на сокет, свежая заменяет прежнюю. */
   private attach(ws: WebSocket): void {
     const session = new StationServerSession(ws, this.sessionHost())

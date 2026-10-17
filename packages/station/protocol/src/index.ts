@@ -90,6 +90,26 @@ export function assertNever(value: never): never {
   throw new Error(`неожиданная ветка закрытого юниона: ${JSON.stringify(String(value))}`)
 }
 
+/**
+ * Отказ операции, приехавший в кадре res; код стабилен для машрутизации
+ * на вызывающей стороне (провайдеры переводят его в коды швов fs/subprocess).
+ */
+export class StationOpRemoteError extends Error {
+  /** Стабильный код ошибки из протокола. */
+  readonly code: StationOpErrorCode
+
+  /**
+   * Собирает отказ операции.
+   * @param code - код ошибки из закрытого юниона протокола.
+   * @param message - человекочитаемый текст на русском от станции.
+   */
+  constructor(code: StationOpErrorCode, message: string) {
+    super(message)
+    this.name = 'StationOpRemoteError'
+    this.code = code
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -127,8 +147,8 @@ function requireBoolean(record: Record<string, unknown>, field: string): boolean
   return value
 }
 
-function decodeEntryType(value: unknown): 'file' | 'directory' | 'other' {
-  if (value !== 'file' && value !== 'directory' && value !== 'other') {
+function decodeEntryType(value: unknown): 'file' | 'directory' | 'symlink' | 'other' {
+  if (value !== 'file' && value !== 'directory' && value !== 'symlink' && value !== 'other') {
     throw new StationProtocolError('кадр: неизвестный тип записи каталога')
   }
   return value
@@ -186,7 +206,13 @@ const EVENT_NAMES: readonly StationEventName[] = ['proc/stdout', 'proc/stderr', 
 
 function decodeRequestPayload(op: StationOpName, p: Record<string, unknown>): StationRequestFrame {
   switch (op) {
-    case 'fs/stat':
+    case 'fs/stat': {
+      const lstat = p.lstat
+      if (lstat !== undefined && typeof lstat !== 'boolean') {
+        throw new StationProtocolError('кадр: поле "lstat" должно быть булевым')
+      }
+      return { t: 'req', id: '', op, p: { path: requireString(p, 'path'), ...(lstat === undefined ? {} : { lstat }) } }
+    }
     case 'fs/list':
     case 'fs/unlink':
       return { t: 'req', id: '', op, p: { path: requireString(p, 'path') } }
