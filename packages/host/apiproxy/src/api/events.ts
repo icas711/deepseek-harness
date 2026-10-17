@@ -52,6 +52,11 @@ export interface EventsApi {
    * generic projection pair (history-tail projections block + session/projection frames).
    * since: resume hook, unimplemented in v1 (ignored if passed); reconnection = reopen the
    * stream + refetch history.
+   *
+   * Pending-approval/question replay and their requested/resolved broadcasts reach only
+   * connections whose web identity may see the asking session (the session.list cabinet
+   * rule); a user's other devices are exactly such connections, so any of them receives
+   * the interaction with the same rpcId and may answer it.
    */
   mux(request: RpcRequest<{ since?: Record<SessionId, number> }>, signal: AbortSignal): AsyncIterable<RpcRequest<MuxFrame>>
 

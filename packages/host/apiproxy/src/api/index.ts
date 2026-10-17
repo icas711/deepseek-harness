@@ -34,7 +34,9 @@ export interface ApiProxy {
   /** Host-only download surfaces (GET, no wire envelope); absent from IApiClient. */
   downloads: DownloadsApi
   /**
-   * Response entry for server requests; not a domain method.
+   * Response entry for server requests; not a domain method. Served under the
+   * session domain's visibility: only a caller who may see the target session
+   * settles its pending approval/question; duplicates read already-resolved.
    * @param message - Client response carrying the server request's rpcId.
    * @returns Transport receipt for the response delivery.
    */

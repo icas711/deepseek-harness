@@ -132,6 +132,7 @@ describe('rpcReceiptSchema', () => {
     expect(rpcReceiptSchema.parse({ accepted: true })).toEqual({ accepted: true })
     expect(rpcReceiptSchema.parse({ accepted: false, reason: 'not-pending' })).toEqual({ accepted: false, reason: 'not-pending' })
     expect(rpcReceiptSchema.parse({ accepted: false, reason: 'bad-response' })).toEqual({ accepted: false, reason: 'bad-response' })
+    expect(rpcReceiptSchema.parse({ accepted: false, reason: 'already-resolved' })).toEqual({ accepted: false, reason: 'already-resolved' })
     expect(() => rpcReceiptSchema.parse({ accepted: false, reason: 'other' })).toThrow()
   })
 })

@@ -116,6 +116,7 @@ import {
 } from '@deepseek-ai/dsh-api-remotes'
 import { canOpenNativePath, openNativePath, openNativeTextFile } from './native-path-opener.ts'
 import { isWithinRoot, scopingIdentity } from './web-identity.ts'
+import type { WebIdentity } from './web-identity.ts'
 import { realpathSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -156,6 +157,15 @@ const WEB_SETTINGS_NAMESPACES = [
 
 /** Provider work budget: at most 100 calls and 2,000 inspected hits. */
 const SESSION_SEARCH_PROVIDER_CALL_LIMIT = 100
+
+/**
+ * How many settled /api/respond ids stay remembered after their pending entry
+ * leaves the table: a second device's duplicate answer must read as
+ * already-resolved, not as an unknown id, for at least that many latest
+ * settlements. Bounded FIFO eviction — the oldest id degrades back to
+ * not-pending, never incorrect, only less specific.
+ */
+const RESOLVED_ANSWERS_MEMORY = 256
 
 /**
  * The telemetry backend's settings namespace, mirrored as a plain string (the
@@ -1183,7 +1193,20 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
   let workspaceCreationChain = Promise.resolve()
   const pendingQuestions = new Map<RpcId, PendingQuestion>()
   const pendingApprovals = new Map<RpcId, PendingApproval>()
-  const muxQueues = new Set<FrameQueue<RpcRequest<MuxFrame>>>()
+  /**
+   * Settled answerable ids, newest last: a duplicate answer reads
+   * already-resolved while its id is remembered, not-pending after eviction.
+   */
+  const resolvedAnswers = new Set<RpcId>()
+  /**
+   * Open mux streams keyed by the subscriber's visibility, snapshotted at
+   * stream open. Frames are published from foreign serving contexts (another
+   * request's respond, host-side settle paths), where the subscriber's request
+   * headers are not on the async chain — the open-time snapshot is the only
+   * correct read of who this connection belongs to. `undefined` scopes to
+   * nothing: admins and non-web callers see every session.
+   */
+  const muxQueues = new Map<FrameQueue<RpcRequest<MuxFrame>>, WebIdentity | undefined>()
   /**
    * Open host-stream queues. The `events.host` stream owns the listener side;
    * this registry lets a unary handler publish the same frames (a durable
@@ -1335,10 +1358,41 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
       (await composeAgent(resolveSessionPreset({ header: meta, events }))).setup,
   })
 
-  /** Send one transient frame to every connected mux consumer. */
-  function broadcast(payload: MuxFrame): void {
-    const envelope = frame(payload)
-    for (const queue of muxQueues) queue.push(envelope)
+  /**
+   * Send one transient frame to every mux subscriber whose visibility covers
+   * the frame's session — the same cabinet rule that scopes session.list.
+   * Answerable frames (approval/question requested) pass their stable rpcId so
+   * the first push and every later replay correlate as one interaction.
+   */
+  function broadcast(payload: MuxFrame, stableId?: RpcId): void {
+    if (!('sessionId' in payload)) return
+    const envelope: RpcRequest<MuxFrame> = stableId === undefined ? frame(payload) : { rpcId: stableId, payload }
+    for (const [queue, subscriberScope] of muxQueues) {
+      if (sessionVisibleTo(subscriberScope, payload.sessionId)) queue.push(envelope)
+    }
+  }
+
+  /**
+   * Whether one session is visible to a mux subscriber or /api/respond caller:
+   * the exact standing rule of the session domain's list visibility — scoped
+   * web users see only sessions whose header cwd lives inside their cabinet
+   * root; admins and non-web callers see everything. Pending entries imply a
+   * live ask, so the attached header read is the session's real cwd; a
+   * detached identity answers not-visible rather than widening the rule.
+   */
+  function sessionVisibleTo(scope: WebIdentity | undefined, sessionId: SessionId): boolean {
+    if (scope === undefined) return true
+    const cwd = ctx.sessions.get(sessionId)?.header.cwd
+    return cwd !== undefined && isWithinRoot(cwd, scope.root)
+  }
+
+  /** Record a settled answerable id (bounded FIFO) for the duplicate-answer receipt. */
+  function rememberResolved(rpcId: RpcId): void {
+    resolvedAnswers.add(rpcId)
+    if (resolvedAnswers.size > RESOLVED_ANSWERS_MEMORY) {
+      const oldest = resolvedAnswers.values().next()
+      if (oldest.done !== true) resolvedAnswers.delete(oldest.value)
+    }
   }
 
   // Projection change feed → session/projection push frames. The carrier
@@ -1422,6 +1476,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
   /** Remove a wait before settling it: synchronous deletion makes the first claimant win. */
   function claimQuestion(pending: PendingQuestion, outcome: 'answered' | 'cancelled'): void {
     pendingQuestions.delete(pending.rpcId)
+    rememberResolved(pending.rpcId)
     if (pending.signal !== undefined && pending.onAbort !== undefined) {
       pending.signal.removeEventListener('abort', pending.onAbort)
     }
@@ -1452,11 +1507,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         pending.onAbort = onAbort
         pendingQuestions.set(rpcId, pending)
         request.signal?.addEventListener('abort', onAbort, { once: true })
-        const envelope: RpcRequest<MuxFrame> = {
-          rpcId,
-          payload: { type: 'question/requested', sessionId, questions: request.questions },
-        }
-        for (const queue of muxQueues) queue.push(envelope)
+        broadcast({ type: 'question/requested', sessionId, questions: request.questions }, rpcId)
       })
     },
   })
@@ -1472,10 +1523,13 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
   // --- Approval pending registry ------------------------------------------
   // The proxy is the approval channel for every agent this host owns: an ask
   // through `ctx.approval` becomes an answerable server-request on the mux
-  // stream (stable rpcId), settled by POST /api/respond. The entry survives
-  // client disconnects — mux-open replays still-pending requested frames with
-  // the same rpcId (the refresh-recovery baseline) — and withdraws on the
-  // ask's own abort signal (turn cancel), pushing `cancelled` to subscribers.
+  // stream (stable rpcId), settled by POST /api/respond under the session
+  // domain's visibility rule. The entry survives client disconnects — mux-open
+  // replays still-pending requested frames with the same rpcId to every
+  // connection of a user who may see the asking session (the refresh-recovery
+  // baseline; any of the user's devices may answer) — and withdraws on the
+  // ask's own abort signal (turn cancel), pushing `cancelled` to those
+  // subscribers.
   if (ctx.get('approval') !== undefined) {
     // Teardown parity with the question provider above: a gateway disposed
     // while approvals are pending settles every entry as 'cancelled' (the
@@ -1529,6 +1583,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
              reachable path settles twice; kept against future settle callers. */
           if (!pendingApprovals.delete(pending.rpcId)) return
           req.signal?.removeEventListener('abort', onAbort)
+          rememberResolved(pending.rpcId)
           broadcast({ type: 'approval/resolved', sessionId: pending.sessionId, approvalId: id, outcome })
           // A cancelled ask was already settled by the service's own signal
           // race, which discards this late resolution; resolving is a no-op
@@ -1547,8 +1602,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         }
         pendingApprovals.set(pending.rpcId, pending)
         req.signal?.addEventListener('abort', onAbort, { once: true })
-        const envelope = requestedFrame(pending)
-        for (const queue of muxQueues) queue.push(envelope)
+        broadcast(requestedFrame(pending).payload, pending.rpcId)
       })
     })
   }
@@ -3728,11 +3782,18 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     events: {
       mux(_request, signal) {
         const queue = new FrameQueue<RpcRequest<MuxFrame>>()
-        muxQueues.add(queue)
+        // Visibility is fixed at open: later frames publish from foreign
+        // serving contexts, so the subscriber's own headers would be gone.
+        const scope = scopingIdentity(ctx)
+        muxQueues.set(queue, scope)
         for (const session of ctx.sessions.list()) {
           subscribeSession(queue, session)
         }
+        // Replay reaches only connections whose visibility covers the asking
+        // session — the same rule that scopes the answer in respond(); the
+        // pending entries stay answerable from every device OF THAT USER.
         for (const pending of pendingQuestions.values()) {
+          if (!sessionVisibleTo(scope, pending.sessionId)) continue
           queue.push({
             rpcId: pending.rpcId,
             payload: {
@@ -3743,7 +3804,10 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         }
         // Refresh recovery: still-pending approval questions replay with their
         // stable rpcId so a reconnecting client can still answer them.
-        for (const pending of pendingApprovals.values()) queue.push(requestedFrame(pending))
+        for (const pending of pendingApprovals.values()) {
+          if (!sessionVisibleTo(scope, pending.sessionId)) continue
+          queue.push(requestedFrame(pending))
+        }
         // Queue snapshot baseline (pendingQuestions precedent): frames replayed
         // in arrival order per session; a reconnecting client rebuilds its
         // queue view from these alone.
@@ -3997,10 +4061,17 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     },
 
     respond(message: ClientResponse): Promise<RpcReceipt> {
-      // Route by the echoed rpcId (the wire correlation): approvals first,
-      // then questions — the two registries share one id space of UUIDs.
+      // Answering is scoped like the session domain: a web user may settle only
+      // interactions of sessions inside their cabinet. A foreign login reads
+      // not-pending — indistinguishable from an unknown id, so the receipt
+      // never discloses a foreign pending interaction (approvals first, then
+      // questions — the two registries share one id space of UUIDs).
+      const scope = scopingIdentity(ctx)
       const approval = pendingApprovals.get(message.rpcId)
       if (approval !== undefined) {
+        if (!sessionVisibleTo(scope, approval.sessionId)) {
+          return Promise.resolve({ accepted: false, reason: 'not-pending' })
+        }
         if (!message.result.ok) return Promise.resolve({ accepted: false, reason: 'bad-response' })
         const parsed = approvalResponsePayloadSchema.safeParse(message.result.value)
         // The payload's audit correlation must match the entry the rpcId routed
@@ -4012,7 +4083,14 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         return Promise.resolve({ accepted: true })
       }
       const pending = pendingQuestions.get(message.rpcId)
-      if (pending === undefined) return Promise.resolve({ accepted: false, reason: 'not-pending' })
+      if (pending === undefined) {
+        // A settled interaction answers specifically: another device (or a
+        // second tab) raced through the replay and answered first.
+        return Promise.resolve({ accepted: false, reason: resolvedAnswers.has(message.rpcId) ? 'already-resolved' : 'not-pending' })
+      }
+      if (!sessionVisibleTo(scope, pending.sessionId)) {
+        return Promise.resolve({ accepted: false, reason: 'not-pending' })
+      }
       if (!message.result.ok) {
         if (message.result.error.code !== 'cancelled') {
           return Promise.resolve({ accepted: false, reason: 'bad-response' })

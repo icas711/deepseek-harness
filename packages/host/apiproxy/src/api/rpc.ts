@@ -214,6 +214,12 @@ export type RpcMessage = ClientRequest | ServerResponse | ServerRequest | Client
 /**
  * Carrier receipt (not an RpcMessage — it belongs to the carrier layer, same
  * discipline as "HTTP status describes only the carrier"): the HTTP response
- * body of the POST carrying a client-response. Late/duplicate responses yield not-pending.
+ * body of the POST carrying a client-response. A response addressed to an
+ * unknown rpcId yields not-pending; one the host has already settled (another
+ * device of the user answered first) yields already-resolved while the id
+ * stays within the bounded resolved-answer memory, not-pending again after
+ * eviction. An answer from a caller whose web identity cannot see the target
+ * session yields not-pending too — indistinguishable from an unknown id, so
+ * probing never discloses foreign pending interactions.
  */
-export type RpcReceipt = { accepted: true } | { accepted: false; reason: 'not-pending' | 'bad-response' }
+export type RpcReceipt = { accepted: true } | { accepted: false; reason: 'not-pending' | 'bad-response' | 'already-resolved' }
