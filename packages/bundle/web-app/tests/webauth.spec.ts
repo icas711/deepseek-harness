@@ -61,6 +61,7 @@ interface BootOptions {
   sessionStore?: string
   workspaceRoot?: string
   pauseMs?: number
+  maxSessionsPerUser?: number
   registry?: object
 }
 
@@ -89,6 +90,7 @@ async function loadComposition(opts: BootOptions = {}): Promise<LoadedCompositio
     `    sessionStore: ${JSON.stringify(paths.store)}`,
     `    workspaceRoot: ${JSON.stringify(paths.workspace)}`,
     ...(opts.pauseMs === undefined ? [] : [`    pauseMs: ${String(opts.pauseMs)}`]),
+    ...(opts.maxSessionsPerUser === undefined ? [] : [`    maxSessionsPerUser: ${String(opts.maxSessionsPerUser)}`]),
   ]
   await writeFile(configPath, `${rows.join('\n')}\n`)
 
@@ -279,12 +281,12 @@ describe('webauth real composition', () => {
     const cabinet = realpathSync(join(paths.workspace, 'bob'))
     expect(registryCalls.create).toEqual([cabinet])
 
-    // One login = one session: re-login revokes the first cookie.
+    // Sessions stack up per login: the second login leaves the first alive.
     const second = await loginPost(port, 'bob', 'bob-pass')
     const secondCookie = cookieOf(second)
     expect(secondCookie).not.toBe(cookie)
     await expect(request(port, '/probe', { headers: { cookie: `${SESSION_COOKIE}=${cookie}` } }))
-      .resolves.toMatchObject({ status: 401 })
+      .resolves.toMatchObject({ status: 200 })
     await expect(request(port, '/probe', { headers: { cookie: `${SESSION_COOKIE}=${secondCookie}` } }))
       .resolves.toMatchObject({ status: 200 })
 
@@ -416,7 +418,7 @@ describe('webauth real composition', () => {
     // An expired session is refused even though the store loaded it.
     const expiredCookie = cookieOf(await loginPost(rotated.port, 'bob', 'bob-pass-2'))
     await rotated.ctx.fiber.dispose()
-    const expiredDoc = { version: 1, sessions: [{ id: expiredCookie, login: 'bob', issuedAt: Date.now() - 2000, expiresAt: Date.now() - 1000, rev: createHash('sha256').update(makeHash('unused')).digest('hex') }] }
+    const expiredDoc = { version: 2, sessions: [{ id: expiredCookie, login: 'bob', issuedAt: Date.now() - 2000, expiresAt: Date.now() - 1000, rev: createHash('sha256').update(makeHash('unused')).digest('hex'), lastSeenAt: Date.now() - 1500 }] }
     await import('node:fs/promises').then(fs => fs.writeFile(paths.store, JSON.stringify(expiredDoc)))
     const expiredBoot = await loadComposition({
       users: `bob:${makeHash('bob-pass')}`,
@@ -459,5 +461,88 @@ describe('webauth real composition', () => {
     expect(identity).toMatchObject({ login: 'bob', admin: true })
     const { realpathSync } = await import('node:fs')
     expect(identity?.root).toBe(realpathSync(join(paths.workspace, 'bob')))
+  })
+})
+
+describe('webauth sessions per login', () => {
+  it('keeps the first session alive across a second login and persists the version-2 store', { timeout: 60_000 }, async () => {
+    const { server, port, paths } = await loadComposition()
+    server.register({ kind: 'exact', path: '/probe', handler: (_req, res) => { res.writeHead(200); res.end('EXACT') } })
+    const first = cookieOf(await loginPost(port, 'bob', 'bob-pass'))
+    const second = cookieOf(await loginPost(port, 'bob', 'bob-pass'))
+    expect(second).not.toBe(first)
+    await expect(request(port, '/probe', { headers: { cookie: `${SESSION_COOKIE}=${first}` } }))
+      .resolves.toMatchObject({ status: 200 })
+    await expect(request(port, '/probe', { headers: { cookie: `${SESSION_COOKIE}=${second}` } }))
+      .resolves.toMatchObject({ status: 200 })
+    const store = await import('node:fs/promises').then(fs => fs.readFile(paths.store, 'utf8'))
+    const doc = JSON.parse(store) as { version: number; sessions: { id: string; lastSeenAt: number }[] }
+    expect(doc.version).toBe(2)
+    expect(doc.sessions.map(session => session.id).sort()).toEqual([first, second].sort())
+    for (const session of doc.sessions) expect(session.lastSeenAt).toBeGreaterThan(0)
+  })
+
+  it('evicts the least recently seen session when the per-login cap is exceeded', { timeout: 60_000 }, async () => {
+    const { server, port } = await loadComposition({ maxSessionsPerUser: 2 })
+    server.register({ kind: 'exact', path: '/probe', handler: (_req, res) => { res.writeHead(200); res.end('EXACT') } })
+    const first = cookieOf(await loginPost(port, 'bob', 'bob-pass'))
+    await new Promise(resolve => setTimeout(resolve, 10))
+    const second = cookieOf(await loginPost(port, 'bob', 'bob-pass'))
+    // The probe refreshes the first session's lastSeenAt past the second's,
+    // so minting order and recency order disagree.
+    await new Promise(resolve => setTimeout(resolve, 10))
+    await expect(request(port, '/probe', { headers: { cookie: `${SESSION_COOKIE}=${first}` } }))
+      .resolves.toMatchObject({ status: 200 })
+    const third = cookieOf(await loginPost(port, 'bob', 'bob-pass'))
+    await expect(request(port, '/probe', { headers: { cookie: `${SESSION_COOKIE}=${first}` } }))
+      .resolves.toMatchObject({ status: 200 })
+    await expect(request(port, '/probe', { headers: { cookie: `${SESSION_COOKIE}=${second}` } }))
+      .resolves.toMatchObject({ status: 401 })
+    await expect(request(port, '/probe', { headers: { cookie: `${SESSION_COOKIE}=${third}` } }))
+      .resolves.toMatchObject({ status: 200 })
+  })
+
+  it('logout revokes only the presented session', { timeout: 60_000 }, async () => {
+    const { server, port, paths } = await loadComposition()
+    server.register({ kind: 'exact', path: '/probe', handler: (_req, res) => { res.writeHead(200); res.end('EXACT') } })
+    const first = cookieOf(await loginPost(port, 'bob', 'bob-pass'))
+    const second = cookieOf(await loginPost(port, 'bob', 'bob-pass'))
+    const out = await request(port, '/logout', { method: 'POST', headers: { cookie: `${SESSION_COOKIE}=${first}` } })
+    expect(out.status).toBe(303)
+    await expect(request(port, '/probe', { headers: { cookie: `${SESSION_COOKIE}=${first}` } }))
+      .resolves.toMatchObject({ status: 401 })
+    await expect(request(port, '/probe', { headers: { cookie: `${SESSION_COOKIE}=${second}` } }))
+      .resolves.toMatchObject({ status: 200 })
+    const store = await import('node:fs/promises').then(fs => fs.readFile(paths.store, 'utf8'))
+    const doc = JSON.parse(store) as { sessions: { id: string }[] }
+    expect(doc.sessions.map(session => session.id)).toEqual([second])
+  })
+
+  it('a password-hash change revokes every session of the login', { timeout: 60_000 }, async () => {
+    const { ctx, server, port, paths } = await loadComposition({ users: `bob:${makeHash('bob-pass')}` })
+    server.register({ kind: 'exact', path: '/probe', handler: (_req, res) => { res.writeHead(200); res.end('EXACT') } })
+    const first = cookieOf(await loginPost(port, 'bob', 'bob-pass'))
+    const second = cookieOf(await loginPost(port, 'bob', 'bob-pass'))
+    await ctx.fiber.dispose()
+    const rotated = await loadComposition({
+      users: `bob:${makeHash('bob-pass-2')}`,
+      sessionStore: paths.store,
+      workspaceRoot: paths.workspace,
+    })
+    rotated.server.register({ kind: 'exact', path: '/probe', handler: (_req, res) => { res.writeHead(200); res.end('EXACT') } })
+    for (const dead of [first, second]) {
+      await expect(request(rotated.port, '/probe', { headers: { cookie: `${SESSION_COOKIE}=${dead}` } }))
+        .resolves.toMatchObject({ status: 401 })
+    }
+    await expect(loginPost(rotated.port, 'bob', 'bob-pass-2')).resolves.toMatchObject({ status: 303 })
+  })
+
+  it('fails loud on a version-1 session store', { timeout: 60_000 }, async () => {
+    const boot = await loadComposition()
+    await boot.ctx.fiber.dispose()
+    await import('node:fs/promises').then(fs => fs.writeFile(join(root!, 'legacy.json'), JSON.stringify({ version: 1, sessions: [] })))
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    await expect(loadComposition({ sessionStore: join(root!, 'legacy.json') })).rejects.toThrow(/unsupported session store version 1/)
+    warn.mockRestore()
   })
 })
