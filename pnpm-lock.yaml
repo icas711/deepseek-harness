@@ -1936,6 +1936,9 @@ importers:
       '@deepseek-ai/dsh-storage-json':
         specifier: workspace:^
         version: link:../../storage/storage-json
+      '@deepseek-ai/dsh-task-supervisor':
+        specifier: workspace:^
+        version: link:../../host/task-supervisor
       '@deepseek-ai/dsh-web-frontend':
         specifier: workspace:^
         version: link:../../../apps/web
