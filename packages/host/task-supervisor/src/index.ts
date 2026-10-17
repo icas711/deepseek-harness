@@ -145,6 +145,8 @@ export class TaskSupervisor extends Service {
   }
 
   /**
+   * Snapshot the whole registry for callers outside the service, such as a
+   * notification watcher diffing task statuses between ticks.
    * @returns fresh copies of every record, in registry order. Safe before
    * initialization settles: the read follows {@link TaskSupervisor.ready}.
    */
