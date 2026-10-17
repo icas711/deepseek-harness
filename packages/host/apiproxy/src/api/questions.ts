@@ -2,7 +2,9 @@
  * questions domain contract. The question requested frame is a
  * server-request whose rpcId is the question's stable logical id (minted when the host accepts
  * ask(); core user-questions has no request-level id); the answer is a client-response
- * echoing that rpcId, with no resource id in the payload (rpcId suffices).
+ * echoing that rpcId, with no resource id in the payload (rpcId suffices). Answering is
+ * scoped like the session domain (only a caller whose web identity may see the asking
+ * session is served); a duplicate answer after settlement reads already-resolved.
  */
 
 import type { AskUserQuestionAnswer } from '@deepseek-ai/dsh-user-questions/types'

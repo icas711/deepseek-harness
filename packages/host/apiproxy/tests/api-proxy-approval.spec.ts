@@ -103,9 +103,9 @@ describe('approval pending registry', () => {
     const resolved = await mux.waitFor('approval/resolved')
     expect(resolved).toMatchObject({ approvalId: requested.approvalId, outcome: 'allowed-once' })
 
-    // The question settled: a duplicate answer is late, not re-decidable.
+    // The question settled: a duplicate answer reads already-resolved — late, not re-decidable, not unknown.
     const dup = await api.respond(answer(envelope.rpcId, requested.sessionId, requested.approvalId, 'rejected'))
-    expect(dup).toEqual({ accepted: false, reason: 'not-pending' })
+    expect(dup).toEqual({ accepted: false, reason: 'already-resolved' })
     abort.abort()
   })
 
@@ -157,7 +157,7 @@ describe('approval pending registry', () => {
     abort.abort()
   })
 
-  it('withdraws the question on the ask signal: cancelled outcome, resolved broadcast, late answer not-pending', async () => {
+  it('withdraws the question on the ask signal: cancelled outcome, resolved broadcast, late answer already-resolved', async () => {
     const { ctx, api } = await harness()
     const abort = new AbortController()
     const mux = openMux(api, abort)
@@ -172,7 +172,7 @@ describe('approval pending registry', () => {
     const resolved = await mux.waitFor('approval/resolved')
     expect(resolved).toMatchObject({ approvalId: requested.approvalId, outcome: 'cancelled' })
     expect(await api.respond(answer(envelope.rpcId, requested.sessionId, requested.approvalId, 'allowed-once')))
-      .toEqual({ accepted: false, reason: 'not-pending' })
+      .toEqual({ accepted: false, reason: 'already-resolved' })
     abort.abort()
   })
 

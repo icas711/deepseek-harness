@@ -140,5 +140,5 @@ export const rpcMessageSchema = z.discriminatedUnion('type', [
 /** Carrier receipt schema. */
 export const rpcReceiptSchema = z.union([
   z.object({ accepted: z.literal(true) }),
-  z.object({ accepted: z.literal(false), reason: z.union([z.literal('not-pending'), z.literal('bad-response')]) }),
+  z.object({ accepted: z.literal(false), reason: z.union([z.literal('not-pending'), z.literal('bad-response'), z.literal('already-resolved')]) }),
 ]) satisfies z.ZodType<Wire<RpcReceipt>>

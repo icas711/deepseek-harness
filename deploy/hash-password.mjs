@@ -1,13 +1,18 @@
 #!/usr/bin/env node
 /**
  * Генератор записи для DSH_WEB_USERS: спрашивает пароль (дважды, без эха в
- * терминале) и печатает готовую строку «логин:scrypt-хэш». Без зависимостей —
- * только Node.js 22+; формат совпадает с веб-сервером аутентификации форка.
+ * терминале) и печатает готовую строку DSH_WEB_USERS='логин:хэш'. Без
+ * зависимостей — только Node.js 22+; формат совпадает с веб-сервером
+ * аутентификации форка.
  *
  *   node deploy/hash-password.mjs alice
  *   node deploy/hash-password.mjs alice 'пароль'   # для скриптов: без вопросов
  *
- * Строку целиком вставьте в DSH_WEB_USERS (записи через запятую).
+ * Печатную строку вставьте в deploy/.env ЦЕЛИКОМ, вместе с одинарными
+ * кавычками: compose разворачивает $ в значениях .env и без кавычек молча
+ * портит scrypt-хэш, принимая $16384 и $8 за переменные. Несколько
+ * пользователей — запустите генератор по разу на каждого и перечислите
+ * записи через запятую внутри одних кавычек.
  */
 
 import { randomBytes, scryptSync } from 'node:crypto'
@@ -75,4 +80,4 @@ const password = process.argv[3] ?? await (async () => {
 
 const salt = randomBytes(16)
 const key = scryptSync(password, salt, KEYLEN, { N, r: R, p: P, maxmem: 256 * 1024 * 1024 })
-process.stdout.write(`${login}:scrypt$${String(N)}$${String(R)}$${String(P)}$${salt.toString('hex')}$${key.toString('hex')}\n`)
+process.stdout.write(`DSH_WEB_USERS='${login}:scrypt$${String(N)}$${String(R)}$${String(P)}$${salt.toString('hex')}$${key.toString('hex')}'\n`)

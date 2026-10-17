@@ -1918,6 +1918,9 @@ importers:
       '@deepseek-ai/dsh-message-feedback':
         specifier: workspace:^
         version: link:../../feedback/message-feedback
+      '@deepseek-ai/dsh-notifier':
+        specifier: workspace:^
+        version: link:../../notify/notifier
       '@deepseek-ai/dsh-session-log-export':
         specifier: workspace:^
         version: link:../../session-query/session-log-export
@@ -1936,6 +1939,12 @@ importers:
       '@deepseek-ai/dsh-storage-json':
         specifier: workspace:^
         version: link:../../storage/storage-json
+      '@deepseek-ai/dsh-task-supervisor':
+        specifier: workspace:^
+        version: link:../../host/task-supervisor
+      '@deepseek-ai/dsh-telegram-notifier':
+        specifier: workspace:^
+        version: link:../../notify/telegram
       '@deepseek-ai/dsh-web-frontend':
         specifier: workspace:^
         version: link:../../../apps/web
@@ -5661,6 +5670,55 @@ importers:
         specifier: workspace:^
         version: link:../../typert/protocol
 
+  packages/host/task-supervisor:
+    dependencies:
+      '@deepseek-ai/schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-agent':
+        specifier: workspace:^
+        version: link:../../core/agent
+      '@deepseek-ai/dsh-agent-default-model':
+        specifier: workspace:^
+        version: link:../../core/agent-default-model
+      '@deepseek-ai/dsh-agent-loop':
+        specifier: workspace:^
+        version: link:../../core/agent-loop
+      '@deepseek-ai/dsh-agent-presets':
+        specifier: workspace:^
+        version: link:../../preset/agent-presets
+      '@deepseek-ai/dsh-atomic-write':
+        specifier: workspace:^
+        version: link:../../util/atomic-write
+      '@deepseek-ai/dsh-brand':
+        specifier: workspace:^
+        version: link:../../util/brand
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/invariants
+      '@deepseek-ai/dsh-llm':
+        specifier: workspace:^
+        version: link:../../llm/llm
+      '@deepseek-ai/dsh-session':
+        specifier: workspace:^
+        version: link:../../core/session
+      '@deepseek-ai/dsh-session-persistence':
+        specifier: workspace:^
+        version: link:../../session/session-persistence
+      '@deepseek-ai/dsh-session-persistence-jsonl':
+        specifier: workspace:^
+        version: link:../../session/session-persistence-jsonl
+      '@deepseek-ai/dsh-system-prompt':
+        specifier: workspace:^
+        version: link:../../core/system-prompt
+      '@deepseek-ai/dsh-tools':
+        specifier: workspace:^
+        version: link:../../core/tools
+
   packages/host/webserver:
     dependencies:
       '@deepseek-ai/schemastery':
@@ -6238,6 +6296,46 @@ importers:
       '@modelcontextprotocol/server-filesystem':
         specifier: ^2026.7.4
         version: 2026.7.10(zod@4.4.3)
+
+  packages/notify/notifier:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-atomic-write':
+        specifier: workspace:^
+        version: link:../../util/atomic-write
+      '@deepseek-ai/dsh-brand':
+        specifier: workspace:^
+        version: link:../../util/brand
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/invariants
+      '@deepseek-ai/dsh-session':
+        specifier: workspace:^
+        version: link:../../core/session
+
+  packages/notify/telegram:
+    dependencies:
+      '@deepseek-ai/schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-home-paths':
+        specifier: workspace:^
+        version: link:../../util/home-paths
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/invariants
+      '@deepseek-ai/dsh-notifier':
+        specifier: workspace:^
+        version: link:../notifier
+      '@deepseek-ai/dsh-task-supervisor':
+        specifier: workspace:^
+        version: link:../../host/task-supervisor
 
   packages/plan/plan-mode:
     dependencies:

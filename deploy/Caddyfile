@@ -1,7 +1,12 @@
 # Caddy: автоматический HTTPS для веб-GUI DeepSeek Harness.
-# 1) Замените dsh.example.com на свой домен (A-запись должна указывать на сервер).
-# 2) Порты 80 и 443 должны быть открыты (см. README, раздел «Подготовка сервера»).
-# 3) Сертификаты Caddy получает и продлевает сам (Let's Encrypt).
-dsh.example.com {
+# Адрес сайта подставляется из переменной DSH_PUBLIC_HOST: её задаёт сервис
+# caddy в deploy/compose.yaml, читая deploy/.env. Править здесь ничего не нужно.
+# Для выдачи сертификата нужен домен с A-записью на сервер и открытые 80/443
+# (см. README, раздел «Подготовка сервера»); для IP-адреса Let's Encrypt
+# сертификат не выдаёт. Сертификаты Caddy получает и продлевает сам.
+{$DSH_PUBLIC_HOST} {
+	encode zstd gzip
+	# Год памяти о HTTPS: браузер весь год ходит на этот домен только по TLS.
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 	reverse_proxy dsh:3080
 }

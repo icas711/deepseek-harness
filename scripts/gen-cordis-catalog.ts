@@ -71,6 +71,7 @@ export const SERVICE_PAGE: Record<string, string> = {
   llm: 'llm-streaming.md',
   lsp: 'lsp.md',
   messageFeedback: 'feedback.md',
+  notifier: 'notifier.md',
   permissionPresets: 'permission-presets.md',
   planMode: 'plan.md',
   terminals: 'terminal.md',
@@ -91,6 +92,7 @@ export const SERVICE_PAGE: Record<string, string> = {
   subagents: 'subagent.md',
   subprocess: 'subprocess.md',
   systemPrompt: 'system-prompt.md',
+  taskSupervisor: 'task-supervisor.md',
   jobs: 'jobs.md',
   quotaPause: 'core.md',
   sessionTelemetry: 'session-telemetry.md',
@@ -593,6 +595,11 @@ export const TYPE_LINK_EXEMPTIONS: Readonly<Record<string, string>> = {
   WorkflowAgentEndInfo: 'event-local snapshot is owned by packages/workflow/workflow/src/index.ts',
   WorkflowAgentInfo: 'event-local snapshot is owned by packages/workflow/workflow/src/index.ts',
   WorkflowResultInfo: 'event-local snapshot is owned by packages/workflow/workflow/src/index.ts',
+  TaskId: 'branded task identifier is owned by packages/host/task-supervisor/README.md',
+  TaskView: 'task registry record view is owned by packages/host/task-supervisor/README.md',
+  BindingChallenge: 'one-time binding code challenge is owned by packages/notify/notifier/README.md',
+  NotificationRequest: 'notification delivery request is owned by packages/notify/notifier/README.md',
+  SendResult: 'notification delivery outcome is owned by packages/notify/notifier/README.md',
 }
 
 /** Repository data policy consumed by the Cordis catalog projector. */

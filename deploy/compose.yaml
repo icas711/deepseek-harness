@@ -4,8 +4,8 @@
 #   docker compose up -d --build                 # без TLS: SSH-туннель или прямой порт
 #   docker compose --profile tls up -d --build   # с Caddy: домен + автоматический HTTPS
 #
-# Перед запуском заполните deploy/.env (см. .env.example) и — для TLS —
-# deploy/Caddyfile. Полная инструкция: deploy/README.md.
+# Перед запуском заполните deploy/.env (см. .env.example). Полная инструкция:
+# deploy/README.md.
 name: dsh
 
 services:
@@ -15,15 +15,22 @@ services:
       dockerfile: deploy/Dockerfile
     image: dsh-web:local
     restart: unless-stopped
+    # Корректная остановка: две минуты на аккуратное завершение активных задач
+    # агента плюс запас, прежде чем Docker пошлёт SIGKILL. Перезапуск всё равно
+    # прерывает незакрытые ходы модели — дождитесь их окончания (см. README).
+    stop_grace_period: 130s
     env_file:
       - .env
     environment:
       # Пользователи веб-GUI приходят из deploy/.env через env_file; проверка
       # здесь — fail-loud: без списка логинов сервер остаётся без аутентификации
       # (только Host-fence), а GUI управляет агентом на сервере.
-      DSH_WEB_USERS: ${DSH_WEB_USERS:?Задайте DSH_WEB_USERS в deploy/.env — логин:scrypt-хэш через запятую (см. README и hash-password.mjs)}
-      DSH_WEB_ADMINS: ${DSH_WEB_ADMINS:-}
+      DSH_WEB_USERS: "${DSH_WEB_USERS:?Задайте DSH_WEB_USERS в deploy/.env — логин:scrypt-хэш через запятую (см. README и hash-password.mjs)}"
+      DSH_WEB_ADMINS: "${DSH_WEB_ADMINS:-}"
       DSH_HOME: /data/dsh-home
+      # Иконка в системном трее — атрибут интерактивного стола; DSH_WEB_TRAY=0 —
+      # документированный headless-выключатель.
+      DSH_WEB_TRAY: "0"
     command:
       - web
       - --patch
@@ -32,7 +39,7 @@ services:
       # запись без порта покрывает любой порт). Для нескольких адресов
       # повторите пару строк --trusted-host / адрес.
       - --trusted-host
-      - ${DSH_PUBLIC_HOST:?Задайте DSH_PUBLIC_HOST в deploy/.env}
+      - "${DSH_PUBLIC_HOST:?Задайте DSH_PUBLIC_HOST в deploy/.env}"
     volumes:
       # Сессии, профиль web и credentials — переживают обновления и рестарты.
       - dsh-home:/data/dsh-home
@@ -41,6 +48,14 @@ services:
     ports:
       # Наружу не публикуем: доступ через Caddy (профиль tls) или SSH-туннель.
       - "127.0.0.1:3080:3080"
+    healthcheck:
+      # Страница входа должна отвечать; без аутентификации /login отвечает 404 —
+      # для живости это тоже годится, важен сам ответ, а не код.
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3080/login').then(r => process.exit(r.status < 500 ? 0 : 1), () => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 120s
+      retries: 5
     logging:
       driver: json-file
       options:
@@ -48,11 +63,15 @@ services:
         max-file: "3"
 
   caddy:
-    image: caddy:2
+    image: caddy:2-alpine
     profiles: [tls]
     restart: unless-stopped
     depends_on:
       - dsh
+    environment:
+      # Адрес сайта в Caddyfile — {$DSH_PUBLIC_HOST}; сертификат Let's Encrypt
+      # Caddy получает и продлевает сам (нужны домен и открытые 80/443).
+      DSH_PUBLIC_HOST: "${DSH_PUBLIC_HOST:?Задайте DSH_PUBLIC_HOST в deploy/.env}"
     ports:
       - "80:80"
       - "443:443"
@@ -60,6 +79,11 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
 
 volumes:
   dsh-home:
