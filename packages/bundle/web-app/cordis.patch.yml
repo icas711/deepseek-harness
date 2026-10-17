@@ -144,18 +144,21 @@
         port: !!js ctx.webStartup.port ?? 3080
 
     # Login-password authentication: the webserver auth seat, the /login and
-    # /logout routes, server-side sessions persisted in dsh-home (one per
-    # login, 30 days), per-login cabinet directories under the process cwd,
-    # and the webAuth identity service the API gateway scopes session and
-    # workspace visibility by. DSH_WEB_USERS (login:scrypt-hash, comma-
-    # separated) turns it on; empty or absent leaves the server open for
-    # local runs. DSH_WEB_ADMINS names logins that see every cabinet.
+    # /logout routes, the managed user store and server-side sessions
+    # persisted in dsh-home, per-login cabinet directories under the process
+    # cwd, and the webAuth service — identity resolution plus the account and
+    # device administration the gateway's admin.* domain serves. DSH_WEB_USERS
+    # (login:scrypt-hash, comma-separated) and DSH_WEB_ADMINS seed the store
+    # on the first boot and restore access into an empty store; a store that
+    # holds users ignores the environment. Both blank — passive mode: open
+    # server, no gate, local runs.
     - id: web-auth
       name: '@deepseek-ai/dsh-web-app/webauth'
       config:
         users: !!js process.env.DSH_WEB_USERS
         admins: !!js process.env.DSH_WEB_ADMINS
         maxSessionsPerUser: !!js process.env.DSH_WEB_MAX_SESSIONS_PER_USER && Number(process.env.DSH_WEB_MAX_SESSIONS_PER_USER)
+        userStore: !!js dshHomePath('web-users.json')
         sessionStore: !!js dshHomePath('web-sessions.json')
         workspaceRoot: !!js process.cwd()
 
@@ -297,6 +300,13 @@
     # sessions created later. Absent a roster it renders nothing.
     - id: ui-agent-preset
       name: '@deepseek-ai/dsh-client-ui-agent-preset'
+
+    # Страница «Администрирование» в настройках: пользователи, роли и
+    # устройства через admin.*-домен шлюза. Регистрируется только когда
+    # вызвавший пользователь — админ (admin.status); хост проверяет роль на
+    # каждом методе. Без гейта входа секции нет вовсе.
+    - id: ui-admin
+      name: '@deepseek-ai/dsh-client-ui-admin'
 
     # Fleet limits in General settings: the per-fanout attempt cap and the
     # delegation-depth ceiling, edited live through the `fleet` settings

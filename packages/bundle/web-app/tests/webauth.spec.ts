@@ -2,13 +2,16 @@
  * REAL-composition coverage for the login-password plugin: a test-only
  * cordis.yml booted through the vendored Loader mounts the webserver and
  * web-auth rows together, and every assertion observes the user-visible
- * HTTP surface — the login form flow, the session cookie, Basic admission,
- * the brute-force pause, upgrade gating, the identity service, session
- * persistence across boots, and loud failure on a corrupt store.
+ * HTTP surface or the `webAuth` service — the login form flow, the session
+ * cookie, Basic admission, the brute-force pause, upgrade gating, the
+ * managed user store (env seed on first boot, store ownership afterwards,
+ * passive mode, loud corruption failure), session persistence across boots,
+ * and the account/device administration face.
  */
 
 import { createHash, randomBytes, scryptSync } from 'node:crypto'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { dirname } from 'node:path'
 import { once } from 'node:events'
 import { connect } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -58,6 +61,8 @@ function fakeRegistry(calls: { resolveByPath: string[]; create: string[] }): obj
 interface BootOptions {
   users?: string
   admins?: string
+  userStore?: string
+  userStoreContent?: string
   sessionStore?: string
   workspaceRoot?: string
   pauseMs?: number
@@ -70,13 +75,21 @@ interface LoadedComposition {
   ctx: Context
   server: InstanceType<typeof HttpServer>
   port: number
-  paths: { store: string; workspace: string }
+  paths: { userStore: string; store: string; workspace: string }
 }
 
 /** Boot the webserver + web-auth composition through the real Loader. */
 async function loadComposition(opts: BootOptions = {}): Promise<LoadedComposition> {
   root = await mkdtemp(join(tmpdir(), 'dsh-webauth-loader-'))
-  const paths = { store: opts.sessionStore ?? join(root, 'home', 'web-sessions.json'), workspace: opts.workspaceRoot ?? join(root, 'workspace') }
+  const paths = {
+    userStore: opts.userStore ?? join(root, 'home', 'web-users.json'),
+    store: opts.sessionStore ?? join(root, 'home', 'web-sessions.json'),
+    workspace: opts.workspaceRoot ?? join(root, 'workspace'),
+  }
+  if (opts.userStoreContent !== undefined) {
+    await mkdir(dirname(paths.userStore), { recursive: true })
+    await writeFile(paths.userStore, opts.userStoreContent)
+  }
   const configPath = join(root, 'cordis.yml')
   const rows = [
     "- name: '@deepseek-ai/dsh-host-webserver'",
@@ -87,6 +100,7 @@ async function loadComposition(opts: BootOptions = {}): Promise<LoadedCompositio
     '  config:',
     `    users: ${JSON.stringify(opts.users ?? `bob:${makeHash('bob-pass')}`)}`,
     ...(opts.admins === undefined ? [] : [`    admins: ${JSON.stringify(opts.admins)}`]),
+    `    userStore: ${JSON.stringify(paths.userStore)}`,
     `    sessionStore: ${JSON.stringify(paths.store)}`,
     `    workspaceRoot: ${JSON.stringify(paths.workspace)}`,
     ...(opts.pauseMs === undefined ? [] : [`    pauseMs: ${String(opts.pauseMs)}`]),
@@ -161,12 +175,19 @@ async function rawUpgrade(port: number, path: string, headers: string[] = []): P
   return String(data)
 }
 
+/** The stored user records of one user store file. */
+async function storedUsers(path: string): Promise<{ login: string; role: string; createdAt: number }[]> {
+  const text = await import('node:fs/promises').then(fs => fs.readFile(path, 'utf8'))
+  return (JSON.parse(text) as { users: { login: string; role: string; createdAt: number }[] }).users
+}
+
 describe('webauth pure helpers', () => {
   it('parseUsers accepts a well-formed table and rejects every malformed shape', () => {
     const hash = makeHash('x')
     const table = WebAuth.parseUsers(`alice:${hash}, bob:${hash}`)
-    expect([...table.records.keys()]).toEqual(['alice', 'bob'])
-    expect(table.revisions.get('alice')).toBe(createHash('sha256').update(hash).digest('hex'))
+    expect([...table.keys()]).toEqual(['alice', 'bob'])
+    expect(table.get('alice')?.hash).toBe(hash)
+    expect(table.get('alice')?.revision).toBe(createHash('sha256').update(hash).digest('hex'))
 
     expect(() => WebAuth.parseUsers(`alice:${hash},`)).toThrow(/empty entry/)
     expect(() => WebAuth.parseUsers('justalogin')).toThrow(/not "login:hash"/)
@@ -191,6 +212,70 @@ describe('webauth pure helpers', () => {
     const record = WebAuth.internals.parseScrypt(makeHash('pw'), 'test')
     expect(WebAuth.internals.matchesRecord('pw', record)).toBe(true)
     expect(WebAuth.internals.matchesRecord('no', record)).toBe(false)
+  })
+
+  it('hashPassword mints a stored-format hash that verifies the password', () => {
+    const hash = WebAuth.hashPassword('parol-12')
+    const record = WebAuth.internals.parseScrypt(hash, 'test')
+    expect(WebAuth.internals.matchesRecord('parol-12', record)).toBe(true)
+    expect(WebAuth.internals.matchesRecord('drugoj-12', record)).toBe(false)
+  })
+
+  it('readUserStore accepts the version-1 document and refuses every malformed shape', async () => {
+    const base = await mkdtemp(join(tmpdir(), 'dsh-webauth-store-'))
+    try {
+      const path = join(base, 'web-users.json')
+      expect(WebAuth.readUserStore(path)).toBeUndefined()
+      const good = {
+        version: 1,
+        users: [{ login: 'bob', scryptHash: makeHash('pw'), role: 'admin', createdAt: 5 }],
+      }
+      await writeFile(path, JSON.stringify(good))
+      expect(WebAuth.readUserStore(path)).toEqual(good.users)
+      for (const [label, content, message] of [
+        ['not json', '{oops', /not valid JSON/],
+        ['not an object', 'null', /not a user store document/],
+        ['an array root', '[]', /not a version-1 user store document/],
+        ['wrong version', JSON.stringify({ version: 2, users: [] }), /not a version-1 user store document/],
+        ['users not an array', JSON.stringify({ version: 1, users: {} }), /not a version-1 user store document/],
+        [
+          'malformed entry',
+          JSON.stringify({ version: 1, users: [{ login: 'bob', role: 'admin', createdAt: 5 }] }),
+          /malformed user entry/,
+        ],
+        [
+          'bad role',
+          JSON.stringify({ version: 1, users: [{ login: 'bob', scryptHash: 'x', role: 'root', createdAt: 5 }] }),
+          /malformed user entry/,
+        ],
+        [
+          'bad login charset',
+          JSON.stringify({ version: 1, users: [{ login: '../evil', scryptHash: 'x', role: 'user', createdAt: 5 }] }),
+          /outside the login charset/,
+        ],
+        [
+          'duplicate login',
+          JSON.stringify({
+            version: 1,
+            users: [
+              { login: 'bob', scryptHash: makeHash('pw'), role: 'user', createdAt: 5 },
+              { login: 'bob', scryptHash: makeHash('pw2'), role: 'user', createdAt: 6 },
+            ],
+          }),
+          /twice/,
+        ],
+        [
+          'broken hash',
+          JSON.stringify({ version: 1, users: [{ login: 'bob', scryptHash: 'nope', role: 'user', createdAt: 5 }] }),
+          /expected "scrypt/,
+        ],
+      ] as const) {
+        await writeFile(path, content)
+        expect(() => WebAuth.readUserStore(path), label).toThrow(message)
+      }
+    } finally {
+      await rm(base, { recursive: true, force: true })
+    }
   })
 
   it('renderLoginPage carries the Russian copy for each banner', () => {
@@ -234,6 +319,13 @@ describe('webauth real composition', () => {
       res.writeHead(200, { 'content-type': 'text/html' })
       res.end(server.applyIndexTaps('<head></head><body>shell</body>'))
     })
+
+    // The first boot seeded the managed store from the environment: the
+    // seeded account is a plain user with a creation timestamp.
+    const seeded = await storedUsers(paths.userStore)
+    expect(seeded).toHaveLength(1)
+    expect(seeded[0]).toMatchObject({ login: 'bob', role: 'user' })
+    expect(seeded[0]!.createdAt).toBeGreaterThan(0)
 
     // Unauthenticated: navigation redirects to the login page; API calls get
     // the plain 401 body; the login page itself is public.
@@ -281,18 +373,9 @@ describe('webauth real composition', () => {
     const cabinet = realpathSync(join(paths.workspace, 'bob'))
     expect(registryCalls.create).toEqual([cabinet])
 
-    // Sessions stack up per login: the second login leaves the first alive.
-    const second = await loginPost(port, 'bob', 'bob-pass')
-    const secondCookie = cookieOf(second)
-    expect(secondCookie).not.toBe(cookie)
-    await expect(request(port, '/probe', { headers: { cookie: `${SESSION_COOKIE}=${cookie}` } }))
-      .resolves.toMatchObject({ status: 200 })
-    await expect(request(port, '/probe', { headers: { cookie: `${SESSION_COOKIE}=${secondCookie}` } }))
-      .resolves.toMatchObject({ status: 200 })
-
     // Identity service: the cookie resolves to the scoped identity, with the
     // cabinet root as canonical path; garbage does not.
-    const identity = ctx.get('webAuth')?.identityFromCookie(`${SESSION_COOKIE}=${secondCookie}`)
+    const identity = ctx.get('webAuth')?.identityFromCookie(`${SESSION_COOKIE}=${cookie}`)
     expect(identity?.login).toBe('bob')
     expect(identity?.admin).toBe(false)
     expect(typeof identity?.root).toBe('string')
@@ -300,11 +383,11 @@ describe('webauth real composition', () => {
     expect(ctx.get('webAuth')?.identityFromCookie(undefined)).toBeUndefined()
 
     // Logout revokes the session and clears the cookie; its method fence holds.
-    const loggedOut = await request(port, '/logout', { method: 'POST', headers: { cookie: `${SESSION_COOKIE}=${secondCookie}` } })
+    const loggedOut = await request(port, '/logout', { method: 'POST', headers: { cookie: `${SESSION_COOKIE}=${cookie}` } })
     expect(loggedOut.status).toBe(303)
     expect(loggedOut.headers.get('location')).toBe('/login')
     expect(loggedOut.headers.getSetCookie()[0]).toContain('Max-Age=0')
-    await expect(request(port, '/probe', { headers: { cookie: `${SESSION_COOKIE}=${secondCookie}` } }))
+    await expect(request(port, '/probe', { headers: { cookie: `${SESSION_COOKIE}=${cookie}` } }))
       .resolves.toMatchObject({ status: 401 })
     expect((await request(port, '/logout')).status).toBe(405)
 
@@ -373,7 +456,7 @@ describe('webauth real composition', () => {
     await expect(loginPost(port, 'bob', 'nope')).resolves.toMatchObject({ status: 303 })
   })
 
-  it('keeps sessions across restarts, revokes them on a password change, and refuses oversized bodies', { timeout: 60_000 }, async () => {
+  it('keeps sessions across restarts, and the store — not the environment — owns the accounts', { timeout: 60_000 }, async () => {
     const usersBob = `bob:${makeHash('bob-pass')}`
     const { ctx, server, port, paths } = await loadComposition({ users: usersBob })
     server.register({ kind: 'exact', path: '/probe', handler: (_req, res) => { res.writeHead(200); res.end('EXACT') } })
@@ -383,45 +466,43 @@ describe('webauth real composition', () => {
     const doc = JSON.parse(store) as { sessions: unknown[] }
     expect(doc.sessions).toHaveLength(1)
 
-    // Restart on the same users table and store: the cookie still admits.
+    // Restart on the same managed store (the environment stays as it was):
+    // the cookie still admits.
     await ctx.fiber.dispose()
-    const rebooted = await loadComposition({ users: usersBob, sessionStore: paths.store, workspaceRoot: paths.workspace })
+    const rebooted = await loadComposition({
+      users: usersBob,
+      userStore: paths.userStore,
+      sessionStore: paths.store,
+      workspaceRoot: paths.workspace,
+    })
     rebooted.server.register({ kind: 'exact', path: '/probe', handler: (_req, res) => { res.writeHead(200); res.end('EXACT') } })
     await expect(request(rebooted.port, '/probe', { headers: { cookie: `${SESSION_COOKIE}=${cookie}` } }))
       .resolves.toMatchObject({ status: 200 })
 
-    // A login removed from the user table invalidates its sessions.
-    const removed = cookieOf(await loginPost(rebooted.port, 'bob', 'bob-pass'))
+    // The store owns the accounts: an environment naming a different login
+    // changes nothing — bob still logs in, and alice was never created.
     await rebooted.ctx.fiber.dispose()
-    const withoutBob = await loadComposition({
+    const renamed = await loadComposition({
       users: `alice:${makeHash('alice-pass')}`,
+      userStore: paths.userStore,
       sessionStore: paths.store,
       workspaceRoot: paths.workspace,
     })
-    withoutBob.server.register({ kind: 'exact', path: '/probe', handler: (_req, res) => { res.writeHead(200); res.end('EXACT') } })
-    await expect(request(withoutBob.port, '/probe', { headers: { cookie: `${SESSION_COOKIE}=${removed}` } }))
-      .resolves.toMatchObject({ status: 401 })
-
-    // A changed password hash (new revision) invalidates the old session,
-    // while the new password logs in.
-    await withoutBob.ctx.fiber.dispose()
-    const rotated = await loadComposition({
-      users: `bob:${makeHash('bob-pass-2')}`,
-      sessionStore: paths.store,
-      workspaceRoot: paths.workspace,
-    })
-    rotated.server.register({ kind: 'exact', path: '/probe', handler: (_req, res) => { res.writeHead(200); res.end('EXACT') } })
-    await expect(request(rotated.port, '/probe', { headers: { cookie: `${SESSION_COOKIE}=${removed}` } }))
-      .resolves.toMatchObject({ status: 401 })
-    await expect(loginPost(rotated.port, 'bob', 'bob-pass-2')).resolves.toMatchObject({ status: 303 })
+    renamed.server.register({ kind: 'exact', path: '/probe', handler: (_req, res) => { res.writeHead(200); res.end('EXACT') } })
+    await expect(loginPost(renamed.port, 'bob', 'bob-pass')).resolves.toMatchObject({ status: 303 })
+    const stranger = await loginPost(renamed.port, 'alice', 'alice-pass')
+    expect(stranger.status).toBe(303)
+    expect(stranger.headers.get('location')).toBe('/login?error=1')
+    expect((await storedUsers(paths.userStore)).map(user => user.login)).toEqual(['bob'])
 
     // An expired session is refused even though the store loaded it.
-    const expiredCookie = cookieOf(await loginPost(rotated.port, 'bob', 'bob-pass-2'))
-    await rotated.ctx.fiber.dispose()
+    const expiredCookie = cookieOf(await loginPost(renamed.port, 'bob', 'bob-pass'))
+    await renamed.ctx.fiber.dispose()
     const expiredDoc = { version: 2, sessions: [{ id: expiredCookie, login: 'bob', issuedAt: Date.now() - 2000, expiresAt: Date.now() - 1000, rev: createHash('sha256').update(makeHash('unused')).digest('hex'), lastSeenAt: Date.now() - 1500 }] }
     await import('node:fs/promises').then(fs => fs.writeFile(paths.store, JSON.stringify(expiredDoc)))
     const expiredBoot = await loadComposition({
-      users: `bob:${makeHash('bob-pass')}`,
+      users: usersBob,
+      userStore: paths.userStore,
       sessionStore: paths.store,
       workspaceRoot: paths.workspace,
     })
@@ -438,22 +519,49 @@ describe('webauth real composition', () => {
     expect((await loginPost(expiredBoot.port, '', '')).status).toBe(303)
   })
 
-  it('stays passive without users, and fails loud on a corrupt session store', { timeout: 60_000 }, async () => {
+  it('stays passive on a blank environment with a missing or empty store, and fails loud on corrupt stores', { timeout: 60_000 }, async () => {
     const passive = await loadComposition({ users: '' })
     passive.server.register({ kind: 'exact', path: '/probe', handler: (_req, res) => { res.writeHead(200); res.end('EXACT') } })
     const open = await request(passive.port, '/probe')
     expect(open.status).toBe(200)
     await expect(open.text()).resolves.toBe('EXACT')
     expect(passive.server.applyIndexTaps('<head></head>')).toBe('<head></head>')
+    expect(passive.ctx.get('webAuth')).toBeUndefined()
     await passive.ctx.fiber.dispose()
 
+    // An existing-but-empty store with a blank environment is passive too.
+    const empty = await loadComposition({ users: '', userStoreContent: JSON.stringify({ version: 1, users: [] }) })
+    empty.server.register({ kind: 'exact', path: '/probe', handler: (_req, res) => { res.writeHead(200); res.end('EXACT') } })
+    expect(await request(empty.port, '/probe')).toMatchObject({ status: 200 })
+    expect(empty.ctx.get('webAuth')).toBeUndefined()
+    await empty.ctx.fiber.dispose()
+
+    // The same empty store plus a non-blank environment is the access-
+    // recovery path: the store re-seeds from the environment.
+    const recovered = await loadComposition({
+      users: `bob:${makeHash('bob-pass')}`,
+      admins: 'bob',
+      userStore: empty.paths.userStore,
+    })
+    const identity = recovered.ctx.get('webAuth')
+    expect(identity).toBeDefined()
+    expect((await storedUsers(recovered.paths.userStore)).map(user => [user.login, user.role]))
+      .toEqual([['bob', 'admin']])
+    await recovered.ctx.fiber.dispose()
+
+    // A corrupt user store is a loud boot failure, never a silent re-seed.
+    await import('node:fs/promises').then(fs => fs.writeFile(join(root!, 'corrupt-users.json'), '{oops'))
+    await expect(loadComposition({ userStore: join(root!, 'corrupt-users.json') }))
+      .rejects.toThrow(/not valid JSON/)
+
+    // A corrupt session store stays a loud boot failure too.
     await import('node:fs/promises').then(fs => fs.writeFile(join(root!, 'corrupt.json'), '{oops'))
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     await expect(loadComposition({ sessionStore: join(root!, 'corrupt.json') })).rejects.toThrow(/cannot read the session store/)
     warn.mockRestore()
   })
 
-  it('marks admins in the identity and creates the cabinet under the workspace root', { timeout: 60_000 }, async () => {
+  it('seeds the admin role from DSH_WEB_ADMINS and keeps it in the store', { timeout: 60_000 }, async () => {
     const { ctx, port, paths } = await loadComposition({ admins: 'bob' })
     const admin = await loginPost(port, 'bob', 'bob-pass')
     const cookie = cookieOf(admin)
@@ -461,6 +569,7 @@ describe('webauth real composition', () => {
     expect(identity).toMatchObject({ login: 'bob', admin: true })
     const { realpathSync } = await import('node:fs')
     expect(identity?.root).toBe(realpathSync(join(paths.workspace, 'bob')))
+    expect((await storedUsers(paths.userStore))[0]).toMatchObject({ login: 'bob', role: 'admin' })
   })
 })
 
@@ -518,25 +627,6 @@ describe('webauth sessions per login', () => {
     expect(doc.sessions.map(session => session.id)).toEqual([second])
   })
 
-  it('a password-hash change revokes every session of the login', { timeout: 60_000 }, async () => {
-    const { ctx, server, port, paths } = await loadComposition({ users: `bob:${makeHash('bob-pass')}` })
-    server.register({ kind: 'exact', path: '/probe', handler: (_req, res) => { res.writeHead(200); res.end('EXACT') } })
-    const first = cookieOf(await loginPost(port, 'bob', 'bob-pass'))
-    const second = cookieOf(await loginPost(port, 'bob', 'bob-pass'))
-    await ctx.fiber.dispose()
-    const rotated = await loadComposition({
-      users: `bob:${makeHash('bob-pass-2')}`,
-      sessionStore: paths.store,
-      workspaceRoot: paths.workspace,
-    })
-    rotated.server.register({ kind: 'exact', path: '/probe', handler: (_req, res) => { res.writeHead(200); res.end('EXACT') } })
-    for (const dead of [first, second]) {
-      await expect(request(rotated.port, '/probe', { headers: { cookie: `${SESSION_COOKIE}=${dead}` } }))
-        .resolves.toMatchObject({ status: 401 })
-    }
-    await expect(loginPost(rotated.port, 'bob', 'bob-pass-2')).resolves.toMatchObject({ status: 303 })
-  })
-
   it('fails loud on a version-1 session store', { timeout: 60_000 }, async () => {
     const boot = await loadComposition()
     await boot.ctx.fiber.dispose()
@@ -544,5 +634,138 @@ describe('webauth sessions per login', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     await expect(loadComposition({ sessionStore: join(root!, 'legacy.json') })).rejects.toThrow(/unsupported session store version 1/)
     warn.mockRestore()
+  })
+})
+
+describe('webauth administration service', () => {
+  it('creates an account, lists it, and the new login works at once', { timeout: 60_000 }, async () => {
+    const { ctx, server, port, paths } = await loadComposition()
+    server.register({ kind: 'exact', path: '/probe', handler: (_req, res) => { res.writeHead(200); res.end('EXACT') } })
+    const auth = ctx.get('webAuth')!
+    await auth.createUser({ login: 'carol', password: 'parol-parol', role: 'user' })
+
+    const listed = auth.listUsers()
+    expect(listed.map(user => [user.login, user.role])).toEqual([['bob', 'user'], ['carol', 'user']])
+    expect((await storedUsers(paths.userStore)).map(user => user.login)).toEqual(['bob', 'carol'])
+
+    // The new account logs in immediately and gets its own cabinet.
+    const good = await loginPost(port, 'carol', 'parol-parol')
+    expect(good.status).toBe(303)
+    expect(ctx.get('webAuth')?.identityFromCookie(`${SESSION_COOKIE}=${cookieOf(good)}`)?.login).toBe('carol')
+
+    // A second carol is refused, and a short password is refused.
+    await expect(auth.createUser({ login: 'carol', password: 'parol-parol', role: 'user' }))
+      .rejects.toMatchObject({ code: 'user-exists' })
+    await expect(auth.createUser({ login: 'dave', password: 'коротко', role: 'user' }))
+      .rejects.toMatchObject({ code: 'invalid-input' })
+    // A login outside the charset is refused.
+    await expect(auth.createUser({ login: '../evil', password: 'parol-parol', role: 'user' }))
+      .rejects.toMatchObject({ code: 'invalid-input' })
+  })
+
+  it('resetPassword revokes every session of the login and the new password admits', { timeout: 60_000 }, async () => {
+    const { ctx, server, port } = await loadComposition()
+    server.register({ kind: 'exact', path: '/probe', handler: (_req, res) => { res.writeHead(200); res.end('EXACT') } })
+    const auth = ctx.get('webAuth')!
+    const first = cookieOf(await loginPost(port, 'bob', 'bob-pass'))
+    const second = cookieOf(await loginPost(port, 'bob', 'bob-pass'))
+    await auth.resetPassword('bob', 'novyi-parol')
+
+    for (const dead of [first, second]) {
+      await expect(request(port, '/probe', { headers: { cookie: `${SESSION_COOKIE}=${dead}` } }))
+        .resolves.toMatchObject({ status: 401 })
+    }
+    const stale = await loginPost(port, 'bob', 'bob-pass')
+    expect(stale.status).toBe(303)
+    expect(stale.headers.get('location')).toBe('/login?error=1')
+    const fresh = await loginPost(port, 'bob', 'novyi-parol')
+    expect(fresh.status).toBe(303)
+    await expect(request(port, '/probe', { headers: { cookie: `${SESSION_COOKIE}=${cookieOf(fresh)}` } }))
+      .resolves.toMatchObject({ status: 200 })
+
+    // Unknown login and short password are typed refusals.
+    await expect(auth.resetPassword('ghost', 'novyi-parol')).rejects.toMatchObject({ code: 'user-not-found' })
+    await expect(auth.resetPassword('bob', 'коротко')).rejects.toMatchObject({ code: 'invalid-input' })
+  })
+
+  it('setRole flips the admin flag live and guards the last admin', { timeout: 60_000 }, async () => {
+    const { ctx, server, port } = await loadComposition()
+    server.register({ kind: 'exact', path: '/probe', handler: (_req, res) => { res.writeHead(200); res.end('EXACT') } })
+    const auth = ctx.get('webAuth')!
+    await auth.createUser({ login: 'carol', password: 'parol-parol', role: 'admin' })
+    // A second admin makes every later demotion legal.
+    await auth.setRole('bob', 'admin')
+    const cookie = cookieOf(await loginPost(port, 'carol', 'parol-parol'))
+    expect(ctx.get('webAuth')?.identityFromCookie(`${SESSION_COOKIE}=${cookie}`)?.admin).toBe(true)
+
+    // Demotion lands on the live session without revoking it.
+    await auth.setRole('carol', 'user')
+    expect(ctx.get('webAuth')?.identityFromCookie(`${SESSION_COOKIE}=${cookie}`)?.admin).toBe(false)
+
+    // The last admin cannot be demoted or deleted.
+    await expect(auth.setRole('bob', 'admin')).resolves.toBeUndefined()
+    await expect(auth.setRole('bob', 'user')).rejects.toMatchObject({ code: 'last-admin' })
+    await expect(auth.deleteUser('bob')).rejects.toMatchObject({ code: 'last-admin' })
+    await expect(auth.setRole('ghost', 'admin')).rejects.toMatchObject({ code: 'user-not-found' })
+  })
+
+  it('deleteUser revokes the login’s sessions and closes the account', { timeout: 60_000 }, async () => {
+    const { ctx, server, port, paths } = await loadComposition()
+    server.register({ kind: 'exact', path: '/probe', handler: (_req, res) => { res.writeHead(200); res.end('EXACT') } })
+    const auth = ctx.get('webAuth')!
+    await auth.createUser({ login: 'carol', password: 'parol-parol', role: 'user' })
+    const cookie = cookieOf(await loginPost(port, 'carol', 'parol-parol'))
+    await request(port, '/probe', { headers: { cookie: `${SESSION_COOKIE}=${cookie}` } })
+
+    await auth.deleteUser('carol')
+    await expect(request(port, '/probe', { headers: { cookie: `${SESSION_COOKIE}=${cookie}` } }))
+      .resolves.toMatchObject({ status: 401 })
+    const closed = await loginPost(port, 'carol', 'parol-parol')
+    expect(closed.status).toBe(303)
+    expect(closed.headers.get('location')).toBe('/login?error=1')
+    expect(auth.listUsers().map(user => user.login)).toEqual(['bob'])
+    expect((await storedUsers(paths.userStore)).map(user => user.login)).toEqual(['bob'])
+    await expect(auth.deleteUser('carol')).rejects.toMatchObject({ code: 'user-not-found' })
+  })
+
+  it('lists and revokes devices per login', { timeout: 60_000 }, async () => {
+    const { ctx, server, port } = await loadComposition()
+    server.register({ kind: 'exact', path: '/probe', handler: (_req, res) => { res.writeHead(200); res.end('EXACT') } })
+    const auth = ctx.get('webAuth')!
+    const first = cookieOf(await loginPost(port, 'bob', 'bob-pass'))
+    const second = cookieOf(await loginPost(port, 'bob', 'bob-pass'))
+
+    const devices = auth.listDevices('bob')
+    expect(devices.map(device => device.sessionId).sort()).toEqual([first, second].sort())
+    for (const device of devices) {
+      expect(device.issuedAt).toBeGreaterThan(0)
+      expect(device.expiresAt).toBeGreaterThan(device.issuedAt)
+      expect(device.lastSeenAt).toBeGreaterThan(0)
+    }
+
+    // Revoking one device kills exactly that session.
+    await auth.revokeDevice('bob', first)
+    await expect(request(port, '/probe', { headers: { cookie: `${SESSION_COOKIE}=${first}` } }))
+      .resolves.toMatchObject({ status: 401 })
+    await expect(request(port, '/probe', { headers: { cookie: `${SESSION_COOKIE}=${second}` } }))
+      .resolves.toMatchObject({ status: 200 })
+    expect(auth.listDevices('bob').map(device => device.sessionId)).toEqual([second])
+    await expect(auth.revokeDevice('bob', first)).rejects.toMatchObject({ code: 'device-not-found' })
+    await expect(auth.revokeDevice('ghost', first)).rejects.toMatchObject({ code: 'user-not-found' })
+
+    // Revoking the rest clears the login's devices in one call.
+    await expect(auth.revokeAllDevices('bob')).resolves.toBe(1)
+    expect(auth.listDevices('bob')).toEqual([])
+    await expect(request(port, '/probe', { headers: { cookie: `${SESSION_COOKIE}=${second}` } }))
+      .resolves.toMatchObject({ status: 401 })
+    await expect(auth.revokeAllDevices('ghost')).rejects.toMatchObject({ code: 'user-not-found' })
+  })
+
+  it('listUsers is ordered by login', { timeout: 60_000 }, async () => {
+    const { ctx } = await loadComposition()
+    const auth = ctx.get('webAuth')!
+    await auth.createUser({ login: 'zeta', password: 'parol-parol', role: 'user' })
+    await auth.createUser({ login: 'alpha', password: 'parol-parol', role: 'admin' })
+    expect(auth.listUsers().map(user => [user.login, user.role])).toEqual([['alpha', 'admin'], ['bob', 'user'], ['zeta', 'user']])
   })
 })

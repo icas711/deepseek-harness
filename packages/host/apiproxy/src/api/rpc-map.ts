@@ -14,6 +14,7 @@ import type { SettingsApi } from './settings.ts'
 import type { CredentialsApi } from './credentials.ts'
 import type { LlmApi } from './llm.ts'
 import type { SubagentsApi } from './subagents.ts'
+import type { AdminApi } from './admin.ts'
 import type { RpcResponse } from './rpc.ts'
 
 /**
@@ -78,6 +79,15 @@ export interface RpcMethodMap {
   'llm.models': LlmApi['models']
   'llm.discoverModels': LlmApi['discoverModels']
   'llm.provisionProvider': LlmApi['provisionProvider']
+  'admin.status': AdminApi['status']
+  'admin.listUsers': AdminApi['listUsers']
+  'admin.createUser': AdminApi['createUser']
+  'admin.deleteUser': AdminApi['deleteUser']
+  'admin.resetPassword': AdminApi['resetPassword']
+  'admin.setRole': AdminApi['setRole']
+  'admin.listDevices': AdminApi['listDevices']
+  'admin.revokeDevice': AdminApi['revokeDevice']
+  'admin.revokeAllDevices': AdminApi['revokeAllDevices']
 }
 
 /** Business request payload of method K (reaches through the RpcRequest narrow form to payload). */

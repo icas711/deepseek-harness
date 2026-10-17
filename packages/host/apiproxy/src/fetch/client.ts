@@ -70,6 +70,11 @@ import {
   subagentListValueSchema,
   subagentPromptValueSchema,
 } from '../api/subagents.schema.ts'
+import {
+  adminCreateUserValueSchema, adminDeleteUserValueSchema, adminListDevicesValueSchema,
+  adminListUsersValueSchema, adminResetPasswordValueSchema, adminRevokeAllDevicesValueSchema,
+  adminRevokeDeviceValueSchema, adminSetRoleValueSchema, adminStatusValueSchema,
+} from '../api/admin.schema.ts'
 
 /**
  * Client consumption face of the contract (shape a): same domain tree as ApiProxy, but unary
@@ -168,6 +173,17 @@ export interface IApiClient {
     discoverModels(payload: RequestPayload<'llm.discoverModels'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'llm.discoverModels'>>>
     provisionProvider(payload: RequestPayload<'llm.provisionProvider'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'llm.provisionProvider'>>>
   }
+  admin: {
+    status(payload: RequestPayload<'admin.status'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'admin.status'>>>
+    listUsers(payload: RequestPayload<'admin.listUsers'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'admin.listUsers'>>>
+    createUser(payload: RequestPayload<'admin.createUser'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'admin.createUser'>>>
+    deleteUser(payload: RequestPayload<'admin.deleteUser'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'admin.deleteUser'>>>
+    resetPassword(payload: RequestPayload<'admin.resetPassword'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'admin.resetPassword'>>>
+    setRole(payload: RequestPayload<'admin.setRole'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'admin.setRole'>>>
+    listDevices(payload: RequestPayload<'admin.listDevices'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'admin.listDevices'>>>
+    revokeDevice(payload: RequestPayload<'admin.revokeDevice'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'admin.revokeDevice'>>>
+    revokeAllDevices(payload: RequestPayload<'admin.revokeAllDevices'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'admin.revokeAllDevices'>>>
+  }
   /** client-response passthrough (rpcId is a backfill of the server-request's id — never minted here). */
   respond(message: ClientResponse, signal?: AbortSignal): Promise<RpcReceipt>
 }
@@ -233,6 +249,15 @@ const UNARY_VALUE_SCHEMAS: { [K in keyof RpcMethodMap]: z.ZodType<Wire<ResponseV
   'llm.models': llmModelsValueSchema,
   'llm.discoverModels': llmDiscoverModelsValueSchema,
   'llm.provisionProvider': llmProvisionProviderValueSchema,
+  'admin.status': adminStatusValueSchema,
+  'admin.listUsers': adminListUsersValueSchema,
+  'admin.createUser': adminCreateUserValueSchema,
+  'admin.deleteUser': adminDeleteUserValueSchema,
+  'admin.resetPassword': adminResetPasswordValueSchema,
+  'admin.setRole': adminSetRoleValueSchema,
+  'admin.listDevices': adminListDevicesValueSchema,
+  'admin.revokeDevice': adminRevokeDeviceValueSchema,
+  'admin.revokeAllDevices': adminRevokeAllDevicesValueSchema,
 }
 
 /** Default timeout for bounded unary calls (rpc-compare 2026-07-19: a hung host must not leave callers pending forever). */
@@ -513,6 +538,18 @@ export abstract class AbstractApiClient implements IApiClient {
     models: (payload, signal) => this.callUnary('llm.models', payload, signal),
     discoverModels: (payload, signal) => this.callUnary('llm.discoverModels', payload, signal),
     provisionProvider: (payload, signal) => this.callUnary('llm.provisionProvider', payload, signal),
+  }
+
+  readonly admin: IApiClient['admin'] = {
+    status: (payload, signal) => this.callUnary('admin.status', payload, signal),
+    listUsers: (payload, signal) => this.callUnary('admin.listUsers', payload, signal),
+    createUser: (payload, signal) => this.callUnary('admin.createUser', payload, signal),
+    deleteUser: (payload, signal) => this.callUnary('admin.deleteUser', payload, signal),
+    resetPassword: (payload, signal) => this.callUnary('admin.resetPassword', payload, signal),
+    setRole: (payload, signal) => this.callUnary('admin.setRole', payload, signal),
+    listDevices: (payload, signal) => this.callUnary('admin.listDevices', payload, signal),
+    revokeDevice: (payload, signal) => this.callUnary('admin.revokeDevice', payload, signal),
+    revokeAllDevices: (payload, signal) => this.callUnary('admin.revokeAllDevices', payload, signal),
   }
 
   readonly events: IApiClient['events'] = {

@@ -115,8 +115,8 @@ import {
   inspectApiRemoteSession,
 } from '@deepseek-ai/dsh-api-remotes'
 import { canOpenNativePath, openNativePath, openNativeTextFile } from './native-path-opener.ts'
-import { isWithinRoot, scopingIdentity } from './web-identity.ts'
-import type { WebIdentity } from './web-identity.ts'
+import { isWithinRoot, requestIdentity, scopingIdentity, WebAdminError } from './web-identity.ts'
+import type { WebAuthService, WebIdentity } from './web-identity.ts'
 import { realpathSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -435,6 +435,73 @@ async function buildModelCatalog(ctx: Context): Promise<{
 /** Wrap an error result echoing the request's rpcId. */
 function err<T>(request: RpcRequest<unknown>, error: RpcError): RpcResponse<T> {
   return { rpcId: request.rpcId, result: { ok: false, error } }
+}
+
+/**
+ * The web-auth service when the calling web user holds the admin role, else
+ * the typed `admin-forbidden` response: every admin.* data method gates
+ * through this one read, and no identity (a non-web caller, a passive
+ * deployment) refuses the same way.
+ * @param ctx - the gateway context.
+ * @param request - the request being answered (for the refusal's rpcId echo).
+ * @returns the service, or the `admin-forbidden` error response.
+ */
+function requireAdmin(ctx: Context, request: RpcRequest<unknown>): WebAuthService | RpcResponse<never> {
+  const auth = ctx.get('webAuth')
+  const identity = requestIdentity(ctx)
+  if (auth === undefined || identity === undefined || !identity.admin) {
+    return err(request, {
+      code: 'admin-forbidden',
+      message: 'требуется роль администратора: вызов отклонён',
+      details: {},
+    })
+  }
+  return auth
+}
+
+/**
+ * Fold a web-auth administration failure into its typed wire error. A
+ * WebAdminError narrows by its code; anything else is an internal fault.
+ * @param request - the request being answered.
+ * @param error - the thrown value from the service call.
+ * @returns the RpcError for the response.
+ */
+function webAdminError(request: RpcRequest<unknown>, error: unknown): RpcError {
+  if (!(error instanceof WebAdminError)) {
+    return {
+      code: 'internal',
+      message: error instanceof Error ? error.message : String(error),
+      details: {},
+    }
+  }
+  switch (error.code) {
+    case 'user-exists':
+      return { code: 'admin-user-exists', message: error.message, details: { login: adminErrorLogin(request) } }
+    case 'user-not-found':
+      return { code: 'admin-user-not-found', message: error.message, details: { login: adminErrorLogin(request) } }
+    case 'last-admin':
+      return { code: 'admin-last-admin', message: error.message, details: { login: adminErrorLogin(request) } }
+    case 'device-not-found':
+      return {
+        code: 'admin-device-not-found',
+        message: error.message,
+        details: { login: adminErrorLogin(request), sessionId: adminErrorSessionId(request) },
+      }
+    case 'invalid-input':
+      return { code: 'admin-rejected', message: error.message, details: {} }
+  }
+}
+
+/** The login the failed request named, for the error details. */
+function adminErrorLogin(request: RpcRequest<unknown>): string {
+  const payload = request.payload as { login?: unknown } | undefined
+  return typeof payload?.login === 'string' ? payload.login : ''
+}
+
+/** The session id the failed request named, for the error details. */
+function adminErrorSessionId(request: RpcRequest<unknown>): string {
+  const payload = request.payload as { sessionId?: unknown } | undefined
+  return typeof payload?.sessionId === 'string' ? payload.sessionId : ''
 }
 
 /**
@@ -3775,6 +3842,94 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
             message: error instanceof Error ? error.message : String(error),
             details: { settingsNs, provider },
           })
+        }
+      },
+    },
+
+    admin: {
+      status(request) {
+        const identity = requestIdentity(ctx)
+        return Promise.resolve(ok(request, { admin: identity?.admin === true }))
+      },
+
+      listUsers(request) {
+        const auth = requireAdmin(ctx, request)
+        if ('result' in auth) return Promise.resolve(auth)
+        return Promise.resolve(ok(request, { users: auth.listUsers() }))
+      },
+
+      async createUser(request) {
+        const auth = requireAdmin(ctx, request)
+        if ('result' in auth) return auth
+        try {
+          await auth.createUser(request.payload)
+        } catch (error: unknown) {
+          return err(request, webAdminError(request, error))
+        }
+        return ok(request, {})
+      },
+
+      async deleteUser(request) {
+        const auth = requireAdmin(ctx, request)
+        if ('result' in auth) return auth
+        try {
+          await auth.deleteUser(request.payload.login)
+        } catch (error: unknown) {
+          return err(request, webAdminError(request, error))
+        }
+        return ok(request, {})
+      },
+
+      async resetPassword(request) {
+        const auth = requireAdmin(ctx, request)
+        if ('result' in auth) return auth
+        try {
+          await auth.resetPassword(request.payload.login, request.payload.newPassword)
+        } catch (error: unknown) {
+          return err(request, webAdminError(request, error))
+        }
+        return ok(request, {})
+      },
+
+      async setRole(request) {
+        const auth = requireAdmin(ctx, request)
+        if ('result' in auth) return auth
+        try {
+          await auth.setRole(request.payload.login, request.payload.role)
+        } catch (error: unknown) {
+          return err(request, webAdminError(request, error))
+        }
+        return ok(request, {})
+      },
+
+      listDevices(request) {
+        const auth = requireAdmin(ctx, request)
+        if ('result' in auth) return Promise.resolve(auth)
+        try {
+          return Promise.resolve(ok(request, { devices: auth.listDevices(request.payload.login) }))
+        } catch (error: unknown) {
+          return Promise.resolve(err(request, webAdminError(request, error)))
+        }
+      },
+
+      async revokeDevice(request) {
+        const auth = requireAdmin(ctx, request)
+        if ('result' in auth) return auth
+        try {
+          await auth.revokeDevice(request.payload.login, request.payload.sessionId)
+        } catch (error: unknown) {
+          return err(request, webAdminError(request, error))
+        }
+        return ok(request, {})
+      },
+
+      async revokeAllDevices(request) {
+        const auth = requireAdmin(ctx, request)
+        if ('result' in auth) return auth
+        try {
+          return ok(request, { revoked: await auth.revokeAllDevices(request.payload.login) })
+        } catch (error: unknown) {
+          return err(request, webAdminError(request, error))
         }
       },
     },

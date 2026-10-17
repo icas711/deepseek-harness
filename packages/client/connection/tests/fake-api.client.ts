@@ -230,6 +230,19 @@ export class FakeApiClient implements IApiClient {
     provisionProvider: payload => this.record('llm.provisionProvider', payload, Promise.resolve(ok({ models: 0 }))),
   }
 
+  /** The fake models a gate-less deployment: status false, every data method refused. */
+  readonly admin: IApiClient['admin'] = {
+    status: payload => this.record('admin.status', payload, Promise.resolve(ok({ admin: false }))),
+    listUsers: payload => this.record('admin.listUsers', payload, Promise.resolve(ok({ users: [] }))),
+    createUser: payload => this.record('admin.createUser', payload, Promise.resolve(ok({}))),
+    deleteUser: payload => this.record('admin.deleteUser', payload, Promise.resolve(ok({}))),
+    resetPassword: payload => this.record('admin.resetPassword', payload, Promise.resolve(ok({}))),
+    setRole: payload => this.record('admin.setRole', payload, Promise.resolve(ok({}))),
+    listDevices: payload => this.record('admin.listDevices', payload, Promise.resolve(ok({ devices: [] }))),
+    revokeDevice: payload => this.record('admin.revokeDevice', payload, Promise.resolve(ok({}))),
+    revokeAllDevices: payload => this.record('admin.revokeAllDevices', payload, Promise.resolve(ok({ revoked: 0 }))),
+  }
+
   /** When true, streams never fire onOpen (misbehaving-carrier material for the handshake timeout guard). */
   suppressStreamOpen = false
 

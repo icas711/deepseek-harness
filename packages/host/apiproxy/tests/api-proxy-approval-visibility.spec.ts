@@ -42,11 +42,23 @@ async function harness(): Promise<{
     ['bob', { login: 'bob', admin: false, root: cabinets.bob }],
     ['admin', { login: 'admin', admin: true, root: cabinets.alice }],
   ])
+  /** The administration face this spec never drives; every member refuses. */
+  const adminUnused = {
+    listUsers: (): never => { throw new Error('admin service is not used by this spec') },
+    createUser: async (): Promise<never> => { throw new Error('admin service is not used by this spec') },
+    deleteUser: async (): Promise<never> => { throw new Error('admin service is not used by this spec') },
+    resetPassword: async (): Promise<never> => { throw new Error('admin service is not used by this spec') },
+    setRole: async (): Promise<never> => { throw new Error('admin service is not used by this spec') },
+    listDevices: (): never => { throw new Error('admin service is not used by this spec') },
+    revokeDevice: async (): Promise<never> => { throw new Error('admin service is not used by this spec') },
+    revokeAllDevices: async (): Promise<never> => { throw new Error('admin service is not used by this spec') },
+  }
   const webAuth: WebAuthService = {
     identityFromCookie: (cookie) => {
       const login = cookie?.split(';').map(part => part.trim()).find(part => part.startsWith('login='))?.slice('login='.length)
       return login === undefined ? undefined : identities.get(login)
     },
+    ...adminUnused,
   }
   const ctx = new Context()
   ctx.provide('webAuth', webAuth)

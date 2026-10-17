@@ -294,6 +294,35 @@ function fakeApi(overrides: Partial<{ muxFrames: MuxFrame[]; hostFrames: HostFra
         return { rpcId: request.rpcId, result: { ok: true, value: { models: 0 } } }
       },
     },
+    admin: {
+      async status(request) {
+        return { rpcId: request.rpcId, result: { ok: true, value: { admin: false } } }
+      },
+      async listUsers(request) {
+        return { rpcId: request.rpcId, result: { ok: false, error: { code: 'internal' as const, message: 'stub', details: {} } } }
+      },
+      async createUser(request) {
+        return { rpcId: request.rpcId, result: { ok: false, error: { code: 'internal' as const, message: 'stub', details: {} } } }
+      },
+      async deleteUser(request) {
+        return { rpcId: request.rpcId, result: { ok: false, error: { code: 'internal' as const, message: 'stub', details: {} } } }
+      },
+      async resetPassword(request) {
+        return { rpcId: request.rpcId, result: { ok: false, error: { code: 'internal' as const, message: 'stub', details: {} } } }
+      },
+      async setRole(request) {
+        return { rpcId: request.rpcId, result: { ok: false, error: { code: 'internal' as const, message: 'stub', details: {} } } }
+      },
+      async listDevices(request) {
+        return { rpcId: request.rpcId, result: { ok: false, error: { code: 'internal' as const, message: 'stub', details: {} } } }
+      },
+      async revokeDevice(request) {
+        return { rpcId: request.rpcId, result: { ok: false, error: { code: 'internal' as const, message: 'stub', details: {} } } }
+      },
+      async revokeAllDevices(request) {
+        return { rpcId: request.rpcId, result: { ok: false, error: { code: 'internal' as const, message: 'stub', details: {} } } }
+      },
+    },
     events: {
       mux: (_request, signal) => stream(muxFrames, signal),
       host: (_request, signal) => stream(hostFrames, signal),
