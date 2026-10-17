@@ -8,6 +8,7 @@ import {
   RegistryFileError,
   TaskRegistryStore,
   parseRegistryDocument,
+  replaceWithRetry,
   serializeRegistryDocument,
 } from '../src/registry.ts'
 import type { TaskRecord } from '../src/types.ts'
@@ -192,3 +193,63 @@ describe('TaskRegistryStore', () => {
       .rejects.toThrow(RegistryFileError)
   })
 })
+describe('replaceWithRetry', () => {
+  const file = 'reg.json'
+
+  /** The injectable atomic-replace primitive of {@link replaceWithRetry}. */
+  type Replace = NonNullable<Parameters<typeof replaceWithRetry>[2]>
+
+  /** A replace stub denying with the given errors before succeeding. */
+  function denialStub(denials: NodeJS.ErrnoException[]): { replace: Replace; calls: () => number } {
+    let calls = 0
+    const replace = (async () => {
+      const denial = denials[calls]
+      calls += 1
+      if (denial !== undefined) throw denial
+    }) as Replace
+    return { replace, calls: () => calls }
+  }
+
+  it('succeeds after transient rename denials', async () => {
+    const { replace, calls } = denialStub([
+      Object.assign(new Error('denied'), { code: 'EPERM' }),
+      Object.assign(new Error('busy'), { code: 'EBUSY' }),
+    ])
+    await replaceWithRetry(file, '{}', replace)
+    expect(calls()).toBe(3)
+  })
+
+  it('fails loud on a non-transient error without retrying', async () => {
+    const { replace, calls } = denialStub([Object.assign(new Error('gone'), { code: 'ENOENT' })])
+    await expect(replaceWithRetry(file, '{}', replace)).rejects.toMatchObject({ code: 'ENOENT' })
+    expect(calls()).toBe(1)
+  })
+
+  it('fails loud at the deadline when the denial stands', async () => {
+    const denial = Object.assign(new Error('denied'), { code: 'EPERM' })
+    const { replace, calls } = denialStub(Array.from({ length: 512 }, () => denial))
+    await expect(replaceWithRetry(file, '{}', replace)).rejects.toMatchObject({ code: 'EPERM' })
+    expect(calls()).toBeGreaterThan(1)
+  }, 10_000)
+})
+
+describe('TaskRegistryStore rollback', () => {
+  it('rolls the memory side back when a transition commit fails', async () => {
+    const { store, path } = await storeAtPath('reg.json', fakeClock([100, 200]))
+    await store.load()
+    const { record } = await store.upsertRunning({ sessionId: SessionId('s1'), title: 'Работа' })
+    await writeFile(path, 'garbage{', 'utf8')
+    await expect(store.transition(record.taskId, 'paused')).rejects.toThrow(RegistryFileError)
+    expect(store.get(record.taskId)?.status).toBe('running')
+  })
+
+  it('rolls the whole flip back when its commit fails', async () => {
+    const { store, path } = await storeAtPath('reg.json', fakeClock([100, 200]))
+    await store.load()
+    await store.upsertRunning({ sessionId: SessionId('s1'), title: 'A' })
+    await writeFile(path, 'garbage{', 'utf8')
+    await expect(store.flipRunning('paused')).rejects.toThrow(RegistryFileError)
+    expect(store.snapshot().every(record => record.status === 'running')).toBe(true)
+  })
+})
+

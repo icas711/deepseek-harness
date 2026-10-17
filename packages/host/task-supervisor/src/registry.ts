@@ -141,6 +141,52 @@ export function serializeRegistryDocument(tasks: readonly TaskRecord[]): string 
   return `${JSON.stringify(doc, null, 2)}\n`
 }
 
+/**
+ * Replace-retry protocol constants. These are robustness invariants of the
+ * durable write, not deployment tunables: a scanner or indexer that briefly
+ * holds the freshly replaced file open denies the next rename with
+ * `EPERM`/`EBUSY` on Windows, and restart-window writes land exactly inside
+ * that window; the bounded backoff keeps them durable without masking a real
+ * denial past the deadline.
+ */
+const REPLACE_RETRY_INITIAL_MS = 25
+const REPLACE_RETRY_MAX_MS = 200
+const REPLACE_RETRY_DEADLINE_MS = 2_000
+
+/** Whether a filesystem denial is the transient replace-denied class. */
+function isReplaceDenial(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException | null)?.code
+  return code === 'EPERM' || code === 'EBUSY' || code === 'EACCES'
+}
+
+/**
+ * Replace `filename` with `content`, retrying the transient rename denials a
+ * restart window produces. Any other failure, or a denial still standing at
+ * the deadline, fails loud.
+ * @param filename - final path receiving the content.
+ * @param content - complete next file content.
+ * @param replace - the atomic replace primitive; injected only by tests.
+ */
+export async function replaceWithRetry(
+  filename: string,
+  content: string,
+  replace: typeof writeFileAtomic = writeFileAtomic,
+): Promise<void> {
+  const deadline = Date.now() + REPLACE_RETRY_DEADLINE_MS
+  let delay = REPLACE_RETRY_INITIAL_MS
+  for (;;) {
+    try {
+      // 0600/0700: the dsh home holds user-private documents (session ids, titles).
+      await replace(filename, content, { mode: 0o600, dirMode: 0o700 })
+      return
+    } catch (error) {
+      if (!isReplaceDenial(error) || Date.now() >= deadline) throw error
+    }
+    await new Promise(resolve => setTimeout(resolve, delay))
+    delay = Math.min(delay * 2, REPLACE_RETRY_MAX_MS)
+  }
+}
+
 /** Construction options of the store; `now` exists for tests' fake clocks. */
 export interface TaskRegistryStoreOptions {
   /** Registry document path (a dsh-home path in compositions). */
@@ -231,8 +277,7 @@ export class TaskRegistryStore {
         return { record: existing, created: false }
       }
       const record: TaskRecord = { ...existing, title: input.title, status: 'running', updatedAt: this.now() }
-      this.records.set(record.taskId, record)
-      await this.commit()
+      await this.settle(record.taskId, record)
       return { record: { ...record }, created: false }
     }
     const record: TaskRecord = {
@@ -242,8 +287,7 @@ export class TaskRegistryStore {
       status: 'running',
       updatedAt: this.now(),
     }
-    this.records.set(record.taskId, record)
-    await this.commit()
+    await this.settle(record.taskId, record)
     return { record: { ...record }, created: true }
   }
 
@@ -266,8 +310,7 @@ export class TaskRegistryStore {
       )
     }
     const record: TaskRecord = { ...current, status, updatedAt: this.now() }
-    this.records.set(taskId, record)
-    await this.commit()
+    await this.settle(taskId, record)
     return { ...record }
   }
 
@@ -279,15 +322,43 @@ export class TaskRegistryStore {
    * @returns the flipped records, empty when nothing was running.
    */
   async flipRunning(status: 'paused' | 'interrupted'): Promise<TaskRecord[]> {
+    const previous = new Map<TaskId, TaskRecord>()
     const flipped: TaskRecord[] = []
     for (const record of this.records.values()) {
       if (record.status !== 'running') continue
       const next: TaskRecord = { ...record, status, updatedAt: this.now() }
+      previous.set(record.taskId, record)
       this.records.set(record.taskId, next)
       flipped.push({ ...next })
     }
-    if (flipped.length > 0) await this.commit()
+    if (flipped.length > 0) {
+      try {
+        await this.commit()
+      } catch (error) {
+        for (const [taskId, record] of previous) this.records.set(taskId, record)
+        throw error
+      }
+    }
     return flipped
+  }
+
+  /**
+   * Publish one record to the map only together with its durable commit: a
+   * failed write rolls the memory side back, so the store never claims a
+   * status the document does not hold.
+   * @param taskId - the record's task id.
+   * @param record - the next record to publish.
+   */
+  private async settle(taskId: TaskId, record: TaskRecord): Promise<void> {
+    const previous = this.records.get(taskId)
+    this.records.set(taskId, record)
+    try {
+      await this.commit()
+    } catch (error) {
+      if (previous === undefined) this.records.delete(taskId)
+      else this.records.set(taskId, previous)
+      throw error
+    }
   }
 
   /**
@@ -309,8 +380,7 @@ export class TaskRegistryStore {
       const merged = new Map<TaskId, TaskRecord>()
       for (const record of disk) merged.set(record.taskId, record)
       for (const record of this.records.values()) merged.set(record.taskId, record)
-      // 0600/0700: the dsh home holds user-private documents (session ids, titles).
-      await writeFileAtomic(this.filePath, serializeRegistryDocument([...merged.values()]), { mode: 0o600, dirMode: 0o700 })
+      await replaceWithRetry(this.filePath, serializeRegistryDocument([...merged.values()]))
     })
   }
 }

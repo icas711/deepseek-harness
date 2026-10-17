@@ -56,13 +56,19 @@ export interface ResumedAgent {
  * preset roster, and default-model services.
  * @param sessionId - the persisted session to open.
  * @returns the live agent and, for a cold open, its owned handle.
- * @throws {@link TaskSupervisorError} with `resume-unavailable` when no
- * persistence backend is mounted, or `session-not-found` when the store does
- * not list the identity.
+ * @throws {@link TaskSupervisorError} with `resume-unavailable` when the
+ * agent registry or a persistence backend is absent, or `session-not-found`
+ * when the store does not list the identity.
  */
 export async function openSessionAgent(ctx: Context, sessionId: SessionId): Promise<ResumedAgent> {
-  const live = ctx.agents.get(sessionId)
+  // Strict global reads, not the property proxy: the registry and the other
+  // seams here are optional composition, never declared injections.
+  const registry = ctx.get('agents')
+  const live = registry?.get(sessionId)
   if (live !== undefined) return { agent: live, owned: undefined }
+  if (registry === undefined) {
+    throw new TaskSupervisorError('resuming a parked task requires the agent registry (load @deepseek-ai/dsh-agent)', 'resume-unavailable')
+  }
   const persistence = ctx.get('sessionPersistence')
   if (persistence === undefined) {
     throw new TaskSupervisorError(
@@ -86,7 +92,7 @@ export async function openSessionAgent(ctx: Context, sessionId: SessionId): Prom
     }
   }
   const defaults = ctx.get('agentDefaultModel')
-  const owned = await ctx.agents.resume({
+  const owned = await registry.resume({
     resumeSessionId: sessionId,
     ...(defaults === undefined ? {} : { agentOptions: defaults.currentSelection() }),
     ...(setup === undefined ? {} : { setup }),

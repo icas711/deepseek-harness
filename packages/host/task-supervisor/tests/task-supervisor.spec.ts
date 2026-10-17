@@ -125,6 +125,20 @@ describe('TaskSupervisor service', () => {
     expect(task.status).toBe('running')
   })
 
+  it('reports a missing agent registry as an unavailable resume path', async () => {
+    root = await mkdtemp(join(tmpdir(), 'dsh-task-supervisor-'))
+    const registryPath = join(root, 'task-registry.json')
+    context = new Context()
+    await context.plugin(TaskSupervisor, { registryPath }).await()
+    const task = await context.taskSupervisor.track({ sessionId: SessionId('s1'), title: 'Работа' })
+    await context.fiber.dispose()
+    context = new Context()
+    await context.plugin(TaskSupervisor, { registryPath }).await()
+    await expect(context.taskSupervisor.resume(task.taskId))
+      .rejects.toMatchObject({ code: 'resume-unavailable' })
+    expect((await context.taskSupervisor.list())[0]?.status).toBe('paused')
+  })
+
   it('reverts a failed resume to the parked status when persistence is absent', async () => {
     const { supervisor } = await boot()
     const task = await supervisor.track({ sessionId: SessionId('s1'), title: 'Работа' })
