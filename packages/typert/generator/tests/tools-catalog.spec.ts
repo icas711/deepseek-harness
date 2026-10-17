@@ -17,7 +17,9 @@ afterEach(() => {
 })
 
 describe('model-driven dsh-tools generation', () => {
-  it('round-trips the complete service and event structure through the runtime registry', { timeout: 30_000 }, async () => {
+  // Boots the complete shipped runtime registry; the whole-suite coverage
+  // aggregate stretches its healthy run past the previous 30s budget.
+  it('round-trips the complete service and event structure through the runtime registry', { timeout: 90_000 }, async () => {
     const workspace = new WorkspaceAnalyzer({
       root: workspaceRoot,
       faces: ['host'],

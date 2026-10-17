@@ -45,8 +45,13 @@ async function writeContractConfig(suffix: string): Promise<string> {
   return path
 }
 
-describe('Oxlint executable contract', () => {
-  it('discovers the owning TypeScript project for every file class', async () => {
+// Every test spawns the real oxlint executable one or more times; under the
+// whole-suite coverage aggregate those spawns stretch several-fold past their
+// healthy 3-7s, past even the per-test 20s budgets.
+describe('Oxlint executable contract', { timeout: 60_000 }, () => {
+  // The slowest single spawn here: oxlint boots tsconfig discovery for seven
+  // probe files plus the client aggregate under one debug-logged invocation.
+  it('discovers the owning TypeScript project for every file class', { timeout: 120_000 }, async () => {
     const suffix = randomUUID()
     const configPath = await writeContractConfig(suffix)
     const probes = [
@@ -105,7 +110,7 @@ probePromise()
         rm(configPath, { force: true }),
       ])
     }
-  }, 20_000)
+  })
 
   it('runs JavaScript compatibility and nursery rules', async () => {
     const suffix = randomUUID()
@@ -152,7 +157,7 @@ export const longProbe = 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 +
         rm(configPath, { force: true }),
       ])
     }
-  }, 20_000)
+  })
 
   it('keeps the complete stylistic contract in Oxlint', async () => {
     const oxlintPath = join(repositoryRoot, '.oxlintrc.json')
@@ -252,7 +257,7 @@ export const longProbe = 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 +
         rm(configPath, { force: true }),
       ])
     }
-  }, 20_000)
+  })
 
   it('accepts an ignored-only staged selection', () => {
     const result = runOxlint([
@@ -371,6 +376,5 @@ export const longProbe = 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 +
         await rm(directory, { recursive: true, force: true })
       }
     },
-    20_000,
   )
 })

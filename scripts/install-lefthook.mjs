@@ -295,7 +295,9 @@ function readInstallLock(lockPath) {
   try {
     return readFileSync(lockPath, 'utf8')
   } catch (error) {
-    if (errorCode(error) === 'ENOENT') return undefined
+    // Windows AV/indexer transiently holds freshly created files: reads can
+    // fail with EPERM/EACCES while the lock exists. Treat as not-yet-readable.
+    if (errorCode(error) === 'ENOENT' || errorCode(error) === 'EPERM' || errorCode(error) === 'EACCES') return undefined
     throw error
   }
 }
@@ -304,7 +306,7 @@ function installLockStat(lockPath) {
   try {
     return lstatSync(lockPath)
   } catch (error) {
-    if (errorCode(error) === 'ENOENT') return undefined
+    if (errorCode(error) === 'ENOENT' || errorCode(error) === 'EPERM' || errorCode(error) === 'EACCES') return undefined
     throw error
   }
 }
@@ -396,6 +398,16 @@ async function acquireInstallLock(commonDirectory) {
       }
       return () => releaseInstallLock(lockPath, ownedRecord, ownedStat)
     } catch (error) {
+      // Windows AV/indexer transiently holds freshly created files, so a
+      // contended exclusive open can surface EPERM/EACCES instead of EEXIST.
+      // Poll on as a not-yet state; the deadline still bounds the wait.
+      if (errorCode(error) === 'EPERM' || errorCode(error) === 'EACCES') {
+        if (Date.now() >= deadline) {
+          throw new Error(`timed out waiting for Lefthook installer lock ${lockPath}`)
+        }
+        await new Promise(resolveWait => setTimeout(resolveWait, INSTALL_LOCK_POLL_MS))
+        continue
+      }
       if (errorCode(error) !== 'EEXIST') throw error
       const existingStat = installLockStat(lockPath)
       if (existingStat === undefined) continue

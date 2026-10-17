@@ -96,7 +96,9 @@ function repositoryState(root: string): Record<string, string> {
   }
 }
 
-describe('change-scope', () => {
+// Every test drives real git fixture repositories through subprocesses; the
+// whole-suite coverage aggregate slows those spawns far past the 5s default.
+describe('change-scope', { timeout: 30_000 }, () => {
   it('uses an explicit base on a fresh branch without a same-name remote and after its first push', { timeout: 20_000 }, () => {
     const { root } = fixture()
     git(root, ['switch', '-c', 'feature'])

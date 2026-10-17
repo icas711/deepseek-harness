@@ -1055,7 +1055,9 @@ describe('SubagentRuntime.listDescendants', () => {
   })
 
 
-  it('walks a deeply nested ordinary-session chain without consuming the call stack', { timeout: 20_000 }, async () => {
+  // Builds and walks a 10_000-deep session chain; the whole-suite coverage
+  // aggregate stretches that several-fold past the healthy ~3s.
+  it('walks a deeply nested ordinary-session chain without consuming the call stack', { timeout: 60_000 }, async () => {
     const { ctx, parent } = await setup([])
     const depth = 10_000
     let parentId = parent.id

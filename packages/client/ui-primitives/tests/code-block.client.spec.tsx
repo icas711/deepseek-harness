@@ -41,7 +41,7 @@ describe('highlightToHtml', () => {
     'xml', 'lua',
   ]
 
-  it('lazily loads every read-card grammar: plain first, highlighted after load', async () => {
+  it('lazily loads every read-card grammar: plain first, highlighted after load', { timeout: 30_000 }, async () => {
     // First touch returns the plain fallback (undefined) and starts the import.
     for (const alias of LAZY_ALIASES) expect(highlightToHtml('x', alias)).toBeUndefined()
     // Once every grammar has registered, the same call highlights. The window

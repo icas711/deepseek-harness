@@ -20,6 +20,21 @@ const MERGE_HEAD = /declare module ['"]@deepseek-ai\/dsh-client-ui-slots['"]/
 /** Cheap textual prefilter for a registration call site. */
 const REGISTER_HEAD = /\.register\(/
 
+/**
+ * Read one glob-matched scan file, tolerating disappearance between the glob
+ * and the read: parallel test workers write and remove lint probes inside real
+ * `src` directories (`scripts/oxlint-contract.spec.ts`), so a listed path may
+ * be gone by the time it is read. A vanished file carries no slots.
+ */
+function readScanText(abs: string): string | null {
+  try {
+    return readFileSync(abs, 'utf8')
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+    throw error
+  }
+}
+
 /** One `SlotMap` member: the slot's contract as its owning package declares it. */
 export interface SlotDeclaration {
   /** SlotMap key, e.g. `settings.section`. */
@@ -97,7 +112,8 @@ export function scanSlotFiles(scanRoot: string, patterns: readonly string[]): Sc
     .map(path => path.split(sep).join('/')))].sort()
   for (const rel of rels) {
     const abs = resolve(scanRoot, rel)
-    const text = readFileSync(abs, 'utf8')
+    const text = readScanText(abs)
+    if (text === null) continue
     if (!MERGE_HEAD.test(text) && !REGISTER_HEAD.test(text)) continue
     out.push({
       rel,
@@ -124,7 +140,9 @@ export function indexExportedTypes(scanRoot: string, patterns: readonly string[]
     .map(path => path.split(sep).join('/')))].sort()
   for (const rel of rels) {
     const abs = resolve(scanRoot, rel)
-    const sf = ts.createSourceFile(abs, readFileSync(abs, 'utf8'), ts.ScriptTarget.Latest, true, scriptKindOf(rel))
+    const text = readScanText(abs)
+    if (text === null) continue
+    const sf = ts.createSourceFile(abs, text, ts.ScriptTarget.Latest, true, scriptKindOf(rel))
     for (const statement of sf.statements) {
       if (!ts.isInterfaceDeclaration(statement) && !ts.isTypeAliasDeclaration(statement)) continue
       if (!statement.modifiers?.some(modifier => modifier.kind === ts.SyntaxKind.ExportKeyword)) continue

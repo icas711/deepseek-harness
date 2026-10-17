@@ -195,7 +195,7 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
     expect(model).toMatchSnapshot()
   })
 
-  it('merges bounded package programs into the same face model', () => {
+  it('merges bounded package programs into the same face model', { timeout: 120_000 }, () => {
     const options = {
       root: fixtureRoot,
       packages: ['@fixture/host', '@fixture/client'],
@@ -398,7 +398,7 @@ describe('WorkspaceAnalyzer', { timeout: 60_000 }, () => {
     expect(mapped).not.toHaveProperty('value')
   })
 
-  it('fails in check mode and writes inferred public annotations in write mode', () => {
+  it('fails in check mode and writes inferred public annotations in write mode', { timeout: 120_000 }, () => {
     const root = copyFixture('typert-type-model-')
     const options = {
       root,
@@ -1157,7 +1157,7 @@ describe('WorkspaceTypertGenerator', { timeout: 60_000 }, () => {
     )
   })
 
-  it('rejects absent Typert exports and package file entries', () => {
+  it('rejects absent Typert exports and package file entries', { timeout: 120_000 }, () => {
     const noSubpathRoot = copyFixture('typert-missing-artifact-export-')
     const noSubpathManifest = join(noSubpathRoot, 'packages/client', 'package.json')
     const noSubpath = JSON.parse(readFileSync(noSubpathManifest, 'utf8')) as Record<string, unknown>

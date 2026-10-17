@@ -217,7 +217,10 @@ describe('dsh-tool-ralph over the real spawn and worker-thread stack', () => {
       expectedError: true,
       expectedText: 'Ralph round report exceeds maxHandoffChars',
     },
-  ])('enforces the fixed script for $name', async ({ report, config, expectedError, expectedText }) => {
+  // Each case mounts the real spawn and worker-thread stack; the whole-suite
+  // coverage aggregate slows that past the 5s default (the sibling below uses
+  // the same budget).
+  ])('enforces the fixed script for $name', { timeout: 20_000 }, async ({ report, config, expectedError, expectedText }) => {
     const { ctx, parent, parentHandle } = await mountRalph([
       toolCallResponse('round-report', STRUCTURED_OUTPUT_TOOL, report),
     ], config)

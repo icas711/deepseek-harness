@@ -197,7 +197,9 @@ describe('the per-slot report budget', () => {
 })
 
 describe('the real workspace surface', () => {
-  it('collects every declared slot with a teachable contract', { timeout: 30_000 }, () => {
+  // The walk parses every workspace source with the TypeScript parser; the
+  // whole-suite coverage aggregate stretches its healthy ~5s past 30s.
+  it('collects every declared slot with a teachable contract', { timeout: 90_000 }, () => {
     const entries = collectSlotEntries(process.cwd())
     expect(entries.length).toBeGreaterThan(30)
     for (const entry of entries) {
