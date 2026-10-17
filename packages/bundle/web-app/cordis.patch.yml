@@ -162,6 +162,18 @@
         sessionStore: !!js dshHomePath('web-sessions.json')
         workspaceRoot: !!js process.cwd()
 
+    # Мост станций: сервис сопряжения, реестр станций в dsh-home и
+    # upgrade-маршрут /station-ws, по которому коннектор (Node CLI на машине
+    # пользователя) сам дial-out'ится к оркестратору за NAT. Пассивен без
+    # пар: до первого station.beginPairing ни соединений, ни таймеров нет.
+    # Транспортный допуск апгрейда этого пути — токен станции из реестра;
+    # ветка живёт в auth-месте web-auth, а привязку сокета к станции делает
+    # приветствие протокола (второго владельца допуска не появляется).
+    - id: stations
+      name: '@deepseek-ai/dsh-stations'
+      config:
+        registryPath: !!js dshHomePath('station-registry.json')
+
     # Web glue owned by this bundle: resolves the built frontend dist (an
     # assembly fact of dsh-web-app, never user config), mounts the
     # frontend-static fallback owner, registers the web-surface prompt

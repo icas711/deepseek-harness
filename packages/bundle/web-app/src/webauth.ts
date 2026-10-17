@@ -29,6 +29,8 @@ import {
   type WebCreateUserInput,
   type WebIdentity,
 } from '@deepseek-ai/dsh-host-apiproxy/web-identity'
+import { STATION_WS_PATH } from '@deepseek-ai/dsh-station-protocol'
+import type {} from '@deepseek-ai/dsh-stations'
 import type {} from '@deepseek-ai/dsh-workspace'
 
 /** Stable Cordis plugin name. */
@@ -361,6 +363,18 @@ export function sessionCookieValue(cookie: string | undefined): string | undefin
     if (trimmed.startsWith(`${SESSION_COOKIE}=`)) return trimmed.slice(SESSION_COOKIE.length + 1)
   }
   return undefined
+}
+
+/**
+ * Токен станции из заголовка `Authorization: Bearer …` — единственный
+ * способ коннектор представиться на пути станции.
+ * @param authorization - сырое значение заголовка Authorization.
+ * @returns токен или undefined, когда схема не Bearer или токен пуст.
+ */
+export function stationBearerToken(authorization: string | undefined): string | undefined {
+  if (authorization === undefined || !authorization.startsWith('Bearer ')) return undefined
+  const token = authorization.slice('Bearer '.length).trim()
+  return token.length === 0 ? undefined : token
 }
 
 /** One Basic-authorization credential pair. */
@@ -987,7 +1001,17 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
       res.writeHead(401, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' }).end(UNAUTHORIZED_BODY)
       return false
     },
-    upgrade: (req) => {
+    upgrade: (req, url) => {
+      // Путь станции аутентифицируется токеном станции из реестра ctx.stations,
+      // а не cookie/Basic: коннектор — не браузер. Привязку сокета к станции
+      // и повторную проверку токена делает сессия протокола — здесь только
+      // транспортный допуск, единый с остальными путями.
+      if (url.pathname === STATION_WS_PATH) {
+        const stations = ctx.get('stations')
+        if (stations === undefined) return false
+        const token = stationBearerToken(req.headers.authorization)
+        return token !== undefined && stations.verifyStationToken(token) !== undefined
+      }
       const basic = basicCredentials(req)
       if (basic !== undefined) return verify(basic.login, basic.password) !== undefined
       return identityFor(sessionCookieValue(req.headers.cookie)) !== undefined

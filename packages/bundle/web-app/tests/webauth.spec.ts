@@ -22,6 +22,8 @@ import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
 import HttpServer from '@deepseek-ai/dsh-host-webserver'
+import { StationsService } from '@deepseek-ai/dsh-stations'
+import WebSocket from 'ws'
 import * as WebAuth from '../src/webauth.ts'
 
 /** The cookie name the plugin mints (mirrored for the spec's cookie jar). */
@@ -68,6 +70,7 @@ interface BootOptions {
   pauseMs?: number
   maxSessionsPerUser?: number
   registry?: object
+  stations?: boolean
 }
 
 /** What a booted composition hands back: the live context plus its endpoints. */
@@ -75,7 +78,7 @@ interface LoadedComposition {
   ctx: Context
   server: InstanceType<typeof HttpServer>
   port: number
-  paths: { userStore: string; store: string; workspace: string }
+  paths: { userStore: string; store: string; workspace: string; stationRegistry?: string }
 }
 
 /** Boot the webserver + web-auth composition through the real Loader. */
@@ -85,6 +88,7 @@ async function loadComposition(opts: BootOptions = {}): Promise<LoadedCompositio
     userStore: opts.userStore ?? join(root, 'home', 'web-users.json'),
     store: opts.sessionStore ?? join(root, 'home', 'web-sessions.json'),
     workspace: opts.workspaceRoot ?? join(root, 'workspace'),
+    ...(opts.stations ? { stationRegistry: join(root, 'home', 'station-registry.json') } : {}),
   }
   if (opts.userStoreContent !== undefined) {
     await mkdir(dirname(paths.userStore), { recursive: true })
@@ -105,6 +109,7 @@ async function loadComposition(opts: BootOptions = {}): Promise<LoadedCompositio
     `    workspaceRoot: ${JSON.stringify(paths.workspace)}`,
     ...(opts.pauseMs === undefined ? [] : [`    pauseMs: ${String(opts.pauseMs)}`]),
     ...(opts.maxSessionsPerUser === undefined ? [] : [`    maxSessionsPerUser: ${String(opts.maxSessionsPerUser)}`]),
+    ...(opts.stations ? ['', "- name: '@deepseek-ai/dsh-stations'", '  config:', `    registryPath: ${JSON.stringify(paths.stationRegistry)}`] : []),
   ]
   await writeFile(configPath, `${rows.join('\n')}\n`)
 
@@ -115,6 +120,7 @@ async function loadComposition(opts: BootOptions = {}): Promise<LoadedCompositio
   const modules = new Map<string, unknown>([
     ['@deepseek-ai/dsh-host-webserver', HttpServer],
     ['@deepseek-ai/dsh-web-app/webauth', WebAuth],
+    ...(opts.stations ? [['@deepseek-ai/dsh-stations', StationsService] as const] : []),
   ])
   context.loader.internal = {
     version: 'v2',
@@ -767,5 +773,53 @@ describe('webauth administration service', () => {
     await auth.createUser({ login: 'zeta', password: 'parol-parol', role: 'user' })
     await auth.createUser({ login: 'alpha', password: 'parol-parol', role: 'admin' })
     expect(auth.listUsers().map(user => [user.login, user.role])).toEqual([['alpha', 'admin'], ['bob', 'user'], ['zeta', 'user']])
+  })
+})
+// ---- Путь станции в auth-месте ----------------------------------------------
+
+/**
+ * Один WebSocket к маршруту станции с заголовками: 'open' — seat пропустил;
+ * число — статус отказа до апгрейда.
+ */
+function wsProbe(port: number, path: string, headers: Record<string, string> = {}): Promise<"open" | number> {
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(`ws://127.0.0.1:${String(port)}${path}`, { headers })
+    ws.on("open", () => {
+      ws.close()
+      resolve("open")
+    })
+    ws.on("unexpected-response", (_req, response) => {
+      resolve(response.statusCode ?? 0)
+    })
+    ws.on("error", error => { reject(error) })
+  })
+}
+
+describe('путь станции в auth-месте', () => {
+  it('пускает по токену станции и не пускает без него; чужие пути токен не открывает', { timeout: 60_000 }, async () => {
+    const { ctx, port } = await loadComposition({ stations: true })
+    const stations = ctx.get("stations")!
+    const { code } = stations.beginPairing("bob")
+
+    // До сопряжения у коннектора токена нет: seat закрывает путь
+    // (сопряжение кадром hello тестирует bridge-спека коннектора, где
+    // composition без seat; здесь проверяется транспортный допуск).
+    expect(await wsProbe(port, "/station-ws")).toBe(401)
+    expect(await wsProbe(port, "/station-ws", { authorization: 'Bearer not-a-token' })).toBe(401)
+
+    // Сопрягаем через сервис (как pair-поток коннектора) и проверяем,
+    // что токен станции открывает именно путь станции.
+    const { token } = await stations.completePairing(code, "спека-станция", "/tmp/dsh-spec-root", process.platform === "win32" ? "win32" : "linux")
+    expect(await wsProbe(port, "/station-ws", { authorization: `Bearer ${token}` })).toBe("open")
+
+    // Тот же токен не открывает другие апгрейды и HTTP-запросы.
+    expect(await wsProbe(port, "/events", { authorization: `Bearer ${token}` })).toBe(401)
+    await expect(request(port, "/probe", { headers: { authorization: `Bearer ${token}` } }))
+      .resolves.toMatchObject({ status: 401 })
+  })
+
+  it('без сервиса станций путь станции закрыт совсем', { timeout: 60_000 }, async () => {
+    const { port } = await loadComposition()
+    expect(await wsProbe(port, "/station-ws", { authorization: 'Bearer whatever' })).toBe(401)
   })
 })
