@@ -141,7 +141,7 @@
       config:
         users: !!js process.env.DSH_WEB_USERS
         admins: !!js process.env.DSH_WEB_ADMINS
-        maxSessionsPerUser: !!js process.env.DSH_WEB_MAX_SESSIONS_PER_USER === undefined ? undefined : Number(process.env.DSH_WEB_MAX_SESSIONS_PER_USER)
+        maxSessionsPerUser: !!js process.env.DSH_WEB_MAX_SESSIONS_PER_USER && Number(process.env.DSH_WEB_MAX_SESSIONS_PER_USER)
         sessionStore: !!js dshHomePath('web-sessions.json')
         workspaceRoot: !!js process.cwd()
 
