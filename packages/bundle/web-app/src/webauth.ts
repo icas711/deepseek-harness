@@ -1,7 +1,8 @@
 /**
  * Login-password authentication for the Web composition: the webserver auth
  * seat, the `/login` and `/logout` routes, scrypt user hashes from
- * `DSH_WEB_USERS`, persistent server-side sessions (one per login, 30 days,
+ * `DSH_WEB_USERS`, persistent server-side sessions (several per login up to
+ * `maxSessionsPerUser`, 30 days,
  * surviving restarts), a per-IP brute-force pause, HTTP Basic for
  * non-interactive clients, and the `webAuth` identity service the API
  * gateway scopes session and workspace visibility by. Composed only through
@@ -37,11 +38,13 @@ interface StoredSession {
   expiresAt: number
   /** Revision of the user's password hash this session was minted under. */
   rev: string
+  /** When the session last authenticated a request; the eviction clock. */
+  lastSeenAt: number
 }
 
 /** On-disk shape of the session store. */
 interface SessionStoreFile {
-  version: 1
+  version: 2
   sessions: StoredSession[]
 }
 
@@ -53,6 +56,14 @@ const SCRYPT_N = 16384
 const SCRYPT_R = 8
 const SCRYPT_P = 1
 const SCRYPT_KEYLEN = 32
+
+/**
+ * How rarely a request-time `lastSeenAt` refresh reaches the disk; logins
+ * and logouts save immediately regardless. A crash loses at most this much
+ * staleness, which costs at most evicting a session that was in fact seen
+ * moments before the crash.
+ */
+const LAST_SEEN_FLUSH_MS = 60_000
 
 /** A parsed `scrypt$N$r$p$saltHex$keyHex` record. */
 interface ScryptRecord { N: number; r: number; p: number; salt: Buffer; key: Buffer }
@@ -290,6 +301,12 @@ export interface Config {
   workspaceRoot: string
   /** Session lifetime in days. */
   sessionTtlDays: number
+  /**
+   * `DSH_WEB_MAX_SESSIONS_PER_USER` — how many live sessions one login may
+   * hold; a new login over the cap evicts that login's least recently seen
+   * sessions until it fits.
+   */
+  maxSessionsPerUser: number
   /** Consecutive failed logins from one IP before the pause. */
   maxFailures: number
   /** Brute-force pause length in milliseconds. */
@@ -302,6 +319,7 @@ export const Config: z<Config> = z.object({
   sessionStore: z.string().required(),
   workspaceRoot: z.string().required(),
   sessionTtlDays: z.natural().default(30),
+  maxSessionsPerUser: z.natural().min(1).default(5),
   maxFailures: z.natural().default(5),
   pauseMs: z.natural().default(60_000),
 })
@@ -339,7 +357,10 @@ export function apply(ctx: Context, config: Config): void {
       throw new Error('not a session store document')
     }
     const doc = parsed as { version?: unknown; sessions?: unknown }
-    if (doc.version !== 1 || !Array.isArray(doc.sessions)) {
+    if (doc.version === 1) {
+      throw new Error('unsupported session store version 1 (the current format is 2)')
+    }
+    if (doc.version !== 2 || !Array.isArray(doc.sessions)) {
       throw new Error('not a session store document')
     }
     const now = Date.now()
@@ -349,11 +370,15 @@ export function apply(ctx: Context, config: Config): void {
       }
       const item = entry as Record<string, unknown>
       if (typeof item.id !== 'string' || typeof item.login !== 'string'
-        || typeof item.issuedAt !== 'number' || typeof item.expiresAt !== 'number' || typeof item.rev !== 'string') {
+        || typeof item.issuedAt !== 'number' || typeof item.expiresAt !== 'number' || typeof item.rev !== 'string'
+        || typeof item.lastSeenAt !== 'number') {
         throw new Error('malformed session entry')
       }
       if (item.expiresAt > now && users.records.has(item.login) && users.revisions.get(item.login) === item.rev) {
-        sessions.set(item.id, { id: item.id, login: item.login, issuedAt: item.issuedAt, expiresAt: item.expiresAt, rev: item.rev })
+        sessions.set(item.id, {
+          id: item.id, login: item.login, issuedAt: item.issuedAt,
+          expiresAt: item.expiresAt, rev: item.rev, lastSeenAt: item.lastSeenAt,
+        })
       }
     }
   } catch (error: unknown) {
@@ -368,11 +393,27 @@ export function apply(ctx: Context, config: Config): void {
    * can never truncate the live file.
    */
   const saveSessions = (): void => {
-    const file: SessionStoreFile = { version: 1, sessions: [...sessions.values()] }
+    const file: SessionStoreFile = { version: 2, sessions: [...sessions.values()] }
     mkdirSync(dirname(config.sessionStore), { recursive: true })
     const tmp = `${config.sessionStore}.tmp`
     writeFileSync(tmp, `${JSON.stringify(file, null, 2)}\n`)
     renameSync(tmp, config.sessionStore)
+  }
+
+  /** When the last throttled `lastSeenAt` flush ran; boot counts as one. */
+  let lastSeenFlushAt = Date.now()
+
+  /**
+   * Refresh one live session's `lastSeenAt`, flushing the store at most once
+   * per {@link LAST_SEEN_FLUSH_MS}.
+   * @param entry - the session that just authenticated a request.
+   */
+  function touchSession(entry: StoredSession): void {
+    entry.lastSeenAt = Date.now()
+    const now = Date.now()
+    if (now - lastSeenFlushAt < LAST_SEEN_FLUSH_MS) return
+    lastSeenFlushAt = now
+    saveSessions()
   }
 
   // --- Cabinets ------------------------------------------------------------
@@ -471,18 +512,26 @@ export function apply(ctx: Context, config: Config): void {
   }
 
   /**
-   * Mint a session for one login, replacing that user's previous session
-   * (one login = one session) and persisting.
+   * Mint a session for one login and persist immediately. When the login
+   * already holds {@link Config.maxSessionsPerUser} sessions, its least
+   * recently seen ones are evicted until the new one fits.
    * @param login - the verified login.
    * @returns the Set-Cookie header value.
    */
   function issueSession(login: string): string {
     const now = Date.now()
-    for (const [id, entry] of sessions) {
-      if (entry.login === login) sessions.delete(id)
-    }
     const id = randomBytes(32).toString('hex')
-    sessions.set(id, { id, login, issuedAt: now, expiresAt: now + config.sessionTtlDays * 86_400_000, rev: users.revisions.get(login) ?? '' })
+    sessions.set(id, {
+      id, login, issuedAt: now, expiresAt: now + config.sessionTtlDays * 86_400_000,
+      rev: users.revisions.get(login) ?? '', lastSeenAt: now,
+    })
+    // Equal lastSeenAt keeps minting order (stable sort), so ties evict the older mint.
+    const own = [...sessions.values()]
+      .filter(entry => entry.login === login)
+      .sort((a, b) => a.lastSeenAt - b.lastSeenAt)
+    for (const evicted of own.slice(0, own.length - config.maxSessionsPerUser)) {
+      sessions.delete(evicted.id)
+    }
     saveSessions()
     return `${SESSION_COOKIE}=${id}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${String(config.sessionTtlDays * 86_400)}`
   }
@@ -499,6 +548,7 @@ export function apply(ctx: Context, config: Config): void {
     if (entry === undefined || entry.expiresAt <= Date.now()) return undefined
     if (users.records.get(entry.login) === undefined) return undefined
     if (users.revisions.get(entry.login) !== entry.rev) return undefined
+    touchSession(entry)
     const root = cabinetRoot(entry.login)
     ensureCabinetWorkspace(root)
     return { login: entry.login, admin: admins.has(entry.login), root }
