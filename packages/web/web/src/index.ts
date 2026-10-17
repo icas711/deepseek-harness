@@ -2,12 +2,14 @@
  * Service Definition for the web access capability seam (`ctx.web`): registries and provider-selecting execution for search and
  * fetch. Duplicate ids are rejected. At execution time, a configured provider must exist and
  * be usable; without one, exactly one usable provider is required, so selection never depends
- * on registration order.
+ * on registration order. The configured ids resolve on every call through the `web` settings
+ * namespace over the compositional entry, so a selection change acts from the next request.
  * @module @deepseek-ai/dsh-web
  */
 
 import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
+import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
 import type {
   WebFetchProvider,
   WebFetchRequest,
@@ -46,21 +48,40 @@ interface Selection<P> {
   readonly providers: ReadonlyMap<string, P>
 }
 
+/** Environment variable feeding the compositional search selection. */
+const SEARCH_PROVIDER_ENV = 'DSH_WEB_SEARCH_PROVIDER'
+
+/** Environment variable feeding the compositional fetch selection. */
+const FETCH_PROVIDER_ENV = 'DSH_WEB_FETCH_PROVIDER'
+
 /**
- * Config for the web seam. `searchProvider` / `fetchProvider` pin which provider
- * wins for each capability; both are optional (a single registered usable
- * provider auto-selects). Operational overrides such as environment variables
- * must feed these same fields rather than introduce a hidden priority chain.
+ * Settings namespace owned here, carrying the `searchProvider` / `fetchProvider`
+ * selection a configuration surface edits. Serving it to the web client is a Host
+ * allowlist decision, as for every namespace.
+ */
+export const WEB_SETTINGS_NAMESPACE = settingsNamespace('web')
+
+/**
+ * Config for the web seam, doubling as the `web` settings-section schema. The
+ * resolved selection layers the user settings section over the compositional entry —
+ * the `cordis.yml` fields with `$DSH_WEB_*_PROVIDER` folded in at mount — over the
+ * schema default. Operational env overrides feed these SAME fields rather than
+ * introduce a hidden priority chain.
  */
 export interface WebRuntimeConfig {
-  /** Explicit search provider id. Omitted = auto-select when exactly one usable. */
+  /** Explicit search provider id; empty string or omission = auto-select when exactly one usable. */
   readonly searchProvider?: string
-  /** Explicit fetch provider id. Omitted = auto-select when exactly one usable. */
+  /** Explicit fetch provider id; empty string or omission = auto-select when exactly one usable. */
   readonly fetchProvider?: string
 }
 
 /**
  * The web access service. Registered as `ctx.web` (one instance per context).
+ *
+ * The configured ids are not fixed at construction: every `search()` / `fetch()`
+ * call reads the current `web` settings section — falling back to the compositional
+ * entry while no settings service is attached — so a committed change acts from the
+ * next request without a restart or re-registration.
  *
  * Selection semantics (resolved at execution time, never order-dependent):
  * - A configured id that is registered and `available()` → that provider.
@@ -73,24 +94,47 @@ export interface WebRuntimeConfig {
  */
 export class WebRuntime extends Service {
   /**
-   * Provider selection config. Operational env overrides feed the SAME fields:
-   * `$DSH_WEB_SEARCH_PROVIDER` / `$DSH_WEB_FETCH_PROVIDER` are equivalent to
-   * `searchProvider` / `fetchProvider` and are NOT a hidden priority chain.
+   * Plugin config and settings-section schema. The empty-string defaults are the
+   * auto-select value a configuration surface renders as the neutral option:
+   * schema default → compositional entry → user layer.
    */
   static Config: z<WebRuntimeConfig> = z.object({
-    searchProvider: z.string(),
-    fetchProvider: z.string(),
+    searchProvider: z.string().default(''),
+    fetchProvider: z.string().default(''),
   })
 
   private searchProviders = new Map<string, WebSearchProvider>()
   private fetchProviders = new Map<string, WebFetchProvider>()
-  private readonly searchProviderId: string | undefined
-  private readonly fetchProviderId: string | undefined
+  /** Compositional entry: the constructor config with the env overrides folded in. */
+  private readonly compositional: WebRuntimeConfig
+  /** Currently authoritative selection section; swapped when a settings service attaches. */
+  private section: () => WebRuntimeConfig
 
   constructor(ctx: Context, config: WebRuntimeConfig = {}) {
     super(ctx, 'web')
-    this.searchProviderId = config.searchProvider ?? process.env.DSH_WEB_SEARCH_PROVIDER
-    this.fetchProviderId = config.fetchProvider ?? process.env.DSH_WEB_FETCH_PROVIDER
+    const searchProvider = providerId(config.searchProvider) ?? providerId(process.env[SEARCH_PROVIDER_ENV])
+    const fetchProvider = providerId(config.fetchProvider) ?? providerId(process.env[FETCH_PROVIDER_ENV])
+    this.compositional = {
+      ...searchProvider === undefined ? {} : { searchProvider },
+      ...fetchProvider === undefined ? {} : { fetchProvider },
+    }
+    this.section = () => this.compositional
+  }
+
+  /**
+   * Register the `web` settings namespace over the compositional entry. The source
+   * thunk is the whole integration: `search()`/`fetch()` read it per call, so a
+   * committed change needs no re-registration, and the injected wiring disposes
+   * with this service's fiber.
+   */
+  protected async [Service.init](): Promise<void> {
+    installSettingsSection(this.ctx, WEB_SETTINGS_NAMESPACE, WebRuntime.Config, this.compositional, {
+      setSource: (source) => {
+        this.section = source
+      },
+      // Resolution reads the section on every call; nothing derived needs re-judging.
+      onChange: () => {},
+    })
   }
 
   /**
@@ -138,9 +182,10 @@ export class WebRuntime extends Service {
    * @returns the provider's results, capped to `request.maxResults`.
    */
   async search(request: WebSearchRequest, signal?: AbortSignal): Promise<WebSearchResult> {
+    const configuredId = providerId(this.section().searchProvider)
     const provider = resolveProvider({
       providers: this.searchProviders,
-      ...this.searchProviderId !== undefined ? { configuredId: this.searchProviderId } : {},
+      ...configuredId === undefined ? {} : { configuredId },
     })
     const result = await provider.search(request, signal)
     return capSources(result, request.maxResults)
@@ -155,9 +200,10 @@ export class WebRuntime extends Service {
    * @returns the retrieval outcome; non-2xx responses resolve descriptively.
    */
   async fetch(request: WebFetchRequest, signal?: AbortSignal): Promise<WebFetchResult> {
+    const configuredId = providerId(this.section().fetchProvider)
     const provider = resolveProvider({
       providers: this.fetchProviders,
-      ...this.fetchProviderId !== undefined ? { configuredId: this.fetchProviderId } : {},
+      ...configuredId === undefined ? {} : { configuredId },
     })
     return provider.fetch(request, signal)
   }
@@ -166,6 +212,16 @@ export class WebRuntime extends Service {
 interface ResolvableProvider {
   readonly id: string
   available(): boolean
+}
+
+/**
+ * Read one selection layer's field as an explicit provider id. The schema default
+ * and an explicitly stored empty string both mean auto-select.
+ * @param value - the field value, when the field is present.
+ * @returns the non-empty id, or undefined for auto-select.
+ */
+function providerId(value: string | undefined): string | undefined {
+  return value !== undefined && value.length > 0 ? value : undefined
 }
 
 /** Resolve the selected provider or throw the matching {@link WebError}. */

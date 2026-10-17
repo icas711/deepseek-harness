@@ -1697,9 +1697,18 @@ importers:
       '@deepseek-ai/dsh-web':
         specifier: workspace:^
         version: link:../../web/web
+      '@deepseek-ai/dsh-web-fetch-http':
+        specifier: workspace:^
+        version: link:../../web/web-fetch-http
       '@deepseek-ai/dsh-web-search-deepseek':
         specifier: workspace:^
         version: link:../../web/web-search-deepseek
+      '@deepseek-ai/dsh-web-search-exa':
+        specifier: workspace:^
+        version: link:../../web/web-search-exa
+      '@deepseek-ai/dsh-web-search-perplexity':
+        specifier: workspace:^
+        version: link:../../web/web-search-perplexity
       '@deepseek-ai/dsh-web-search-zai':
         specifier: workspace:^
         version: link:../../web/web-search-zai
@@ -8755,6 +8764,9 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: workspace:^
         version: link:../../llm/llm
+      '@deepseek-ai/dsh-settings':
+        specifier: workspace:^
+        version: link:../../settings/settings
 
   packages/web/web-fetch-http:
     dependencies:
@@ -8768,6 +8780,9 @@ importers:
       '@deepseek-ai/dsh-invariants':
         specifier: workspace:^
         version: link:../../runtime-diagnostics/invariants
+      '@deepseek-ai/dsh-settings':
+        specifier: workspace:^
+        version: link:../../settings/settings
       '@deepseek-ai/dsh-timeout':
         specifier: workspace:^
         version: link:../../util/timeout
@@ -8818,36 +8833,23 @@ importers:
       '@deepseek-ai/cordis':
         specifier: workspace:^
         version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-credentials':
+        specifier: workspace:^
+        version: link:../../credentials/credentials
       '@deepseek-ai/dsh-invariants':
         specifier: workspace:^
         version: link:../../runtime-diagnostics/invariants
       '@deepseek-ai/dsh-launch-environment':
         specifier: workspace:^
         version: link:../../util/launch-environment
+      '@deepseek-ai/dsh-settings':
+        specifier: workspace:^
+        version: link:../../settings/settings
       '@deepseek-ai/dsh-web':
         specifier: workspace:^
         version: link:../web
 
   packages/web/web-search-perplexity:
-    dependencies:
-      '@deepseek-ai/schemastery':
-        specifier: link:../../../vendor/schemastery
-        version: link:../../../vendor/schemastery
-    devDependencies:
-      '@deepseek-ai/cordis':
-        specifier: workspace:^
-        version: link:../../../vendor/cordis
-      '@deepseek-ai/dsh-invariants':
-        specifier: workspace:^
-        version: link:../../runtime-diagnostics/invariants
-      '@deepseek-ai/dsh-launch-environment':
-        specifier: workspace:^
-        version: link:../../util/launch-environment
-      '@deepseek-ai/dsh-web':
-        specifier: workspace:^
-        version: link:../web
-
-  packages/web/web-search-zai:
     dependencies:
       '@deepseek-ai/schemastery':
         specifier: link:../../../vendor/schemastery
@@ -8865,6 +8867,37 @@ importers:
       '@deepseek-ai/dsh-launch-environment':
         specifier: workspace:^
         version: link:../../util/launch-environment
+      '@deepseek-ai/dsh-settings':
+        specifier: workspace:^
+        version: link:../../settings/settings
+      '@deepseek-ai/dsh-web':
+        specifier: workspace:^
+        version: link:../web
+
+  packages/web/web-search-zai:
+    dependencies:
+      '@deepseek-ai/schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-credentials':
+        specifier: workspace:^
+        version: link:../../credentials/credentials
+      '@deepseek-ai/dsh-credentials-local':
+        specifier: workspace:^
+        version: link:../../credentials/credentials-local
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/invariants
+      '@deepseek-ai/dsh-launch-environment':
+        specifier: workspace:^
+        version: link:../../util/launch-environment
+      '@deepseek-ai/dsh-settings':
+        specifier: workspace:^
+        version: link:../../settings/settings
       '@deepseek-ai/dsh-web':
         specifier: workspace:^
         version: link:../web

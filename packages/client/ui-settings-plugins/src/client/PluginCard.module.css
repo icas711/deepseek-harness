@@ -18,6 +18,11 @@
   border-color: var(--dsw-alias-label-dimmed);
 }
 
+/* The provider picker's current pick: highlighted while the pick stands. */
+.cardFocused {
+  border-color: var(--dsw-alias-brand-primary);
+}
+
 .header {
   width: 100%;
   appearance: none;

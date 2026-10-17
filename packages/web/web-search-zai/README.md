@@ -21,6 +21,19 @@ This is an **implementation** package: it registers a provider into `ctx.web`, i
     apiKeyEnv: ZAI_API_KEY
 ```
 
+## Настройки (settings-namespace)
+
+Плагин регистрирует settings-namespace `web-search-zai`, поэтому endpoint, уровень поисковой машины, число результатов и ссылка на ключ редактируются со страницы «Настройки → Плагины» и действуют со следующего поиска — без перерегистрации провайдера и без перезапуска. Ключ резолвится на каждый поиск: провайдер каждый раз обращается к credentials-домену по ссылке `apiKeyEnv` (дефолт — `ZAI_API_KEY`), а при отсутствии того шва — к окружению запуска.
+
+| Поле | Роль | Дефолт |
+|---|---|---|
+| `apiKeyEnv` | credential-ref | `ZAI_API_KEY` |
+| `baseURL` | строка | публичный API Z.ai; при заданной переменной окружения — её значение (`$ZAI_SEARCH_BASE_URL`) |
+| `searchEngine` | строка | `search-prime` |
+| `count` | целое 1–50 | `10` |
+
+Секция резолвится послойно: схемный дефолт → композиционная запись из `cordis.yml` → пользовательский слой. Пустая строка в сохранённом поле означает «значения нет» и уступает место дефолту схемы или переменной окружения; «сброс» поля в интерфейсе удаляет его из пользовательского слоя и возвращает композиционное значение. Литеральный ключ (`apiKey`) остаётся в схеме с ролью `secret`: в ответах `describe` он никогда не возвращается — только пометка «задан», а сам литерал пишется через credentials-домен по ссылке, названной в `apiKeyEnv`. Видимость namespace браузеру — решение хоста: имя должно входить в его список экспонируемых секций, незкспонированный namespace отвечает `settings-not-exposed` так же, как незарегистрированный. Отсутствующий ключ на всех слоях завершает поиск ошибкой `WEB_PROVIDER_CREDENTIAL_MISSING` с именем ссылки в сообщении.
+
 ## Mapping
 
 `content` is never set: the API is a search engine, not a chat model, so no answer text exists. `sources[]` maps `search_result[]` (`url` ← `link`, `title` ← `title`, `snippet` ← `content`, `publishedAt` ← `publish_date`); blank fields are omitted. `maxResults` is applied at the request layer as `count` (clamped into the API's 1–50 range) and still enforced on the way back by the seam. Provider failures surface as `WebError` `WEB_PROVIDER_ERROR`; an aborted request surfaces as `WEB_ABORTED`. HTTP redirects are rejected before the `Location` target is contacted and surface as `WEB_PROVIDER_ERROR`.

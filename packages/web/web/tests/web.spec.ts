@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import WebRuntime, {
   WebError,
@@ -203,6 +203,43 @@ describe('WebRuntime fetch capability', () => {
     await expect(web.fetch({ url: 'https://example.com' })).rejects.toThrow(
       expect.objectContaining({ code: 'WEB_PROVIDER_UNAVAILABLE' }),
     )
+  })
+})
+
+describe('WebRuntime selection config sources (no settings service)', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('prefers the composition entry over $DSH_WEB_SEARCH_PROVIDER', async () => {
+    vi.stubEnv('DSH_WEB_SEARCH_PROVIDER', 'perplexity')
+    const { web } = await mountWeb({ searchProvider: 'exa' })
+    web.registerSearchProvider(makeSearchProvider('exa', available, () => Promise.resolve(searchResult('exa'))))
+    web.registerSearchProvider(makeSearchProvider('perplexity', available, () => Promise.resolve(searchResult('perplexity'))))
+    await expect(web.search({ query: 'q' })).resolves.toMatchObject({ content: 'exa' })
+  })
+
+  it('feeds $DSH_WEB_SEARCH_PROVIDER as the compositional level when the entry has none', async () => {
+    vi.stubEnv('DSH_WEB_SEARCH_PROVIDER', 'perplexity')
+    const { web } = await mountWeb()
+    web.registerSearchProvider(makeSearchProvider('exa', available, () => Promise.resolve(searchResult('exa'))))
+    web.registerSearchProvider(makeSearchProvider('perplexity', available, () => Promise.resolve(searchResult('perplexity'))))
+    await expect(web.search({ query: 'q' })).resolves.toMatchObject({ content: 'perplexity' })
+  })
+
+  it('feeds $DSH_WEB_FETCH_PROVIDER as the compositional level when the entry has none', async () => {
+    vi.stubEnv('DSH_WEB_FETCH_PROVIDER', 'http2')
+    const { web } = await mountWeb()
+    web.registerFetchProvider(makeFetchProvider('http', available, fetchResult('http')))
+    web.registerFetchProvider(makeFetchProvider('http2', available, fetchResult('http2')))
+    const result = await web.fetch({ url: 'https://example.com' })
+    expect(result.body.content).toBe('http2')
+  })
+
+  it('treats an empty entry id as auto-select', async () => {
+    const { web } = await mountWeb({ searchProvider: '' })
+    web.registerSearchProvider(makeSearchProvider('exa', available, () => Promise.resolve(searchResult('exa'))))
+    await expect(web.search({ query: 'q' })).resolves.toMatchObject({ content: 'exa' })
   })
 })
 

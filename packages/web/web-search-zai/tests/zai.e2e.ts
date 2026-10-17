@@ -15,13 +15,13 @@ const maybe = apiKey !== undefined && apiKey.length > 0 ? describe : describe.sk
 
 maybe('ZaiSearchProvider real API', () => {
   it('returns structured sources for a live query', async () => {
-    const provider = new ZaiSearchProvider({
+    const provider = new ZaiSearchProvider(() => ({
       apiKey: apiKey!,
       apiKeyEnv: 'ZAI_API_KEY',
       baseURL: process.env.ZAI_SEARCH_BASE_URL ?? ZAI_DEFAULT_BASE_URL,
       searchEngine: process.env.ZAI_SEARCH_ENGINE ?? ZAI_DEFAULT_SEARCH_ENGINE,
       count: ZAI_DEFAULT_COUNT,
-    })
+    }))
     const result = await provider.search({ query: 'What is DeepSeek Harness?', maxResults: 5 })
     expect(result.content).toBeUndefined()
     expect(result.sources.length).toBeGreaterThan(0)

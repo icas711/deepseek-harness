@@ -21,6 +21,12 @@ A shipping web-tool deployment sets the provider backstop above the tool budget,
 - Sends an explicit product `User-Agent`, never a browser disguise.
 - Rejects unsupported (e.g. binary) content types with `WEB_UNSUPPORTED_CONTENT_TYPE`.
 
+### Защита от SSRF
+
+SSRF-защита реализована и покрыта тестами: провайдер пригоден для монтажа в деплое, где цель запроса выбирает модель. Блокируются приватные, loopback, link-local, metadata- и multicast-адреса — IPv4: `0.0.0.0/8`, RFC 1918 (`10/8`, `172.16/12`, `192.168/16`), `127.0.0.0/8`, `169.254.0.0/16` (включая `169.254.169.254`), `224.0.0.0/4`, `240.0.0.0/4`; IPv6: `::`, `::1`, `fc00::/7`, `fe80::/10`, `ff00::/8` и все встроенные IPv4-формы (`::ffff:0:0/96`, устаревший `::/96`, NAT64 `64:ff9b::/96`); запрещённый адрес отвечает ошибкой `WEB_BLOCKED_URL`. IPv6-зоны (raw- и URL-экранированный вид `%25`) срезаются перед разбором.
+
+Проверка выполняется после DNS-резолва: имя принимается, только если среди ответов резолвера есть публичный адрес, и подключение идёт к уже проверенному адресу — транспорт не перерезолвляет имя, поэтому DNS rebinding между проверкой и соединением не переносит сокет. Каждый same-origin редирект проходит полную повторную проверку: транспортную гигиену, совпадение origin и SSRF-гард. Инвариант закреплён юнит-тестами `tests/ssrf.spec.ts`: прямые URL, замоканные ответы DNS и цели редиректов.
+
 ## Config
 
 | Key | Default | Meaning |
@@ -34,6 +40,10 @@ A shipping web-tool deployment sets the provider backstop above the tool budget,
 
 The numeric limits are validated at plugin construction: every cap except `maxRedirects` must be a positive finite number, and `maxRedirects` must be a non-negative integer. An invalid value throws rather than silently constructing a provider with nonsensical limits.
 
+### Секция настроек
+
+Те же шесть полей зарегистрированы как settings-namespace `web-fetch-http` (`WEB_FETCH_HTTP_SETTINGS_NAMESPACE`) по образцу секций поисковых провайдеров. Секретов в секции нет. Слои и семантика override/reset — как у всех секций страницы «Плагины»: схемный дефолт → композиционная запись (`cordis.yml`) → пользовательский слой; «сброс» удаляет поле пользовательского слоя и возвращает композиционное значение. Провайдер читает секцию на каждый `fetch()`, поэтому сохранённое изменение действует со следующего запроса без перезапуска; значение, которое схема выразить не может, отклоняется валидатором секции на самой записи.
+
 ## Model Experience
 
 Indirectly, through [`dsh-tool-web`](../tool-web/README.md), which places this provider's `maxBodyChars`-bounded decoded text or markdown-shaped HTML under its fetch-result wrapper and retains provider failures while redirects, headers, and transport mechanics remain hidden.
@@ -44,6 +54,6 @@ No direct invalidation; the named consumer owns any request-prefix changes.
 
 ## Known Limitations and Deferred Work
 
-- **SSRF / private-network protection is deferred** — no blocking of private, loopback, link-local, multicast, or otherwise non-public destinations, no DNS-resolve-then-validate, no per-hop re-validation (see [the web capability seam Agent Note](../../../.agents/notes/implemented/architecture/2026-06-24-web-capability-seam.md)). Until it lands, this provider is an SSRF primitive and **must not be enabled** in a deployment that can reach sensitive internal network targets.
+- **Защита от SSRF реализована и покрыта тестами** — контракт гарда (диапазоны, проверка после DNS-резолва, пин проверенного адреса, повторная проверка редиректов) описан в разделе «Защита от SSRF» выше.
 - **Only textual content decodes** — html/xhtml and `text/*`-plus-JSON/XML families; a missing `Content-Type` or any binary type throws `WEB_UNSUPPORTED_CONTENT_TYPE`, and text-extractable PDF decoding is named deferred work.
 - **Charset comes only from the `Content-Type` header** (UTF-8 default) — an HTML `<meta charset>` declaration is ignored, and a declared-but-unrecognized charset label throws rather than falling back.

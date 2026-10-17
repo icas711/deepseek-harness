@@ -2918,20 +2918,21 @@ Source: [`packages/interaction/user-approval/src/index.ts:177`](../packages/inte
 
 ```ts config-catalog
 /**
- * Config for the web seam. `searchProvider` / `fetchProvider` pin which provider
- * wins for each capability; both are optional (a single registered usable
- * provider auto-selects). Operational overrides such as environment variables
- * must feed these same fields rather than introduce a hidden priority chain.
+ * Config for the web seam, doubling as the `web` settings-section schema. The
+ * resolved selection layers the user settings section over the compositional entry —
+ * the `cordis.yml` fields with `$DSH_WEB_*_PROVIDER` folded in at mount — over the
+ * schema default. Operational env overrides feed these SAME fields rather than
+ * introduce a hidden priority chain.
  */
 export interface WebRuntimeConfig {
-  /** Explicit search provider id. Omitted = auto-select when exactly one usable. */
+  /** Explicit search provider id; empty string or omission = auto-select when exactly one usable. */
   readonly searchProvider?: string
-  /** Explicit fetch provider id. Omitted = auto-select when exactly one usable. */
+  /** Explicit fetch provider id; empty string or omission = auto-select when exactly one usable. */
   readonly fetchProvider?: string
 }
 ```
 
-Source: [`packages/web/web/src/index.ts:55`](../packages/web/web/src/index.ts)
+Source: [`packages/web/web/src/index.ts:71`](../packages/web/web/src/index.ts)
 
 <a id="deepseek-aidsh-web-app"></a>
 
@@ -2971,7 +2972,7 @@ Source: [`packages/bundle/web-app/src/index.ts:42`](../packages/bundle/web-app/s
 Requires: `web`
 
 ```ts config-catalog
-/** Plugin config: the provider's transport and size limits plus its `User-Agent` (all defaulted). */
+/** Plugin config: the provider's transport and size limits plus its `User-Agent` (all defaulted, no secrets). */
 export interface Config {
   /** Maximum accepted request URL length. */
   maxUrlLength?: number
@@ -2988,7 +2989,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/web/web-fetch-http/src/index.ts:34`](../packages/web/web-fetch-http/src/index.ts)
+Source: [`packages/web/web-fetch-http/src/index.ts:48`](../packages/web/web-fetch-http/src/index.ts)
 
 <a id="deepseek-aidsh-web-search-deepseek"></a>
 
@@ -3025,10 +3026,12 @@ Source: [`packages/web/web-search-deepseek/src/index.ts:46`](../packages/web/web
 Requires: `web`
 
 ```ts config-catalog
-/** Plugin config (all optional — `apply` fills env-var and constant defaults). */
+/** Plugin config (all optional — the schema declares the constant defaults). */
 export interface Config {
-  /** Exa API key. Falls back to `$EXA_API_KEY`. Empty → provider unavailable. */
+  /** Literal Exa API key; prefer {@link apiKeyEnv} so no secret enters configuration files. */
   apiKey?: string
+  /** Credential reference resolved for each search; empty or absent falls back to `EXA_API_KEY`. */
+  apiKeyEnv?: string
   /** Endpoint base; `/search` is appended. Defaults to the public API. */
   baseURL?: string
   /** Retrieval mode sent as Exa's `type`. Defaults to `auto`. */
@@ -3040,7 +3043,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/web/web-search-exa/src/index.ts:38`](../packages/web/web-search-exa/src/index.ts)
+Source: [`packages/web/web-search-exa/src/index.ts:47`](../packages/web/web-search-exa/src/index.ts)
 
 <a id="deepseek-aidsh-web-search-perplexity"></a>
 
@@ -3051,8 +3054,10 @@ Requires: `web`
 ```ts config-catalog
 /** Plugin config (all optional — `apply` fills env-var and constant defaults). */
 export interface Config {
-  /** Perplexity API key. Falls back to `$PERPLEXITY_API_KEY`. Empty → unavailable. */
+  /** Literal Perplexity API key; prefer {@link apiKeyEnv} so no secret enters configuration files. */
   apiKey?: string
+  /** Credential reference resolved for each search; defaults to `PERPLEXITY_API_KEY`. */
+  apiKeyEnv?: string
   /** Endpoint base; `/chat/completions` is appended. Defaults to the public API. */
   baseURL?: string
   /** Search model name. Defaults to `sonar`. */
@@ -3064,7 +3069,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/web/web-search-perplexity/src/index.ts:32`](../packages/web/web-search-perplexity/src/index.ts)
+Source: [`packages/web/web-search-perplexity/src/index.ts:43`](../packages/web/web-search-perplexity/src/index.ts)
 
 <a id="deepseek-aidsh-web-search-zai"></a>
 
@@ -3088,7 +3093,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/web/web-search-zai/src/index.ts:52`](../packages/web/web-search-zai/src/index.ts)
+Source: [`packages/web/web-search-zai/src/index.ts:56`](../packages/web/web-search-zai/src/index.ts)
 
 <a id="deepseek-aidsh-workflow-worker-thread"></a>
 

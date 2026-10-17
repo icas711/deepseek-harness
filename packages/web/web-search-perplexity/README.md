@@ -21,6 +21,20 @@ This is an **implementation** package: it registers a provider into `ctx.web`, i
     apiKey: !!js process.env.PERPLEXITY_API_KEY
 ```
 
+## Секция настроек (settings-namespace)
+
+Плагин регистрирует namespace `web-search-perplexity` (экспорт `WEB_SEARCH_PERPLEXITY_SETTINGS_NAMESPACE`) в домене настроек. Слои разрешения: схемный дефолт → композиционная запись (`config` плагина как слой `base`) → пользовательский слой; те же ключи действуют и в композиции, дефолты совпадают. Наличие ключа в пользовательском слое помечает поле как переопределённое; сброс (`unset`) одного поля возвращает его к композиционному значению, не трогая остальные переопределения. Провайдер читает секцию на каждый вызов `search()`/`available()`, поэтому применённое изменение действует со следующего поиска без перерегистрации.
+
+| Ключ | Дефолт | Семантика в секции |
+|---|---|---|
+| `apiKeyEnv` | `PERPLEXITY_API_KEY` | Ссылка на credentials-домен (`role('credential-ref')`); разрешается на каждый поиск: сначала сервис `credentials`, иначе переменная окружения запуска. |
+| `baseURL` | `https://api.perplexity.ai` | Базовый адрес; добавляется `/chat/completions`. Неразбираемое значение делает провайдера недоступным (`WEB_PROVIDER_CONFIGURED_UNAVAILABLE`). |
+| `model` | `sonar` | Имя поисковой модели. |
+| `maxTokens` | `1024` | Верхняя граница генерации ответа (`max_tokens`), целое ≥ 1. |
+| `searchRecency` | (не задано) | Окно свежести `search_recency_filter`: `day`, `week`, `month` или `year`; незаданное поле фильтр не отправляет. |
+
+Секреты через секцию не передаются: поле `apiKey` имеет роль `secret`, вырезается из всех `describe`-ответов, и наружу отдаётся только факт «задан/не задан»; само значение пишется в credentials-домен по ссылке `apiKeyEnv`. Без ключа на всех слоях поиск отвечает `WEB_PROVIDER_CREDENTIAL_MISSING` с именем ссылки — провайдер остаётся зарегистрированным и выбираемым, а заданный позже ключ действует со следующего запроса.
+
 ## Mapping
 
 `content` ← `choices[0].message.content` (the generated answer). `sources[]` prefers the structured `search_results[]` (`url`, `title`, `snippet`, `publishedAt` ← `date`), falling back to the URL-only `citations[]` array only when `search_results` is absent — those sources carry just a `url`, which is why `title`/`snippet`/`publishedAt` are optional on the seam. Provider failures surface as `WebError` `WEB_PROVIDER_ERROR`; an aborted request surfaces as `WEB_ABORTED`. HTTP redirects are rejected before the `Location` target is contacted and surface as `WEB_PROVIDER_ERROR`. Perplexity has no result-count control, so `maxResults` is enforced by the seam (truncating `sources[]` and setting `truncated`).
@@ -61,3 +75,4 @@ Append-only; newly visible content follows the reusable request prefix and does 
 - **Over-returned sources still cost tokens and latency** — with no result-count control on the wire, `maxResults` is enforced only post-hoc by seam truncation.
 - **Only `model`/`maxTokens`/`searchRecency` are exposed** — Perplexity's other search controls (domain filters, `web_search_options` context size, images) wait on provider-neutral Service Definition fields ([seam Agent Note](../../../.agents/notes/implemented/architecture/2026-06-24-web-capability-seam.md)).
 - **Abort classification is error-shape-based** — only a `DOMException` named `AbortError` maps to `WEB_ABORTED`; an abort carrying a custom reason (e.g. `dsh-timeout`'s `TimeoutReason`) surfaces as `WEB_PROVIDER_ERROR`.
+- **Секция настроек пока без клиентской карточки** — namespace `web-search-perplexity` обслуживается хостом и доступен через settings-домен, но карточка в «Настройки → Плагины» появится вместе с клиентской половиной фичи выбора провайдера веб-доступа.

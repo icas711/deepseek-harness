@@ -6,6 +6,7 @@
  * @module @deepseek-ai/dsh-web-search-perplexity/provider
  */
 
+import type { CredentialRef } from '@deepseek-ai/dsh-credentials'
 import { WebError } from '@deepseek-ai/dsh-web'
 import type {
   WebSearchProvider,
@@ -33,10 +34,14 @@ export type PerplexityRecency = 'day' | 'week' | 'month' | 'year'
 /** Attribution header sent on every request. Bump with the package version. */
 const USER_AGENT = 'deepseek-harness/0.0.1'
 
-/** Resolved provider options (the plugin's `apply` supplies env-var and constant defaults). */
+/** Resolved provider options (the plugin's `apply` supplies credential and constant defaults). */
 export interface PerplexitySearchProviderOptions {
-  /** Perplexity API key. Empty/absent makes the provider unavailable. */
-  apiKey: string
+  /** Literal Perplexity API key; when present it wins over {@link resolveApiKey}. */
+  apiKey?: string
+  /** Resolves the current Perplexity API key for one search operation. */
+  resolveApiKey?: () => Promise<string | undefined>
+  /** Credential reference named by missing-credential diagnostics. */
+  apiKeyEnv?: CredentialRef
   /** Endpoint base; `/chat/completions` is appended. */
   baseURL: string
   /** Search model name. */
@@ -86,35 +91,48 @@ export function mapPerplexityResponse(response: PerplexityResponse): WebSearchRe
 export class PerplexitySearchProvider implements WebSearchProvider {
   readonly id = PERPLEXITY_PROVIDER_ID
 
-  constructor(private readonly options: PerplexitySearchProviderOptions) {}
+  /**
+   * @param resolveOptions - the options for the NEXT operation, snapshotted
+   * once at each operation's entry so one search never mixes two sections. A
+   * thunk rather than a value because the plugin's settings section can change
+   * between searches, and re-registering the provider to carry a new endpoint
+   * would make the seam's selection observable to the user as a flicker.
+   */
+  constructor(private readonly resolveOptions: () => PerplexitySearchProviderOptions) {}
 
   // Availability checks stay beside each provider's distinct config contract;
   // a shared base class would obscure which fields make this backend usable.
   /* jscpd:ignore-start */
   available(): boolean {
-    return this.options.apiKey.length > 0
-      && URL.canParse(this.options.baseURL)
-      && isPositiveInteger(this.options.maxTokens)
+    const options = this.resolveOptions()
+    return ((options.apiKey?.length ?? 0) > 0 || options.resolveApiKey !== undefined)
+      && URL.canParse(options.baseURL)
+      && isPositiveInteger(options.maxTokens)
   }
   /* jscpd:ignore-end */
 
   async search(request: WebSearchRequest, signal?: AbortSignal): Promise<WebSearchResult> {
+    // One snapshot for the whole operation: credential resolution awaits, and a
+    // settings write landing inside that await must not send the key resolved
+    // from the old section to the endpoint named by the new one.
+    const options = this.resolveOptions()
+    const apiKey = await this.apiKey(options)
     let response: Response
     try {
-      response = await fetch(`${this.options.baseURL}/chat/completions`, {
+      response = await fetch(`${options.baseURL}/chat/completions`, {
         method: 'POST',
         redirect: 'error',
         headers: {
-          'authorization': `Bearer ${this.options.apiKey}`,
+          'authorization': `Bearer ${apiKey}`,
           'content-type': 'application/json',
           'accept': 'application/json',
           'user-agent': USER_AGENT,
         },
         body: JSON.stringify({
-          model: this.options.model,
-          max_tokens: this.options.maxTokens,
+          model: options.model,
+          max_tokens: options.maxTokens,
           messages: [{ role: 'user', content: request.query }],
-          ...this.options.searchRecency !== undefined ? { search_recency_filter: this.options.searchRecency } : {},
+          ...options.searchRecency !== undefined ? { search_recency_filter: options.searchRecency } : {},
         }),
         ...signal !== undefined ? { signal } : {},
       })
@@ -149,6 +167,33 @@ export class PerplexitySearchProvider implements WebSearchProvider {
       if (isAbortError(error)) throw new WebError('Perplexity search aborted', 'WEB_ABORTED', { cause: error })
       throw new WebError(`Perplexity returned an unprocessable response body: ${String(error)}`, 'WEB_PROVIDER_ERROR', { cause: error })
     }
+  }
+
+  /**
+   * Resolve one operation's credential without retaining it on the provider.
+   * @param options - the caller's snapshot, so the key and the endpoint it is sent to come from one section.
+   * @returns the resolved key.
+   */
+  private async apiKey(options: PerplexitySearchProviderOptions): Promise<string> {
+    if (options.apiKey !== undefined && options.apiKey.length > 0) return options.apiKey
+    let resolved: string | undefined
+    try {
+      resolved = await options.resolveApiKey?.()
+    } catch (error: unknown) {
+      throw new WebError(
+        `Perplexity search credential resolution failed: ${String(error)}`,
+        'WEB_PROVIDER_ERROR',
+        { cause: error },
+      )
+    }
+    if (resolved !== undefined && resolved.length > 0) return resolved
+    const ref = options.apiKeyEnv ?? 'PERPLEXITY_API_KEY'
+    throw new WebError(
+      `Perplexity search has no API key for "${ref}"; store it through the credentials service`
+        + ', export it in the launching environment, or set a literal'
+        + ' "apiKey" in the web-search-perplexity config',
+      'WEB_PROVIDER_CREDENTIAL_MISSING',
+    )
   }
 }
 

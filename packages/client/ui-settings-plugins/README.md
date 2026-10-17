@@ -6,7 +6,9 @@ The **Plugins** settings section and its **Plugin configuration** tab. The secti
 
 A card renders only when its namespace is both registered by a live Host plugin and served to the browser. A deployment that does not compose the owning plugin — or serves the namespace to no client — renders nothing for it rather than an empty or disabled card, so the configurable tab reflects what this deployment actually runs.
 
-The first batch covers the shell executor (`bash`), the agent loop's tool-call parallelism (`agent-loop`), and the DeepSeek search provider (`web-search-deepseek`).
+The shipped cards cover the shell executor (`bash`), the agent loop's tool-call parallelism (`agent-loop`), and the web-access surface: the `web` namespace's picker card lists every search provider and the fetch provider with an «Авто» option per group, greys the providers this deployment does not mount (read once from the plugin inventory), warns about a picked provider without a key and about an «Авто» facing several usable providers, and each provider — DeepSeek (`web-search-deepseek`), Z.ai (`web-search-zai`), Exa (`web-search-exa`), Perplexity (`web-search-perplexity`), and the HTTP fetch limits (`web-fetch-http`) — keeps its own card.
+
+The picker and the provider cards share two stores created at mount: the picker's pick names which provider card opens and highlights, and each provider card publishes whether its key is configured (keyed by the seam provider id), which is what the picker's warnings read — so a warning never claims more than a provider card itself resolved. Only an explicit pick moves the highlight; the composed selection a page loads with is displayed, not replayed as a gesture.
 
 ## Extension point
 

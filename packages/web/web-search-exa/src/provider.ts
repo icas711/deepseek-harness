@@ -30,10 +30,14 @@ export const EXA_DEFAULT_HIGHLIGHTS_PER_RESULT = 1
 /** Attribution header sent on every request. Bump with the package version. */
 const USER_AGENT = 'deepseek-harness/0.0.1'
 
-/** Resolved provider options (the plugin's `apply` supplies env-var and constant defaults). */
+/** Resolved provider options (the plugin's `apply` supplies credential and constant defaults). */
 export interface ExaSearchProviderOptions {
-  /** Exa API key. Empty/absent makes the provider unavailable. */
-  apiKey: string
+  /** Literal Exa API key; a non-empty literal wins over {@link resolveApiKey}. */
+  apiKey?: string
+  /** Resolves the key for each search (credentials service, then launch environment). */
+  resolveApiKey?: () => Promise<string | undefined>
+  /** Credential-reference name surfaced in missing-key diagnostics. */
+  apiKeyEnv: string
   /** Endpoint base; `/search` is appended. */
   baseURL: string
   /** Retrieval mode sent as Exa's `type`. */
@@ -84,33 +88,46 @@ export function mapExaResponse(response: ExaSearchResponse): WebSearchResult {
 export class ExaSearchProvider implements WebSearchProvider {
   readonly id = EXA_PROVIDER_ID
 
-  constructor(private readonly options: ExaSearchProviderOptions) {}
+  /**
+   * @param resolveOptions - the options for the NEXT operation, snapshotted once at each
+   *   operation's entry so one search never mixes two sections. A thunk rather than a value
+   *   because the plugin's settings section can change between searches, and re-registering
+   *   the provider to carry a new endpoint would make the seam's selection observable to the
+   *   user as a flicker.
+   */
+  constructor(private readonly resolveOptions: () => ExaSearchProviderOptions) {}
 
   available(): boolean {
-    return this.options.apiKey.length > 0
-      && isValidBaseUrl(this.options.baseURL)
-      && isPositiveInteger(this.options.highlightsPerResult)
-      && (this.options.numResults === undefined || isPositiveInteger(this.options.numResults))
+    const options = this.resolveOptions()
+    return ((options.apiKey?.length ?? 0) > 0 || options.resolveApiKey !== undefined)
+      && isValidBaseUrl(options.baseURL)
+      && isPositiveInteger(options.highlightsPerResult)
+      && (options.numResults === undefined || isPositiveInteger(options.numResults))
   }
 
   async search(request: WebSearchRequest, signal?: AbortSignal): Promise<WebSearchResult> {
+    // One snapshot for the whole operation: credential resolution awaits, and a
+    // settings write landing inside that await must not send the key resolved
+    // from the old section to the endpoint named by the new one.
+    const options = this.resolveOptions()
+    const apiKey = await this.resolveApiKey(options)
     // A per-request bound wins over the configured default; either may be absent.
-    const numResults = request.maxResults ?? this.options.numResults
+    const numResults = request.maxResults ?? options.numResults
     let response: Response
     try {
-      response = await fetch(`${this.options.baseURL}/search`, {
+      response = await fetch(`${options.baseURL}/search`, {
         method: 'POST',
         redirect: 'error',
         headers: {
-          'authorization': `Bearer ${this.options.apiKey}`,
+          'authorization': `Bearer ${apiKey}`,
           'content-type': 'application/json',
           'accept': 'application/json',
           'user-agent': USER_AGENT,
         },
         body: JSON.stringify({
           query: request.query,
-          type: this.options.searchType,
-          contents: { highlights: { highlightsPerUrl: this.options.highlightsPerResult } },
+          type: options.searchType,
+          contents: { highlights: { highlightsPerUrl: options.highlightsPerResult } },
           ...numResults !== undefined ? { numResults } : {},
         }),
         ...signal !== undefined ? { signal } : {},
@@ -146,6 +163,23 @@ export class ExaSearchProvider implements WebSearchProvider {
       if (isAbortError(error)) throw new WebError('Exa search aborted', 'WEB_ABORTED', { cause: error })
       throw new WebError(`Exa returned an unprocessable response body: ${String(error)}`, 'WEB_PROVIDER_ERROR', { cause: error })
     }
+  }
+
+  /**
+   * Resolve the literal key or ask the per-search resolver; a missing key fails the call.
+   * @param options - the operation's option snapshot, so the key and the endpoint it is
+   *   sent to come from one section.
+   * @returns the resolved key.
+   */
+  private async resolveApiKey(options: ExaSearchProviderOptions): Promise<string> {
+    if (options.apiKey !== undefined && options.apiKey.length > 0) return options.apiKey
+    const resolved = options.resolveApiKey !== undefined ? await options.resolveApiKey() : undefined
+    if (resolved !== undefined && resolved.length > 0) return resolved
+    throw new WebError(
+      `Exa search has no API key for "${options.apiKeyEnv}"; store it through the credentials service`
+        + ', export it in the launching environment, or set a literal "apiKey" in the web-search-exa config',
+      'WEB_PROVIDER_CREDENTIAL_MISSING',
+    )
   }
 }
 

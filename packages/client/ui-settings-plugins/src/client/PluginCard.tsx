@@ -14,7 +14,7 @@
  * disabled card the user cannot act on.
  */
 
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import clsx from 'clsx'
 import { IconChevronDownOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { CardShell } from './card-form.ts'
@@ -35,6 +35,13 @@ export interface PluginCardProps {
   onSave: () => void
   /** Drop every staged edit. */
   onDiscard: () => void
+  /**
+   * Whether a picker elsewhere named this card — the web-access provider
+   * picker names the provider cards. The card opens on the rise and carries
+   * the highlight while the pick stands; falling back to false leaves the
+   * disclosure as the user last left it.
+   */
+  focused?: boolean
   /** The plugin's controls. */
   children: ReactNode
 }
@@ -47,11 +54,14 @@ export interface PluginCardProps {
 export function PluginCard(props: PluginCardProps) {
   const [open, setOpen] = useState(false)
   const { state } = props
+  useEffect(() => {
+    if (props.focused === true) setOpen(true)
+  }, [props.focused])
   if (!state.available) return null
   const title = props.t(props.titleKey)
   const blocked = !state.dirty || state.invalid || state.saving
   return (
-    <li className={clsx(css.card, open && css.cardOpen)}>
+    <li className={clsx(css.card, open && css.cardOpen, props.focused === true && css.cardFocused)}>
       <button
         type="button"
         className={css.header}

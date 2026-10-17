@@ -143,6 +143,8 @@ Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnp
 
 The web access service. Registered as `ctx.web` (one instance per context).
 
+The configured ids are not fixed at construction: every `search()` / `fetch()` call reads the current `web` settings section — falling back to the compositional entry while no settings service is attached — so a committed change acts from the next request without a restart or re-registration.
+
 Selection semantics (resolved at execution time, never order-dependent):
 
 - A configured id that is registered and `available()` → that provider.
@@ -193,5 +195,5 @@ async search(request: WebSearchRequest, signal?: AbortSignal): Promise<WebSearch
 async fetch(request: WebFetchRequest, signal?: AbortSignal): Promise<WebFetchResult>
 ```
 
-Source: [`packages/web/web/src/index.ts:74`](../../packages/web/web/src/index.ts)
+Source: [`packages/web/web/src/index.ts:95`](../../packages/web/web/src/index.ts)
 <!-- END GENERATED cordis-surface -->

@@ -97,24 +97,36 @@ export function clampZaiCount(value: number): number {
 export class ZaiSearchProvider implements WebSearchProvider {
   readonly id = ZAI_PROVIDER_ID
 
-  constructor(private readonly options: ZaiSearchProviderOptions) {}
+  /**
+   * @param resolveOptions - the options for the NEXT operation, snapshotted
+   * once at each operation's entry so one search never mixes two sections. A
+   * thunk rather than a value because the plugin's settings section can change
+   * between searches, and re-registering the provider to carry a new endpoint
+   * would make the seam's selection observable to the user as a flicker.
+   */
+  constructor(private readonly resolveOptions: () => ZaiSearchProviderOptions) {}
 
   // Availability checks stay beside each provider's distinct config contract;
   // a shared base class would obscure which fields make this backend usable.
   /* jscpd:ignore-start */
   available(): boolean {
-    return ((this.options.apiKey?.length ?? 0) > 0 || this.options.resolveApiKey !== undefined)
-      && URL.canParse(this.options.baseURL)
-      && this.options.searchEngine.length > 0
-      && isCountInRange(this.options.count)
+    const options = this.resolveOptions()
+    return ((options.apiKey?.length ?? 0) > 0 || options.resolveApiKey !== undefined)
+      && URL.canParse(options.baseURL)
+      && options.searchEngine.length > 0
+      && isCountInRange(options.count)
   }
   /* jscpd:ignore-end */
 
   async search(request: WebSearchRequest, signal?: AbortSignal): Promise<WebSearchResult> {
-    const apiKey = await this.resolveApiKey()
+    // One snapshot for the whole operation: credential resolution awaits, and a
+    // settings write landing inside that await must not send the key resolved
+    // from the old section to the endpoint named by the new one.
+    const options = this.resolveOptions()
+    const apiKey = await this.resolveApiKey(options)
     let response: Response
     try {
-      response = await fetch(`${this.options.baseURL}/web_search`, {
+      response = await fetch(`${options.baseURL}/web_search`, {
         method: 'POST',
         redirect: 'error',
         headers: {
@@ -124,9 +136,9 @@ export class ZaiSearchProvider implements WebSearchProvider {
           'user-agent': USER_AGENT,
         },
         body: JSON.stringify({
-          search_engine: this.options.searchEngine,
+          search_engine: options.searchEngine,
           search_query: request.query,
-          count: clampZaiCount(request.maxResults ?? this.options.count),
+          count: clampZaiCount(request.maxResults ?? options.count),
         }),
         ...signal !== undefined ? { signal } : {},
       })
@@ -163,17 +175,20 @@ export class ZaiSearchProvider implements WebSearchProvider {
     }
   }
 
-  /** Resolve the literal key or ask the per-search resolver; a missing key fails the call. */
-  private async resolveApiKey(): Promise<string> {
-    if (this.options.apiKey !== undefined && this.options.apiKey.length > 0) return this.options.apiKey
-    const resolved = this.options.resolveApiKey !== undefined
-      ? await this.options.resolveApiKey()
-      : undefined
+  /**
+   * Resolve the literal key or ask the per-search resolver; a missing key fails the call.
+   * @param options - the operation's option snapshot.
+   * @returns the key to present to the API.
+   * @throws {@link WebError} `WEB_PROVIDER_CREDENTIAL_MISSING` when no source yields a key.
+   */
+  private async resolveApiKey(options: ZaiSearchProviderOptions): Promise<string> {
+    if (options.apiKey !== undefined && options.apiKey.length > 0) return options.apiKey
+    const resolved = options.resolveApiKey !== undefined ? await options.resolveApiKey() : undefined
     if (resolved !== undefined && resolved.length > 0) return resolved
     throw new WebError(
-      `Z.ai search has no API key for "${this.options.apiKeyEnv}"; store it through the credentials`
+      `Z.ai search has no API key for "${options.apiKeyEnv}"; store it through the credentials`
         + ' service, or set "apiKey" in the web-search-zai config',
-      'WEB_PROVIDER_ERROR',
+      'WEB_PROVIDER_CREDENTIAL_MISSING',
     )
   }
 }

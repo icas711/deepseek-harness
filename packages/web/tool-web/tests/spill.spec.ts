@@ -5,6 +5,8 @@
  * formatted fetch result is automatically retained and spilled with NO
  * tool-specific spill code, and the model-facing text changes ONLY by the
  * deliberate spill notice (the full formatted result lands in the spill file).
+ * Fetch runs against loopback HTTP through the shared minimal loopback
+ * provider adapter: the real backend's SSRF guard refuses loopback by design.
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -26,6 +28,7 @@ import * as WebFetchLocal from '@deepseek-ai/dsh-web-fetch-http'
 import LocalSpillStore from '@deepseek-ai/dsh-spill-local'
 import * as SpillPolicy from '@deepseek-ai/dsh-spill-policy'
 import * as ToolWeb from '@deepseek-ai/dsh-tool-web'
+import { loopbackFetchProvider } from './loopback-fetch-provider.ts'
 
 type Handler = (req: IncomingMessage, res: ServerResponse) => void
 
@@ -49,9 +52,10 @@ beforeEach(async () => {
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
   await ctx.plugin(WebRuntime, { fetchProvider: WebFetchLocal.LOCAL_FETCH_PROVIDER_ID })
-  // Provider cap generous so the tool returns a large formatted result; the
-  // policy cap is what triggers the spill (the Agent Note's separation of concerns).
-  await ctx.plugin(WebFetchLocal, { maxBodyChars: 500_000 })
+  // The adapter applies no body cap, so the tool returns the large formatted
+  // result; the policy cap is what triggers the spill (the Agent Note's
+  // separation of concerns).
+  ctx.web.registerFetchProvider(loopbackFetchProvider())
   await ctx.plugin(LocalSpillStore, { root: spillRoot })
   await ctx.plugin(SpillPolicy, { maxInlineBytes: MAX_INLINE_BYTES })
   await ctx.plugin(ToolWeb)

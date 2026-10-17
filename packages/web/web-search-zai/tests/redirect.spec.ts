@@ -11,7 +11,7 @@ import { ZaiSearchProvider } from '@deepseek-ai/dsh-web-search-zai'
 import type { ZaiSearchProviderOptions } from '@deepseek-ai/dsh-web-search-zai'
 
 const searchProvider = (options: ZaiSearchProviderOptions): ZaiSearchProvider =>
-  new ZaiSearchProvider(options)
+  new ZaiSearchProvider(() => options)
 
 const TEST_API_KEY = 'redirect-test-key'
 const TEST_QUERY = 'private redirect query'

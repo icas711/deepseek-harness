@@ -1,0 +1,78 @@
+- dialog "Настройки":
+  - navigation:
+    - text: Настройки
+    - button "Общие":
+      - img
+      - text: Общие
+    - button "Модели":
+      - img
+      - text: Модели
+    - button "Плагины":
+      - img
+      - text: Плагины
+    - button "Пресеты агентов":
+      - img
+      - text: Пресеты агентов
+  - button "Открыть файл конфигурации"
+  - button "Закрыть":
+    - img
+    - text: Закрыть
+  - heading "Плагины" [level=2]
+  - paragraph: Настройка и просмотр плагинов, установленных в этом развертывании.
+  - tablist "Разделы плагинов":
+    - tab "Конфигурация плагинов" [selected]
+    - tab "Список плагинов"
+  - tabpanel "Конфигурация плагинов":
+    - list:
+      - listitem:
+        - 'button "Показать настройки: Shell"':
+          - text: Shell Ограничивает каждую команду, которую запускает агент.
+          - img
+      - listitem:
+        - 'button "Показать настройки: Цикл агента"':
+          - text: Цикл агента Как агент отправляет вызовы инструментов.
+          - img
+      - listitem:
+        - 'button "Скрыть настройки: Веб-доступ" [expanded]':
+          - text: Веб-доступ Какой плагин выполняет поиск и загрузку страниц.
+          - img
+        - group "Поиск":
+          - text: Поиск
+          - radio "DeepSeek"
+          - text: DeepSeek
+          - radio "Z.ai" [checked]
+          - text: Z.ai
+          - radio "Exa"
+          - text: Exa
+          - radio "Perplexity"
+          - text: Perplexity
+          - radio "Авто"
+          - text: Авто
+        - group "Загрузка страниц":
+          - text: Загрузка страниц
+          - radio "HTTP"
+          - text: HTTP
+          - radio "Авто" [checked]
+          - text: Авто
+        - button "Отменить изменения" [disabled]
+        - button "Сохранить" [disabled]
+      - listitem:
+        - 'button "Показать настройки: Веб-поиск"':
+          - text: Веб-поиск Провайдер поиска DeepSeek.
+          - img
+      - listitem:
+        - 'button "Показать настройки: Веб-поиск Z.ai"':
+          - text: Веб-поиск Z.ai Провайдер поиска Z.ai.
+          - img
+      - listitem:
+        - 'button "Показать настройки: Веб-поиск Exa"':
+          - text: Веб-поиск Exa Провайдер поиска Exa.
+          - img
+      - listitem:
+        - 'button "Показать настройки: Веб-поиск Perplexity"':
+          - text: Веб-поиск Perplexity Провайдер поиска Perplexity.
+          - img
+      - listitem:
+        - 'button "Показать настройки: Загрузка страниц"':
+          - text: Загрузка страниц Ограничения провайдера загрузки HTTP-страниц.
+          - img

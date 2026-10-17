@@ -8,7 +8,8 @@ This is an **implementation** package: it registers a provider into `ctx.web`, i
 
 | Key | Default | Meaning |
 |---|---|---|
-| `apiKey` | `$EXA_API_KEY` | Exa API key. Empty/absent makes the provider unavailable. |
+| `apiKey` | (нет) | Литеральный ключ Exa; непустое значение имеет приоритет над `apiKeyEnv`. Предпочитайте `apiKeyEnv`, чтобы секрет не попадал в файлы конфигурации. |
+| `apiKeyEnv` | `EXA_API_KEY` | Ссылка на credential, разрешается для каждого поиска. Пустое или отсутствующее значение означает fallback-переменную `$EXA_API_KEY`. |
 | `baseURL` | `https://api.exa.ai` | Endpoint base; `/search` is appended. An unparseable value makes the provider unavailable. |
 | `searchType` | `auto` | Retrieval mode sent as Exa's `type`: `auto` (Exa decides), `keyword`, or `neural`. |
 | `numResults` | (unset) | Default result count when a request carries no `maxResults`. Unset sends no default. Must be a positive integer. |
@@ -18,8 +19,14 @@ This is an **implementation** package: it registers a provider into `ctx.web`, i
 - id: web-search-exa
   name: '@deepseek-ai/dsh-web-search-exa'
   config:
-    apiKey: !!js process.env.EXA_API_KEY
+    apiKeyEnv: EXA_API_KEY
 ```
+
+## Настройки в веб-GUI (settings-namespace)
+
+Плагин регистрирует settings-namespace `web-search-exa` (`WEB_SEARCH_EXA_SETTINGS_NAMESPACE`), поэтому параметры провайдера доступны в «Настройки → Плагины» без правки композиции. Значение секции разрешается по слоям: схемный дефолт → композиционная запись (слой `base`) → пользовательский слой. Изменение применяется к следующему поиску без перерегистрации провайдера: провайдер проецирует секцию на каждый вызов, а не фиксирует её при регистрации. Присутствие поля в пользовательском слое (`user` дескриптора) помечает его переопределённым; «сброс» удаляет поле пользовательского слоя и возвращает композиционное значение.
+
+Ключ не хранится в настройках: секция несёт только ссылку `apiKeyEnv`, а само значение пишется через credentials-домен. Литеральный `apiKey` из композиции несёт `role('secret')` и никогда не возвращается ответами `settings.describe` — поверхность настройки видит лишь факт «задан/не задан». Пустое значение `apiKeyEnv` означает fallback-переменную `$EXA_API_KEY`, поэтому очистка поля в форме возвращает провайдер к переменной окружения. Отсутствующий ключ завершает вызов ошибкой `WEB_PROVIDER_CREDENTIAL_MISSING` с именем ссылки в сообщении.
 
 ## Mapping
 

@@ -6,6 +6,12 @@ The patch gates both shell stacks by platform on its own rows: `bash-sandbox`/`t
 
 The row set and its rationale are documented inline in the patch file; the [generated composition graph](../../../apps/cli/composition.md) renders it.
 
+## Веб-доступ
+
+Патч монтирует всех четырёх поисковых провайдеров [шва веб-доступа](../../web/web/README.md) — Z.ai, DeepSeek, Exa и Perplexity. Композиционный выбор поиска — `zai` (`searchProvider` строки `web`) и действует до явного пользовательского выбора в settings-namespace `web` (веб-GUI «Настройки → Плагины»; `$DSH_WEB_SEARCH_PROVIDER` подмешивается в тот же композиционный уровень). Без ключа провайдер инертен: `available()` синхронно подтверждает только наличие источника ключа, а выбранный безключевой провайдер завершает поиск ошибкой `WEB_PROVIDER_CREDENTIAL_MISSING`, поэтому монтаж всех провайдеров не расширяет поведение деплоя, пока в его окружении нет ключей; ключ, появившийся в окружении или хранилище учётных данных, делает провайдера пригодным со следующего запроса. Выбор «Авто» (пустое значение на всех слоях) при нескольких пригодных провайдерах отвечает исполнимой ошибкой `WEB_PROVIDER_AMBIGUOUS`.
+
+Fetch-провайдер [`web-fetch-http`](../../web/web-fetch-http/README.md) смонтирован, а строка `tool-web` включена с `fetch: true`: SSRF-защита провайдера (приватные, loopback, link-local, metadata- и multicast-адреса; проверка после DNS-резолва с подключением к проверенному адресу; повторная проверка каждого same-origin редиректа) реализована и покрыта тестами — контракт гарда и лимиты (конфигурация без секретов) описаны в [README провайдера](../../web/web-fetch-http/README.md). Поверхность Web собирает каталог инструментов из пресетов агентов, чьи строки `tool-web` сохраняют `fetch: false`, поэтому включение действует в профилях, оставляющих строки этого патча.
+
 ## Model Experience
 
 Indirectly, through the inserted rows: this bundle selects the shipped persona-less prompt base, tool set, and DeepSeek adapter that mode bundles specialize, and contributes no model-visible text of its own.

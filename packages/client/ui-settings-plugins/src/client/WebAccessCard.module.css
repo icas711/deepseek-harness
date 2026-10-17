@@ -1,0 +1,68 @@
+/* Web-access picker: two radio groups, their grey unmounted options, and warnings. */
+
+.group {
+  border: 0;
+  margin: 0;
+  padding: 12px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.group + .group {
+  border-top: 1px solid var(--dsw-alias-border-l2);
+}
+
+.groupLabel {
+  padding: 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-primary);
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+}
+
+.option input {
+  accent-color: var(--dsw-alias-brand-primary);
+}
+
+.option input:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline-offset: 1px;
+}
+
+.optionName {
+  min-width: 0;
+}
+
+/* A provider this deployment does not mount: still selectable, but grey
+   and named, so the choice is an informed one. */
+.optionUnmounted {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.optionTag {
+  flex: none;
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 11px;
+  line-height: 17px;
+  white-space: nowrap;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.warning {
+  margin: 12px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--dsw-alias-state-warn-label);
+}

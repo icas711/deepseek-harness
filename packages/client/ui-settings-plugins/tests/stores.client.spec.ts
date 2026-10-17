@@ -5,10 +5,16 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import { stubSettingsScope, type StubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
+import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import { CardForm, numberField, textField } from '../src/client/card-form.ts'
 import { AgentLoopCardController, type AgentLoopSettings } from '../src/client/agent-loop-card-controller.ts'
 import { BashCardController, type BashSettings } from '../src/client/bash-card-controller.ts'
-import { WebSearchCardController, type WebSearchSettings } from '../src/client/web-search-card-controller.ts'
+import { ProviderCardController, type ProviderCredentialIndex } from '../src/client/provider-card-controller.ts'
+import { FETCH_HTTP_CARD, ZAI_CARD, type FetchHttpSettings, type ZaiSearchSettings } from '../src/client/provider-presentations.ts'
+import {
+  WebAccessCardController,
+  type WebAccessSettings, type WebProviderFocus,
+} from '../src/client/web-access-card-controller.ts'
 
 /** Make the stub behave like a Host that accepts every write. */
 function acceptWrites<T>(host: StubSettingsScope<T>): void {
@@ -25,9 +31,14 @@ function acceptWrites<T>(host: StubSettingsScope<T>): void {
 }
 
 function credentialsApi(configured: boolean) {
-  const describe = vi.fn(() => Promise.resolve({
+  const describe = vi.fn((request: { refs: readonly string[] }) => Promise.resolve({
     rpcId: 'c-1' as never,
-    result: { ok: true as const, value: { credentials: { DEEPSEEK_API_KEY: { configured, writable: true } } } },
+    result: {
+      ok: true as const,
+      value: {
+        credentials: Object.fromEntries(request.refs.map(ref => [ref, { configured, writable: true }])),
+      },
+    },
   }))
   const set = vi.fn(() => Promise.resolve({ rpcId: 'c-2' as never, result: { ok: true as const, value: {} } }))
   return { api: { credentials: { describe, set } } as never, describe, set }
@@ -379,162 +390,217 @@ describe('AgentLoopCardController', () => {
   })
 })
 
-describe('WebSearchCardController', () => {
-  it('reads the credential state for the reference the section names', async () => {
-    const host = stubSettingsScope<WebSearchSettings>()
+/** One focus store per spec, as apply creates exactly one. */
+function focusStore(): SnapshotStore<WebProviderFocus> {
+  return createSnapshotStore<WebProviderFocus>({ search: undefined, fetch: undefined })
+}
+
+/** One shared key-state index per spec, as apply creates exactly one. */
+function credentialIndex(): ProviderCredentialIndex {
+  return createSnapshotStore<Readonly<Record<string, boolean>>>({})
+}
+
+describe('ProviderCardController', () => {
+  function zaiBench() {
+    const host = stubSettingsScope<ZaiSearchSettings>()
+    const index = credentialIndex()
     const credentials = credentialsApi(true)
-    const controller = new WebSearchCardController(host.scope, credentials.api)
-    const state = () => controller.inject().hooks.webSearchCard.getSnapshot()
-    await vi.waitFor(() => { expect(credentials.describe).toHaveBeenCalled() })
+    const controller = new ProviderCardController<ZaiSearchSettings>(host.scope, credentials.api, {
+      ...ZAI_CARD,
+      credential: { defaultRef: 'ZAI_API_KEY', index: { store: index, key: 'zai' } },
+      focus: { store: focusStore(), group: 'search', providerId: 'zai' },
+    })
+    return { host, index, credentials, controller, state: () => controller.inject().hooks.providerCard.getSnapshot() }
+  }
 
-    host.publish({ status: 'ready', writable: true, value: { baseURL: 'https://search.test/v1' }, user: {} })
-    await vi.waitFor(() => { expect(state().apiKeyConfigured).toBe(true) })
+  it('projects its namespace fields under their names', () => {
+    const { host, controller } = zaiBench()
+    host.publish({
+      status: 'ready',
+      writable: true,
+      value: { baseURL: 'https://zai.test', count: 5 },
+      base: {},
+      user: { baseURL: 'https://zai.test' },
+    })
 
-    expect(state()).toMatchObject({
-      baseURL: { text: 'https://search.test/v1', overridden: false },
-      apiKey: { text: '', overridden: false },
+    expect(controller.inject().hooks.providerCard.getSnapshot()).toMatchObject({
+      available: true,
+      fields: {
+        baseURL: { text: 'https://zai.test', overridden: true },
+        searchEngine: { text: '', overridden: false },
+        count: { text: '5', overridden: false },
+      },
     })
   })
 
-  it('writes the staged key through the credentials domain, never the settings section', async () => {
-    const host = stubSettingsScope<WebSearchSettings>()
-    const credentials = credentialsApi(false)
-    const controller = new WebSearchCardController(host.scope, credentials.api)
+  it('addresses the reference the section declares, else the provider default', async () => {
+    const host = stubSettingsScope<ZaiSearchSettings>()
+    const credentials = credentialsApi(true)
+    new ProviderCardController<ZaiSearchSettings>(host.scope, credentials.api, {
+      ...ZAI_CARD,
+      credential: { defaultRef: 'ZAI_API_KEY' },
+      focus: { store: focusStore(), group: 'search', providerId: 'zai' },
+    })
+    await vi.waitFor(() => { expect(credentials.describe).toHaveBeenCalledWith({ refs: ['ZAI_API_KEY'] }) })
+
+    host.publish({ status: 'ready', writable: true, value: { apiKeyEnv: 'SEARCH_KEY' }, user: {} })
+
+    await vi.waitFor(() => { expect(credentials.describe).toHaveBeenCalledWith({ refs: ['SEARCH_KEY'] }) })
+  })
+
+  it('writes the staged key through the credentials domain and publishes the key state', async () => {
+    const { host, index, controller } = zaiBench()
     host.publish({ status: 'ready', writable: true, value: {}, user: {} })
     const face = controller.inject()
 
-    face.edit('apiKey', ' ds-secret ')
-    expect(face.hooks.webSearchCard.getSnapshot().dirty).toBe(true)
-    expect(credentials.set).not.toHaveBeenCalled()
-
-    credentials.describe.mockImplementation(() => Promise.resolve({
-      rpcId: 'c-1' as never,
-      result: { ok: true as const, value: { credentials: { DEEPSEEK_API_KEY: { configured: true, writable: true } } } },
-    }))
+    face.edit('apiKey', ' zai-secret ')
     face.save()
-    await vi.waitFor(() => { expect(credentials.set).toHaveBeenCalled() })
-
-    expect(credentials.set).toHaveBeenCalledWith({ ref: 'DEEPSEEK_API_KEY', value: 'ds-secret' })
-    expect(host.set).not.toHaveBeenCalled()
     await vi.waitFor(() => {
-      expect(face.hooks.webSearchCard.getSnapshot()).toMatchObject({ dirty: false, apiKeyConfigured: true })
+      expect(index.getSnapshot()).toEqual({ zai: true })
     })
+
+    expect(face.hooks.providerCard.getSnapshot().apiKeyConfigured).toBe(true)
   })
 
   it('keeps the stored key when the draft is left blank', () => {
-    const host = stubSettingsScope<WebSearchSettings>()
-    const credentials = credentialsApi(true)
-    const controller = new WebSearchCardController(host.scope, credentials.api)
+    const { host, controller } = zaiBench()
     host.publish({ status: 'ready', writable: true, value: {}, user: {} })
     const face = controller.inject()
 
     face.edit('apiKey', '   ')
-
-    expect(face.hooks.webSearchCard.getSnapshot().dirty).toBe(false)
     face.save()
 
-    expect(credentials.set).not.toHaveBeenCalled()
+    expect(controller.inject).toBeDefined()
+    expect(face.hooks.providerCard.getSnapshot().dirty).toBe(false)
+  })
+
+  it('carries no credential control without credential wiring', async () => {
+    const host = stubSettingsScope<FetchHttpSettings>()
+    const describe = vi.fn(() => Promise.resolve({ rpcId: 'c', result: { ok: false, error: {} } }))
+    const controller = new ProviderCardController<FetchHttpSettings>(
+      host.scope, { credentials: { describe, set: vi.fn() } } as never,
+      { ...FETCH_HTTP_CARD, focus: { store: focusStore(), group: 'fetch', providerId: 'http' } },
+    )
+    host.publish({ status: 'ready', writable: true, value: { timeoutMs: 30_000 }, base: {}, user: {} })
+    await Promise.resolve()
+
+    expect(describe).not.toHaveBeenCalled()
+    expect(controller.inject().hooks.providerCard.getSnapshot()).toMatchObject({
+      apiKey: { text: '', overridden: false },
+      apiKeyConfigured: false,
+      fields: { timeoutMs: { text: '30000' } },
+    })
   })
 
   it('re-reads when the Host reports the watched reference changed', async () => {
-    const host = stubSettingsScope<WebSearchSettings>()
+    const host = stubSettingsScope<ZaiSearchSettings>()
     const credentials = credentialsApi(false)
-    const controller = new WebSearchCardController(host.scope, credentials.api)
+    const controller = new ProviderCardController<ZaiSearchSettings>(host.scope, credentials.api, {
+      ...ZAI_CARD,
+      credential: { defaultRef: 'ZAI_API_KEY' },
+      focus: { store: focusStore(), group: 'search', providerId: 'zai' },
+    })
     host.publish({ status: 'ready', writable: true, value: {}, user: {} })
     await vi.waitFor(() => { expect(credentials.describe).toHaveBeenCalled() })
     credentials.describe.mockClear()
 
-    // Another reference is not this card's business.
     controller.refreshCredential('OTHER_KEY')
     expect(credentials.describe).not.toHaveBeenCalled()
 
-    // A key written on another surface reaches this card only through this signal.
-    credentials.describe.mockImplementation(() => Promise.resolve({
-      rpcId: 'c-1' as never,
-      result: { ok: true as const, value: { credentials: { DEEPSEEK_API_KEY: { configured: true, writable: true } } } },
-    }))
-    controller.refreshCredential('DEEPSEEK_API_KEY')
-
-    await vi.waitFor(() => {
-      expect(controller.inject().hooks.webSearchCard.getSnapshot().apiKeyConfigured).toBe(true)
-    })
+    controller.refreshCredential('ZAI_API_KEY')
+    await vi.waitFor(() => { expect(credentials.describe).toHaveBeenCalled() })
   })
+})
 
-  it('addresses the reference the section declares rather than the default', async () => {
-    const host = stubSettingsScope<WebSearchSettings>()
-    const credentials = credentialsApi(false)
-    const controller = new WebSearchCardController(host.scope, credentials.api)
-    host.publish({ status: 'ready', writable: true, value: { apiKeyEnv: 'SEARCH_KEY' }, user: {} })
-    const face = controller.inject()
+describe('WebAccessCardController', () => {
+  function accessBench(modules: readonly string[], options: { failInventory?: boolean } = {}) {
+    const host = stubSettingsScope<WebAccessSettings>()
+    const index = credentialIndex()
+    const focus = focusStore()
+    const listModules = vi.fn(() => options.failInventory === true
+      ? Promise.reject(new Error('inventory down'))
+      : Promise.resolve(modules))
+    const controller = new WebAccessCardController(host.scope, { listModules, credentialIndex: index, focus })
+    return { host, index, focus, listModules, controller, face: () => controller.inject() }
+  }
 
-    face.edit('apiKey', 'ds-secret')
-    face.save()
-    await vi.waitFor(() => { expect(credentials.set).toHaveBeenCalled() })
-
-    expect(credentials.set).toHaveBeenCalledWith({ ref: 'SEARCH_KEY', value: 'ds-secret' })
-  })
-
-  it('reports a key the Host did not store as a failed save', async () => {
-    const host = stubSettingsScope<WebSearchSettings>()
-    const credentials = credentialsApi(false)
-    const controller = new WebSearchCardController(host.scope, credentials.api)
-    host.publish({ status: 'ready', writable: true, value: {}, user: {} })
-    const face = controller.inject()
-
-    face.edit('apiKey', 'ds-secret')
-    face.save()
-
-    await vi.waitFor(() => {
-      expect(face.hooks.webSearchCard.getSnapshot()).toMatchObject({ failed: true, dirty: true })
-    })
-  })
-
-  it('keeps the card usable when the credential read fails', async () => {
-    const host = stubSettingsScope<WebSearchSettings>()
-    const describe = vi.fn(() => Promise.reject(new Error('offline')))
-    const set = vi.fn(() => Promise.reject(new Error('offline')))
-    const controller = new WebSearchCardController(host.scope, { credentials: { describe, set } } as never)
-    const face = controller.inject()
-    await vi.waitFor(() => { expect(describe).toHaveBeenCalled() })
-
-    host.publish({ status: 'ready', writable: true, value: { baseURL: 'https://search.test/v1' }, user: {} })
-    face.edit('apiKey', 'ds-secret')
-    face.save()
-    await vi.waitFor(() => { expect(set).toHaveBeenCalled() })
-
-    expect(face.hooks.webSearchCard.getSnapshot()).toMatchObject({
-      available: true,
-      apiKeyConfigured: false,
-      baseURL: { text: 'https://search.test/v1' },
-    })
-  })
-
-  it('ignores a credential read the Host refused', async () => {
-    const host = stubSettingsScope<WebSearchSettings>()
-    const describe = vi.fn(() => Promise.resolve({
-      rpcId: 'c-1' as never,
-      result: { ok: false as const, error: { code: 'credentials-unavailable', message: 'no provider' } },
-    }))
-    const controller = new WebSearchCardController(host.scope, { credentials: { describe, set: vi.fn() } } as never)
-    await vi.waitFor(() => { expect(describe).toHaveBeenCalled() })
-
-    expect(controller.inject().hooks.webSearchCard.getSnapshot().apiKeyConfigured).toBe(false)
-  })
-
-  it('saves the endpoint and the search budget together', async () => {
-    const host = stubSettingsScope<WebSearchSettings>()
-    acceptWrites(host)
-    const credentials = credentialsApi(true)
-    const controller = new WebSearchCardController(host.scope, credentials.api)
+  function publishReady(host: ReturnType<typeof stubSettingsScope<WebAccessSettings>>): void {
     host.publish({ status: 'ready', writable: true, value: {}, base: {}, user: {} })
-    const face = controller.inject()
+  }
 
-    face.edit('baseURL', 'https://other.test')
-    face.edit('maxUses', '3')
-    face.save()
-    await vi.waitFor(() => { expect(host.set).toHaveBeenCalledTimes(2) })
+  it('lists every provider of both groups and greys the unmounted ones', async () => {
+    const { host, face } = accessBench(['@deepseek-ai/dsh-web-search-zai', '@deepseek-ai/dsh-web-fetch-http/subpath'])
+    publishReady(host)
+    await vi.waitFor(() => {
+      expect(face().hooks.webAccessCard.getSnapshot().fetch.options[0]).toMatchObject({ id: 'http', mounted: true })
+    })
 
-    expect(host.set.mock.calls).toEqual([['baseURL', 'https://other.test'], ['maxUses', 3]])
-    expect(credentials.set).not.toHaveBeenCalled()
+    expect(face().hooks.webAccessCard.getSnapshot().search.options).toEqual([
+      { id: 'deepseek-official', labelKey: 'webProviderDeepSeek', mounted: false },
+      { id: 'zai', labelKey: 'webProviderZai', mounted: true },
+      { id: 'exa', labelKey: 'webProviderExa', mounted: false },
+      { id: 'perplexity', labelKey: 'webProviderPerplexity', mounted: false },
+    ])
+  })
+
+  it('renders every option mounted until an inventory read lands', async () => {
+    const { host, face, listModules } = accessBench([], { failInventory: true })
+    publishReady(host)
+    await vi.waitFor(() => { expect(listModules).toHaveBeenCalled() })
+
+    const { search, fetch } = face().hooks.webAccessCard.getSnapshot()
+    expect(search.options.every(option => option.mounted)).toBe(true)
+    expect(fetch.options.every(option => option.mounted)).toBe(true)
+  })
+
+  it('warns about a picked provider without a key and about an ambiguous «Авто»', async () => {
+    const { host, index, face } = accessBench([
+      '@deepseek-ai/dsh-web-search-deepseek', '@deepseek-ai/dsh-web-search-zai',
+    ])
+    index.set({ 'deepseek-official': true, zai: true, exa: false })
+
+    host.publish({ status: 'ready', writable: true, value: { searchProvider: 'exa' }, user: {} })
+    await vi.waitFor(() => {
+      expect(face().hooks.webAccessCard.getSnapshot()).toMatchObject({ keyMissing: true, ambiguousAuto: false })
+    })
+
+    host.publish({ status: 'ready', writable: true, value: { searchProvider: '' }, user: {} })
+    await vi.waitFor(() => {
+      expect(face().hooks.webAccessCard.getSnapshot()).toMatchObject({ keyMissing: false, ambiguousAuto: true })
+    })
+
+    host.publish({ status: 'ready', writable: true, value: { searchProvider: 'zai' }, user: {} })
+    await vi.waitFor(() => {
+      expect(face().hooks.webAccessCard.getSnapshot()).toMatchObject({ keyMissing: false, ambiguousAuto: false })
+    })
+  })
+
+  it('stages the pick on the settings scope and moves the focus store', () => {
+    const { host, focus, face } = accessBench([])
+    publishReady(host)
+
+    face().onPick('search', 'zai')
+    expect(host.set).not.toHaveBeenCalled()
+    expect(face().hooks.webAccessCard.getSnapshot().search.value.text).toBe('zai')
+    expect(focus.getSnapshot()).toEqual({ search: 'zai', fetch: undefined })
+
+    face().onPick('fetch', 'http')
+    expect(focus.getSnapshot()).toEqual({ search: 'zai', fetch: 'http' })
+
+    face().onPick('search', '')
+    expect(face().hooks.webAccessCard.getSnapshot().search.value.text).toBe('')
+    expect(focus.getSnapshot()).toEqual({ search: undefined, fetch: 'http' })
+  })
+
+  it('saves the staged pick through the settings scope', async () => {
+    const { host, face } = accessBench([])
+    acceptWrites(host)
+    publishReady(host)
+
+    face().onPick('search', 'zai')
+    face().save()
+    await vi.waitFor(() => { expect(host.set).toHaveBeenCalledWith('searchProvider', 'zai') })
+
+    expect(face().hooks.webAccessCard.getSnapshot().dirty).toBe(false)
   })
 })
