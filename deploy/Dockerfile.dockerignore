@@ -16,7 +16,7 @@ deploy/.env
 .vscode
 coverage
 tmp
-kovka-menu
+python
 deploy/workspace
 node_modules
 **/node_modules
