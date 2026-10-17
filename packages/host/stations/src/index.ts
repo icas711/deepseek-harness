@@ -1,0 +1,327 @@
+/**
+ * Хост-сторона моста станций (`ctx.stations`): сервис сопряжения,
+ * долговременный реестр `station-registry.json` и upgrade-маршрут
+ * `/station-ws`, поверх которого ходит проводной протокол. Пассивен
+ * без пар: реестр читается при активации, соединений и таймеров нет,
+ * пока пользователь не запросит код сопряжения.
+ * @module @deepseek-ai/dsh-stations
+ */
+
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
+import { isAbsolute, posix, win32 } from 'node:path'
+import { Context, Service } from '@deepseek-ai/cordis'
+import z from '@deepseek-ai/schemastery'
+import { mintPairingCode, STATION_WS_PATH, StationId } from '@deepseek-ai/dsh-station-protocol'
+import type { StationEventFrame, StationOpName, StationOpPayloadMap, StationOpValueMap, StationPlatform } from '@deepseek-ai/dsh-station-protocol'
+import type { WebUpgradeRoute } from '@deepseek-ai/dsh-host-webserver'
+import WebSocket, { WebSocketServer } from 'ws'
+import { StationRegistryStore } from './registry.ts'
+import { StationServerSession } from './session.ts'
+import { StationsError } from './types.ts'
+import type { PendingPairing, StationRecord, StationView } from './types.ts'
+
+export { STATION_WS_PATH } from '@deepseek-ai/dsh-station-protocol'
+export { StationBridgeClosedError, StationOpRemoteError, StationServerSession } from './session.ts'
+export { RegistryFileError, parseRegistryDocument, serializeRegistryDocument } from './registry.ts'
+export { StationsError } from './types.ts'
+export type { PendingPairing, StationRecord, StationView, StationsErrorCode } from './types.ts'
+
+/** Конфигурация сервиса станций: состав поставляет пути развёртывания. */
+export interface Config {
+  /**
+   * Путь документа реестра станций. Обязателен (без умолчания): реестр
+   * несёт привязки станций к логинам и хэши токенов, поэтому место
+   * указывается явно — композиции передают dshHomePath('station-registry.json').
+   */
+  registryPath: string
+  /** Время жизни одноразового кода сопряжения в миллисекундах. */
+  pairingCodeTtlMs?: number
+}
+
+/** Умолчание TTL кода сопряжения: десять минут на ввод и запуск коннектора. */
+const DEFAULT_PAIRING_TTL_MS = 600_000
+
+/** Имя станции: до 64 знаков без управляющих символов. */
+function validStationName(name: string): boolean {
+  return name.length > 0 && name.length <= 64 && ![...name].some(ch => {
+    const code = ch.codePointAt(0) ?? 0
+    return code < 0x20 || code === 0x7f
+  })
+}
+
+declare module '@deepseek-ai/cordis' {
+  interface Context {
+    /** Мост станций: сопряжение, реестр и живые соединения. */
+    stations: StationsService
+  }
+}
+
+/**
+ * Живой мост к станции для провайдеров: те же швы используют его вместо
+ * локального мира. Операции типизированы по имени, события приходят
+ * подписчикам, закрытие сокета отклоняет все ожидающие запросы.
+ */
+export interface StationBridge {
+  /** Идентификатор станции из реестра. */
+  readonly stationId: StationId
+  /** Платформа станции — владелец правил разбора путей. */
+  readonly platform: StationPlatform
+  /** Корневая папка станции. */
+  readonly rootPath: string
+  /**
+   * Выполняет одну операцию на станции.
+   * @param op - имя операции протокола.
+   * @param payload - типизированная полезная нагрузка.
+   * @param opts - отмена через AbortSignal.
+   * @returns значение ответа, суженное по операции.
+   */
+  request<K extends StationOpName>(
+    op: K,
+    payload: StationOpPayloadMap[K],
+    opts?: { signal?: AbortSignal },
+  ): Promise<StationOpValueMap[K]>
+  /**
+   * Подписывается на события коннектора.
+   * @param handler - обработчик проверенного кадра события.
+   * @returns диспозер подписки.
+   */
+  onEvent(handler: (event: StationEventFrame) => void): () => void
+}
+
+/**
+ * Сервис станций. Владеет реестром, одноразовыми кодами сопряжения
+ * (в памяти, с TTL) и живыми сессиями-мостами; upgrade-маршрут
+ * регистрирует на веб-сервере при активации. Токены хранятся только
+ * хэшированными: полный токен едет коннектору ровно один раз.
+ */
+export class StationsService extends Service {
+  static inject = ['webServer']
+
+  static Config: z<Config> = z.object({
+    registryPath: z.string().required(),
+    pairingCodeTtlMs: z.natural().default(DEFAULT_PAIRING_TTL_MS),
+  })
+
+  private readonly store: StationRegistryStore
+  private readonly pairings = new Map<string, PendingPairing>()
+  private readonly sessions = new Map<string, StationServerSession>()
+  private readonly pairingTtlMs: number
+  private ready: Promise<void> = Promise.resolve()
+
+  /**
+   * Строит сервис; чтение реестра и регистрацию маршрута делает init.
+   * @param ctx - контекст с веб-сервером.
+   * @param config - проверенный конфиг.
+   */
+  constructor(ctx: Context, config: Config) {
+    super(ctx, 'stations')
+    // Schemastery заполняет поля до конструктора; тип этого не кодирует.
+    // Ручной контекст без схемы получает документированное умолчание.
+    const resolved = config as Config & { pairingCodeTtlMs?: number }
+    const ttl = resolved.pairingCodeTtlMs ?? DEFAULT_PAIRING_TTL_MS
+    if (!Number.isSafeInteger(ttl) || ttl <= 0) {
+      throw new Error('stations: pairingCodeTtlMs должен быть положительным целым')
+    }
+    this.pairingTtlMs = ttl
+    this.store = new StationRegistryStore({ filePath: config.registryPath })
+  }
+
+  /** Читает реестр и регистрирует upgrade-маршрут; сбой реестра валит загрузку. */
+  protected async [Service.init](): Promise<void> {
+    this.ready = this.store.load()
+    await this.ready
+    const webserver = new WebSocketServer({ noServer: true })
+    const route: WebUpgradeRoute = {
+      path: STATION_WS_PATH,
+      handler: (req, socket, head) => {
+        webserver.handleUpgrade(req, socket, head, ws => this.attach(ws))
+      },
+    }
+    const disposeRoute = this.ctx.webServer.registerUpgrade(route)
+    this.ctx.effect(() => async () => {
+      disposeRoute()
+      for (const session of [...this.sessions.values()]) {
+        session.handleClose()
+      }
+      webserver.close()
+    }, 'stations: upgrade route and sessions')
+  }
+
+  /**
+   * Выдаёт одноразовый код сопряжения для логина. Код живёт в памяти
+   * с TTL; рестарт хоста его забывает — пользователь просто запрашивает
+   * новый.
+   * @param login - логин веб-пользователя, к которому привяжется станция.
+   * @returns код и путь WSS-маршрута для коннектора.
+   * @throws StationsError `bad-input` при пустом логине.
+   */
+  beginPairing(login: string): { code: string; wssPath: string } {
+    if (typeof login !== 'string' || login.trim().length === 0) {
+      throw new StationsError('логин сопряжения обязателен', 'bad-input')
+    }
+    this.sweepExpiredPairings()
+    const code = mintPairingCode(randomBytes)
+    this.pairings.set(code, { login, expiresAt: Date.now() + this.pairingTtlMs })
+    return { code, wssPath: STATION_WS_PATH }
+  }
+
+  /**
+   * Завершает сопряжение по одноразовому коду; вызывает сессия при
+   * первом соединении коннектора. Код гасится одним использованием.
+   * @param code - код из beginPairing.
+   * @param stationName - имя станции от коннектора.
+   * @param rootPath - корневая папка на станции.
+   * @param platform - платформа станции.
+   * @returns идентификатор, полный токен (только этот раз) и эхо корня.
+   * @throws StationsError `bad-code` (неизвестен, протух или использован),
+   * `bad-input` при недопустимом имени или корне.
+   */
+  async completePairing(
+    code: string,
+    stationName: string,
+    rootPath: string,
+    platform: StationPlatform,
+  ): Promise<{ stationId: StationId; token: string; rootPath: string }> {
+    const pending = this.pairings.get(code)
+    if (pending === undefined || pending.expiresAt <= Date.now()) {
+      this.pairings.delete(code)
+      throw new StationsError('код сопряжения не принят: он истёк, использован или не выдавался', 'bad-code')
+    }
+    if (!validStationName(stationName)) {
+      throw new StationsError('имя станции обязано быть непустой строкой до 64 знаков без управляющих символов', 'bad-input')
+    }
+    const absolute = platform === 'win32' ? win32.isAbsolute(rootPath) : posix.isAbsolute(rootPath)
+    if (!absolute) {
+      throw new StationsError(`корневая папка станции обязана быть абсолютным путём платформы ${platform}`, 'bad-input')
+    }
+    this.pairings.delete(code)
+    const stationId = StationId(`stn-${randomUUID()}`)
+    const token = randomBytes(32).toString('hex')
+    const tokenHash = createHash('sha256').update(token).digest('hex')
+    await this.ready
+    await this.store.add({ stationId, login: pending.login, name: stationName, rootPath, platform, tokenHash })
+    this.ctx.logger.info(`stations: сопряжена станция «${stationName}» (${String(stationId)}) для ${pending.login}`)
+    return { stationId, token, rootPath }
+  }
+
+  /**
+   * Список станций логина, отсортированный по имени.
+   * @param login - логин владельца; undefined означает все станции
+   *   (админский обзор).
+   * @returns виды станций без секретного материала.
+   */
+  async list(login?: string): Promise<StationView[]> {
+    await this.ready
+    const views = this.store.snapshot()
+      .filter(record => login === undefined || record.login === login)
+      .map(record => this.toView(record))
+    return views.sort((a, b) => a.name.localeCompare(b.name))
+  }
+
+  /**
+   * Проверяет токен станции timing-safe сравнением хэша; точка
+   * аутентификации и для auth-места вебсервера, и для приветствия сессии.
+   * @param token - предъявленный токен.
+   * @returns запись станции или undefined, когда токен не принят.
+   */
+  verifyStationToken(token: string): { stationId: StationId; rootPath: string; platform: StationPlatform } | undefined {
+    if (typeof token !== 'string' || token.length === 0) return undefined
+    const presented = createHash('sha256').update(token).digest()
+    for (const record of this.store.snapshot()) {
+      const stored = Buffer.from(record.tokenHash, 'hex')
+      if (stored.length === presented.length && timingSafeEqual(stored, presented)) {
+        return { stationId: record.stationId, rootPath: record.rootPath, platform: record.platform }
+      }
+    }
+    return undefined
+  }
+
+  /**
+   * Живой мост к станции для провайдеров швов fs/subprocess.
+   * @param stationId - идентификатор станции.
+   * @returns мост, когда станция на связи.
+   * @throws StationsError `unknown-station` / `offline`.
+   */
+  bridge(stationId: StationId): StationBridge {
+    const session = this.sessions.get(String(stationId))
+    if (session !== undefined) return session
+    const known = this.store.get(String(stationId))
+    if (known === undefined) {
+      throw new StationsError(`станция ${String(stationId)} не сопряжена`, 'unknown-station')
+    }
+    throw new StationsError(`станция «${known.name}» сейчас офлайн: дождитесь подключения коннектора`, 'offline')
+  }
+
+  /** Онлайн-ли станция прямо сейчас. */
+  isOnline(stationId: StationId): boolean {
+    return this.sessions.has(String(stationId))
+  }
+
+  /** Подключает новый сокет: одна сессия на сокет, свежая заменяет прежнюю. */
+  private attach(ws: WebSocket): void {
+    const session = new StationServerSession(ws, this.sessionHost())
+    ws.on('message', data => {
+      session.handleMessage(String(data))
+    })
+    ws.on('close', () => {
+      session.handleClose()
+    })
+    ws.on('error', error => {
+      this.ctx.logger.warn(`stations: ошибка транспорта станции: ${error instanceof Error ? error.message : String(error)}`)
+      session.handleClose()
+    })
+  }
+
+  /** Грань хоста, которую сессии дёргают; связывает их с сервисом. */
+  private sessionHost() {
+    return {
+      completePairing: (code: string, stationName: string, rootPath: string, platform: StationPlatform) =>
+        this.completePairing(code, stationName, rootPath, platform),
+      verifyStationToken: (token: string) => this.verifyStationToken(token),
+      markOnline: (stationId: StationId, session: StationServerSession) => {
+        const previous = this.sessions.get(String(stationId))
+        if (previous !== undefined && previous !== session) {
+          // Свежее соединение выигрывает: прежнему сокету больше нечего
+          // делать мостом — его ожидающие запросы отклонятся в handleClose.
+          previous.handleClose()
+        }
+        this.sessions.set(String(stationId), session)
+        void this.store.touch(String(stationId)).catch((error: unknown) => {
+          this.ctx.logger.warn(`stations: не удалось обновить lastSeenAt: ${error instanceof Error ? error.message : String(error)}`)
+        })
+      },
+      markOffline: (stationId: StationId, session: StationServerSession) => {
+        // Закрывшаяся замещённая сессия не должна погасить живую замену.
+        if (this.sessions.get(String(stationId)) === session) {
+          this.sessions.delete(String(stationId))
+        }
+      },
+      logError: (error: unknown) => {
+        this.ctx.logger.warn(error instanceof Error ? error : new Error(String(error)))
+      },
+    }
+  }
+
+  private toView(record: StationRecord): StationView {
+    return {
+      stationId: String(record.stationId),
+      login: record.login,
+      name: record.name,
+      rootPath: record.rootPath,
+      platform: record.platform,
+      online: this.sessions.has(String(record.stationId)),
+      lastSeenAt: record.lastSeenAt,
+      createdAt: record.createdAt,
+    }
+  }
+
+  /** Лениво подметает протухшие коды: без таймеров в пассивном состоянии. */
+  private sweepExpiredPairings(): void {
+    const now = Date.now()
+    for (const [code, pending] of this.pairings) {
+      if (pending.expiresAt <= now) this.pairings.delete(code)
+    }
+  }
+}
+
+export default StationsService
