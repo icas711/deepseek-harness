@@ -94,6 +94,16 @@
     - id: plugin-inventory
       name: '@deepseek-ai/dsh-host-plugin-inventory'
 
+    # Durable cross-restart task supervisor: the home-folder task registry,
+    # parked running tasks across a clean unload, interrupted marks after a
+    # hard crash, and automatic session resume on the next boot. Passive with
+    # an empty registry: no sessions open and no log noise until a task is
+    # tracked.
+    - id: task-supervisor
+      name: '@deepseek-ai/dsh-task-supervisor'
+      config:
+        registryPath: !!js dshHomePath('task-registry.json')
+
     # The API gateway: the transport-agnostic dispatch face every client shape
     # shares. The base layer's agent-default-model service owns the default model.
     - id: api-gateway
