@@ -239,7 +239,9 @@ Root interface of the unified API. New client-request domain = one new file pair
 
 ```ts cordis-catalog
 /**
- * Response entry for server requests; not a domain method.
+ * Response entry for server requests; not a domain method. Served under the
+ * session domain's visibility: only a caller who may see the target session
+ * settles its pending approval/question; duplicates read already-resolved.
  * @param message - Client response carrying the server request's rpcId.
  * @returns Transport receipt for the response delivery.
  */

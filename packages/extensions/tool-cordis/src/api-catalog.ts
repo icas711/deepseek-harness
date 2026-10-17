@@ -316,7 +316,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'respond(message: ClientResponse): Promise<RpcReceipt>',
-        description: 'Response entry for server requests; not a domain method.',
+        description: 'Response entry for server requests; not a domain method. Served under the session domain\'s visibility: only a caller who may see the target session settles its pending approval/question; duplicates read already-resolved.',
         parameters: [{ name: 'message', description: 'Client response carrying the server request\'s rpcId.' }],
         returns: 'Transport receipt for the response delivery.',
       },
@@ -956,6 +956,33 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Delete one feedback item. Absence is successful regardless of the supplied version; an existing item requires an exact version match.',
         parameters: [{ name: 'request', description: 'Session, message, and observed item version.' }],
         returns: 'the stable absent postcondition, or an explicit failure.',
+      },
+    ],
+  },
+  {
+    key: 'notifier',
+    summary: 'The notification service (`ctx.notifier`).',
+    description: 'The notification service (`ctx.notifier`).',
+    methods: [
+      {
+        signature: 'async beginBinding(login: string): Promise<BindingChallenge>',
+        description: 'Begin one pairing: mint a single-use code the user presents to the provider\'s transport (the Telegram provider accepts it as `/start КОД`). Requesting a new code for a login invalidates that login\'s previous code; codes are held in memory only, so a restart voids them and the user simply requests a fresh one.',
+        parameters: [{ name: 'login', description: 'the user asking to bind a destination.' }],
+        returns: 'the pairing challenge carrying the code.',
+        throws: ['{@link NotifierError} with `invalid-login` when the login cannot key a durable binding.'],
+      },
+      {
+        signature: 'async send(request: NotificationRequest): Promise<SendResult>',
+        description: 'Deliver one notification to the login\'s bound destination. An unbound login drops the request without an error — there is nowhere to deliver it; delivery failures reject, so callers can distinguish a dropped request from a failed delivery and retry.',
+        parameters: [{ name: 'request', description: 'the notification to deliver.' }],
+        returns: '`sent` after a successful delivery, `unbound` when the login has no binding.',
+        throws: ['whatever the provider\'s delivery throws.'],
+      },
+      {
+        signature: 'async boundLogins(): Promise<string[]>',
+        description: 'Enumerate the logins that currently hold a confirmed binding, in document order. Broadcast-style consumers (the task watcher) address their sends through this list; a per-login UI page will list the same records.',
+        parameters: [],
+        returns: 'the bound logins.',
       },
     ],
   },
@@ -1810,6 +1837,47 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Assemble global and scoped providers, detach tool parameters, apply canonical ordering, then run the assembly waterfall. Scoped sections and variables shadow globals. The returned waterfall value is authoritative except that an effective complete section is restored afterwards as the sole prompt section.',
         parameters: [{ name: 'context', description: 'the optional scope and plugin-defined assembly fields.' }],
         returns: 'the post-waterfall assembly with any complete prompt enforced.',
+      },
+    ],
+  },
+  {
+    key: 'taskSupervisor',
+    summary: 'The task supervisor service (`ctx.taskSupervisor`).',
+    description: 'The task supervisor service (`ctx.taskSupervisor`).',
+    methods: [
+      {
+        signature: 'async track(request: { sessionId: SessionId; title: string }): Promise<TaskView>',
+        description: 'Track work on a session. Idempotent by session id: a repeated call retitles the existing active record or commits nothing when nothing changed; a session whose record is terminal (completed/failed) gets a fresh task identity.',
+        parameters: [{ name: 'request', description: 'the session whose agent performs the work, and the human-readable task label.' }],
+        returns: 'the up-to-date durable record.',
+        throws: ['{@link TaskSupervisorError} with `stopping` during teardown.'],
+      },
+      {
+        signature: 'async markCompleted(taskId: TaskId): Promise<TaskView>',
+        description: 'Mark a task completed.',
+        parameters: [{ name: 'taskId', description: 'the task to settle.' }],
+        returns: 'the committed record.',
+        throws: ['{@link TaskSupervisorError} with `unknown-task`, `invalid-transition` (terminal or wrong status), or `stopping`.'],
+      },
+      {
+        signature: 'async markFailed(taskId: TaskId, reason: string): Promise<TaskView>',
+        description: 'Mark a task failed and account for the reason in the log. The durable record carries the fixed field set; the reason travels through the log, not the registry file.',
+        parameters: [{ name: 'taskId', description: 'the task to settle.' }, { name: 'reason', description: 'non-empty human-readable failure account.' }],
+        returns: 'the committed record.',
+        throws: ['{@link TaskSupervisorError} with `invalid-reason`, `unknown-task`, `invalid-transition`, or `stopping`.'],
+      },
+      {
+        signature: 'async list(): Promise<TaskView[]>',
+        description: 'Snapshot the whole registry for callers outside the service, such as a notification watcher diffing task statuses between ticks.',
+        parameters: [],
+        returns: 'fresh copies of every record, in registry order. Safe before initialization settles: the read follows {@link TaskSupervisor.ready}.',
+      },
+      {
+        signature: 'async resume(taskId: TaskId): Promise<TaskView>',
+        description: 'Resume one parked or interrupted task: reopen its session (reusing a live agent, otherwise resuming from persistence) and deliver the continuation message through the ordinary logged input path.',
+        parameters: [{ name: 'taskId', description: 'the task to resume.' }],
+        returns: 'the running record.',
+        throws: ['{@link TaskSupervisorError} with `unknown-task`, `invalid-transition` (already running or terminal), `stopping`, `resume-unavailable`, or `session-not-found`; the record reverts to its previous status when the resume itself fails.'],
       },
     ],
   },
@@ -2893,6 +2961,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface BashEnvVariableInfo extends BashEnvVariable {\n    contributor: string;\n    key: DshEnvironmentKey;\n}',
   },
   {
+    name: 'BindingChallenge',
+    declaration: 'export interface BindingChallenge {\n    readonly code: BindingCode;\n}',
+  },
+  {
+    name: 'BindingCode',
+    declaration: 'export type BindingCode = Branded<\'BindingCode\'>;',
+  },
+  {
     name: 'BranchMergeResult',
     declaration: 'export interface BranchMergeResult {\n    status: BranchMergeStatus;\n    output: string;\n}',
   },
@@ -3677,6 +3753,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface ModelModalityMap {\n    text: \'text\';\n    image: \'image\';\n}',
   },
   {
+    name: 'NotificationKind',
+    declaration: 'export type NotificationKind = \'paused\' | \'interrupted\' | \'completed\' | \'failed\';',
+  },
+  {
+    name: 'NotificationRequest',
+    declaration: 'export interface NotificationRequest {\n    readonly login: string;\n    readonly kind: NotificationKind;\n    readonly title: string;\n    readonly sessionId: SessionId;\n}',
+  },
+  {
     name: 'ObjectJsonSchema',
     declaration: 'export type ObjectJsonSchema = JsonSchemaNode & {\n    type: \'object\';\n};',
   },
@@ -3927,6 +4011,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'SearchResultView',
     declaration: 'export type SearchResultView = SearchMatchesResultView | SearchPathsResultView;',
+  },
+  {
+    name: 'SendResult',
+    declaration: 'export type SendResult = \'sent\' | \'unbound\';',
   },
   {
     name: 'ServerResponse',
@@ -4451,6 +4539,22 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'TableValueOf',
     declaration: 'export type TableValueOf<S extends DomainSpec, N extends keyof S[\'tables\']> = S[\'tables\'][N] extends DomainTableSpec<string, infer V> ? V : never;',
+  },
+  {
+    name: 'TaskId',
+    declaration: 'export type TaskId = Branded<\'TaskId\'>;',
+  },
+  {
+    name: 'TaskRecord',
+    declaration: 'export interface TaskRecord {\n    readonly taskId: TaskId;\n    readonly sessionId: SessionId;\n    readonly title: string;\n    readonly status: TaskStatus;\n    readonly updatedAt: number;\n}',
+  },
+  {
+    name: 'TaskStatus',
+    declaration: 'export type TaskStatus = \'running\' | \'paused\' | \'interrupted\' | \'completed\' | \'failed\';',
+  },
+  {
+    name: 'TaskView',
+    declaration: 'export type TaskView = TaskRecord;',
   },
   {
     name: 'TerminalBackend',
