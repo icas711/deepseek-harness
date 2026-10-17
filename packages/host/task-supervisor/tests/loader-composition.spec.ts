@@ -15,7 +15,6 @@ import AgentRegistry from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import AgentDefaultModel from '@deepseek-ai/dsh-agent-default-model'
 import LlmRuntime, { createUserMessage } from '@deepseek-ai/dsh-llm'
-import type { LlmAdapter } from '@deepseek-ai/dsh-llm'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import SessionPersistenceJsonl from '@deepseek-ai/dsh-session-persistence-jsonl'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
@@ -65,7 +64,7 @@ async function boot(adapter: MockAdapter, paths: Paths): Promise<Context> {
     name: 'test-llm-adapter',
     inject: ['llm'],
     apply: (ctx: Context) => {
-      ctx.llm.registerAdapter(['mock'], adapter as LlmAdapter)
+      ctx.llm.registerAdapter(['mock'], adapter)
     },
   }
   const configPath = join(paths.home, 'cordis.yml')
@@ -133,7 +132,8 @@ interface DiskTask {
 }
 
 async function readRegistry(registryPath: string): Promise<{ tasks: DiskTask[] }> {
-  return JSON.parse(await readFile(registryPath, 'utf8'))
+  const parsed: unknown = JSON.parse(await readFile(registryPath, 'utf8'))
+  return parsed as { tasks: DiskTask[] }
 }
 
 /** Wait until the live agent's log carries the supervisor's continuation input. */

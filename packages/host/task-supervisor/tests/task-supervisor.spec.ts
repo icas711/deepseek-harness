@@ -41,7 +41,8 @@ interface DiskTask {
 }
 
 async function readRegistry(registryPath: string): Promise<{ tasks: DiskTask[] }> {
-  return JSON.parse(await readFile(registryPath, 'utf8'))
+  const parsed: unknown = JSON.parse(await readFile(registryPath, 'utf8'))
+  return parsed as { tasks: DiskTask[] }
 }
 
 describe('CONTINUATION_PROMPT', () => {

@@ -224,7 +224,7 @@ export class TaskSupervisor extends Service {
       } catch (error) {
         this.ctx.logger.warn(
           `task-supervisor: auto-resume of task "${record.title}" (${String(record.taskId)}) failed: `
-          + `${error instanceof Error ? error.message : String(error)}`)
+          + (error instanceof Error ? error.message : String(error)))
       }
     }
   }
@@ -249,7 +249,7 @@ export class TaskSupervisor extends Service {
       } catch (error) {
         this.ctx.logger.warn(
           'task-supervisor: disposal of a resumed agent failed: '
-          + `${error instanceof Error ? error.message : String(error)}`)
+          + (error instanceof Error ? error.message : String(error)))
       }
     }))
   }
