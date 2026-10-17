@@ -104,6 +104,20 @@
       config:
         registryPath: !!js dshHomePath('task-registry.json')
 
+    # Telegram-уведомления о задачах: строка `telegram-notifier` — провайдер
+    # шва dsh-notifier (сервис ctx.notifier: send по логину, одноразовые коды
+    # сопряжения, биндинги login → chatId в dshHomePath('telegram-bindings.json'))
+    # и Consumer статусов ctx.taskSupervisor (периодический list() с диффом по
+    # (taskId,status), одно активное уведомление на пару). DSH_TELEGRAM_BOT_TOKEN
+    # включает бота (sendMessage + периодический getUpdates, без webhook);
+    # пустой токен — пассивный режим: без сервиса, таймеров и сети.
+    # DSH_WEB_URL — база ссылок на сессии в текстах уведомлений.
+    - id: telegram-notifier
+      name: '@deepseek-ai/dsh-telegram-notifier'
+      config:
+        botToken: !!js process.env.DSH_TELEGRAM_BOT_TOKEN
+        webBaseUrl: !!js process.env.DSH_WEB_URL
+
     # The API gateway: the transport-agnostic dispatch face every client shape
     # shares. The base layer's agent-default-model service owns the default model.
     - id: api-gateway

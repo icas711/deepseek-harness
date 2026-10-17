@@ -294,6 +294,8 @@
     { "path": "./packages/host/plugin-inventory" },
     { "path": "./packages/host/task-supervisor" },
     { "path": "./packages/host/webserver" },
+    { "path": "./packages/notify/notifier" },
+    { "path": "./packages/notify/telegram" },
     { "path": "./packages/sdk/client" },
     { "path": "./packages/sdk/protocol" },
     { "path": "./packages/lsp/lsp" },
