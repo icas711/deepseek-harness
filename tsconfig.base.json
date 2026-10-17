@@ -144,6 +144,7 @@
         "./packages/util/*/src/invariant.ts",
         "./packages/mcp/*/src/invariant.ts",
         "./packages/identity/*/src/invariant.ts",
+        "./packages/station/*/src/invariant.ts",
         "./packages/test-support/*/src/invariant.ts"
       ],
       // host/client package names prefix the group dir (dsh-client-<dir>), so
@@ -151,6 +152,7 @@
       // group prefix with a dedicated wildcard per group instead.
       "@deepseek-ai/dsh-host-*/invariant": ["./packages/host/*/src/invariant.ts"],
       "@deepseek-ai/dsh-client-*/invariant": ["./packages/client/*/src/invariant.ts"],
+      "@deepseek-ai/dsh-station-*/invariant": ["./packages/station/*/src/invariant.ts"],
       "@deepseek-ai/dsh-headless/startup": ["./packages/bundle/headless/src/startup.ts"],
       "@deepseek-ai/dsh-web-app/startup": ["./packages/bundle/web-app/src/startup.ts"],
       "@deepseek-ai/dsh-web-app/webauth": ["./packages/bundle/web-app/src/webauth.ts"],
@@ -161,6 +163,7 @@
       // here. The aggregates' project references (tsconfig.host.json /
       // tsconfig.client.json) stay explicit — TS project references have no
       // wildcard form.
+      "@deepseek-ai/dsh-station-*": ["./packages/station/*/src"],
       "@deepseek-ai/dsh-host-apiproxy": ["./packages/host/apiproxy/src"],
       "@deepseek-ai/dsh-host-directory-picker": ["./packages/host/directory-picker/src"],
       "@deepseek-ai/dsh-host-directory-picker/*": ["./packages/host/directory-picker/src/*"],
@@ -280,6 +283,7 @@
         "./packages/util/*/src",
         "./packages/mcp/*/src",
         "./packages/identity/*/src",
+        "./packages/station/*/src",
         "./packages/test-support/*/src",
         "./packages/host/*/src",
         "./packages/client/*/src"
