@@ -324,11 +324,27 @@ export class TaskRegistryStore {
    * @returns the flipped records, empty when nothing was running on it.
    */
   async parkStationRunning(stationId: StationId): Promise<TaskRecord[]> {
+    return this.flipRunningWhere('waiting-station', record => record.stationId === stationId)
+  }
+
+  /**
+   * Flip every running record matching the predicate to one target status in
+   * a single committed write — the shared body of the station-park and
+   * soft-restart flips. A failed write rolls the memory side back, so the
+   * store never claims a status the document does not hold.
+   * @param target - the status every matched running record moves to.
+   * @param match - predicate beside the running-status requirement.
+   * @returns the flipped records, empty when nothing matched.
+   */
+  private async flipRunningWhere(
+    target: TaskStatus,
+    match: (record: TaskRecord) => boolean,
+  ): Promise<TaskRecord[]> {
     const previous = new Map<TaskId, TaskRecord>()
     const flipped: TaskRecord[] = []
     for (const record of this.records.values()) {
-      if (record.status !== 'running' || record.stationId !== stationId) continue
-      const next: TaskRecord = { ...record, status: 'waiting-station', updatedAt: this.now() }
+      if (record.status !== 'running' || !match(record)) continue
+      const next: TaskRecord = { ...record, status: target, updatedAt: this.now() }
       previous.set(record.taskId, record)
       this.records.set(record.taskId, next)
       flipped.push({ ...next })
@@ -375,24 +391,7 @@ export class TaskRegistryStore {
    * @returns the flipped records, empty when nothing was running.
    */
   async flipRunning(status: 'paused' | 'interrupted'): Promise<TaskRecord[]> {
-    const previous = new Map<TaskId, TaskRecord>()
-    const flipped: TaskRecord[] = []
-    for (const record of this.records.values()) {
-      if (record.status !== 'running') continue
-      const next: TaskRecord = { ...record, status, updatedAt: this.now() }
-      previous.set(record.taskId, record)
-      this.records.set(record.taskId, next)
-      flipped.push({ ...next })
-    }
-    if (flipped.length > 0) {
-      try {
-        await this.commit()
-      } catch (error) {
-        for (const [taskId, record] of previous) this.records.set(taskId, record)
-        throw error
-      }
-    }
-    return flipped
+    return this.flipRunningWhere(status, () => true)
   }
 
   /**
