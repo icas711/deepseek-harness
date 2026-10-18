@@ -59,7 +59,7 @@ Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnp
 
 ### `ctx.webAuth` — `WebAuthService`
 
-Service Definition face of the web-auth plugin, consumed by the gateway's scoping points. Declared here (with the primary consumer) because the provider is a higher-level composition plugin of the web bundle; the provider imports this face and satisfies it structurally.
+Service Definition face of the web-auth plugin, consumed by the gateway's scoping points and the admin.* domain. Declared here (with the primary consumer) because the provider is a higher-level composition plugin of the web bundle; the provider imports this face and satisfies it structurally. The administration methods mutate the managed user store and its live sessions; every rejection is a WebAdminError.
 
 ```ts cordis-catalog
 /**
@@ -68,9 +68,70 @@ Service Definition face of the web-auth plugin, consumed by the gateway's scopin
  * @returns the identity, or undefined when no live session matches.
  */
 identityFromCookie(cookie: string | undefined): WebIdentity | undefined
+
+/**
+ * Every managed account, ordered by login.
+ * @returns the account views without secret material.
+ */
+listUsers(): AdminUserView[]
+
+/**
+ * Create an account (host-side scrypt hash) and persist the store.
+ * @param input - the login, initial password, and role.
+ * @throws WebAdminError `user-exists` / `invalid-input`.
+ */
+createUser(input: WebCreateUserInput): Promise<void>
+
+/**
+ * Delete an account and revoke all its sessions.
+ * @param login - the account to delete.
+ * @throws WebAdminError `user-not-found` / `last-admin`.
+ */
+deleteUser(login: string): Promise<void>
+
+/**
+ * Replace one account's password hash and revoke all its sessions.
+ * @param login - the account to reset.
+ * @param newPassword - the replacement password (stored hashed).
+ * @throws WebAdminError `user-not-found` / `invalid-input`.
+ */
+resetPassword(login: string, newPassword: string): Promise<void>
+
+/**
+ * Change one account's role; the flag re-reads on every request, so the
+ * change lands without touching sessions.
+ * @param login - the account to change.
+ * @param role - the new role.
+ * @throws WebAdminError `user-not-found` / `last-admin`.
+ */
+setRole(login: string, role: AdminRole): Promise<void>
+
+/**
+ * One account's live (unexpired) sessions, oldest issuance first.
+ * @param login - the account whose devices to list.
+ * @returns the device views of that account.
+ * @throws WebAdminError `user-not-found`.
+ */
+listDevices(login: string): AdminDeviceView[]
+
+/**
+ * Revoke one session of one account.
+ * @param login - the account owning the session.
+ * @param sessionId - the session to revoke.
+ * @throws WebAdminError `user-not-found` / `device-not-found`.
+ */
+revokeDevice(login: string, sessionId: string): Promise<void>
+
+/**
+ * Revoke every session of one account.
+ * @param login - the account whose devices to revoke.
+ * @returns how many sessions were revoked.
+ * @throws WebAdminError `user-not-found`.
+ */
+revokeAllDevices(login: string): Promise<number>
 ```
 
-Source: [`packages/host/apiproxy/src/web-identity.ts:55`](../../packages/host/apiproxy/src/web-identity.ts)
+Source: [`packages/host/apiproxy/src/web-identity.ts:90`](../../packages/host/apiproxy/src/web-identity.ts)
 
 <a id="ctxwebserver--webserver"></a>
 

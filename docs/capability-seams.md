@@ -203,6 +203,10 @@ flowchart LR
   pkg_cordis_host_runner["cordis-host-runner"]
   svc_dynamicCordisRunner["ctx.dynamicCordisRunner<br/>Dynamic Cordis package host runner"]
   svc_cordisInspect["ctx.cordisInspect<br/>Dynamic Cordis inspect registry"]
+  pkg_stations["stations"]
+  svc_stations["ctx.stations<br/>Station bridge: pairing, registry, live sockets"]
+  pkg_fs_station["fs-station"]
+  pkg_subprocess_station["subprocess-station"]
   pkg_task_supervisor["task-supervisor"]
   svc_taskSupervisor["ctx.taskSupervisor<br/>Durable cross-restart task registry"]
   pkg_telegram["telegram"]
@@ -240,6 +244,7 @@ flowchart LR
   pkg_fs_e2b --> svc_fs
   pkg_fs_local --> svc_fs
   pkg_fs_sandbox --> svc_fs
+  pkg_fs_station --> svc_stations
   pkg_goal --> svc_goals
   pkg_invariants --> svc_invariants
   pkg_jobs --> svc_jobs
@@ -283,6 +288,7 @@ flowchart LR
   pkg_skill_filesystem --> svc_skills
   pkg_spill --> svc_spillStore
   pkg_spill_local --> svc_spillStore
+  pkg_stations --> svc_stations
   pkg_storage --> svc_storage
   pkg_storage_domain --> svc_storageDomain
   pkg_storage_json --> svc_storage
@@ -297,6 +303,7 @@ flowchart LR
   pkg_subprocess --> svc_subprocess
   pkg_subprocess_e2b --> svc_subprocess
   pkg_subprocess_local --> svc_subprocess
+  pkg_subprocess_station --> svc_stations
   pkg_system_prompt --> svc_systemPrompt
   pkg_task_supervisor --> svc_taskSupervisor
   pkg_telegram --> svc_notifier
@@ -392,6 +399,8 @@ flowchart LR
   svc_shellEnv --> pkg_tool_pwsh
   svc_skills --> pkg_tool_skill
   svc_spillStore --> pkg_spill_policy
+  svc_stations --> pkg_apiproxy
+  svc_stations --> pkg_task_supervisor
   svc_storage --> pkg_storage_domain
   svc_storageDomain --> pkg_message_feedback
   svc_storageDomain --> pkg_workspace
@@ -501,7 +510,8 @@ flowchart LR
 | `ctx.apiProxy` | `core` | `apiproxy` | - | `connection` | - | The transport-agnostic host gateway face: it dispatches browser API calls, and each open host stream subscribes to the events it forwards rather than being pushed to through a broadcast verb. |
 | `ctx.dynamicCordisRunner` | `core` | [`cordis-host-runner`](../packages/extensions/cordis-host-runner) | - | [`tool-cordis`](../packages/extensions/tool-cordis) | - | Owns the in-memory definition registry, the vm sandbox for host halves, and the request-run round trip; browser pages reach the same service over the wire through its remote namespace. |
 | `ctx.cordisInspect` | `core` | [`cordis-host-runner`](../packages/extensions/cordis-host-runner) | - | [`tool-cordis`](../packages/extensions/tool-cordis) | - | Registers host inspect providers, mirrors the client provider manifest, and routes client queries through the dynamic Cordis transport. |
-| `ctx.taskSupervisor` | `seam` | [`task-supervisor`](../packages/host/task-supervisor) | - | `telegram` | - | Tasks persist in the harness home: dispose parks running tasks with one atomic write, boot resumes parked tasks through the ordinary logged input path, and a hard crash marks running records interrupted until an explicit resume. |
-| `ctx.notifier` | `seam` | [`notifier`](../packages/notify/notifier) | `telegram` | `telegram` | - | The definition owns the send vocabulary, one-time binding challenges, and durable login targets; the telegram provider delivers through its channel, answers binding codes, and its consumer watches task statuses for notifications. |
+| `ctx.stations` | `seam` | [`stations`](../packages/host/stations) | [`fs-station`](../packages/station/fs-station), [`subprocess-station`](../packages/station/subprocess-station) | `apiproxy`, [`task-supervisor`](../packages/host/task-supervisor) | - | Owns pairing codes, the durable station registry, and the WSS upgrade route; providers of the fs/subprocess seams execute one station world, the gateway validates ownership for executionTarget bindings, and the supervisor rides the station/status event to park and auto-resume bound tasks. |
+| `ctx.taskSupervisor` | `seam` | [`task-supervisor`](../packages/host/task-supervisor) | - | `telegram` | - | Tasks persist in the harness home: dispose parks running tasks with one atomic write, boot resumes parked tasks through the ordinary logged input path, a hard crash marks running records interrupted until an explicit resume, and a station/status event moves station-bound tasks between running and waiting-station with automatic continuation on the station return. |
+| `ctx.notifier` | `seam` | [`notifier`](../packages/notify/notifier) | `telegram` | `telegram` | - | The definition owns the send vocabulary, one-time binding challenges, and durable login targets; the telegram provider delivers through its channel, answers binding codes, and its consumer watches task statuses and station-return transitions for notifications. |
 
 Maintenance mode: hybrid: services are discovered from Cordis declarations; interface/implementation/consumer roles are classified in `scripts/gen-doc-graphs.ts` with a completeness guard.
