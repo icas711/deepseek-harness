@@ -135,7 +135,7 @@ describe('StationServerSession', () => {
     const session = new StationServerSession(socket, fakeHost())
     session.handleMessage(JSON.stringify({ t: 'hello', version: 1, auth: { mode: 'token', token: 'плохой' } }))
     await flush()
-    expect(socket.out.map(line => JSON.parse(line))[0]).toMatchObject({ t: 'reject', reason: 'bad-token' })
+    expect(socket.out.map(line => JSON.parse(line) as StationFrame)[0]).toMatchObject({ t: 'reject', reason: 'bad-token' })
     expect(socket.closed).toBe(true)
   })
 
