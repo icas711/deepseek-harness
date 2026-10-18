@@ -45,11 +45,22 @@ ufw allow OpenSSH && ufw allow 80 && ufw allow 443 && ufw --force enable
 
 ## 5. Код
 
+Код живёт в приватном репозитории `icas711/minions` — клонирование на сервер по deploy-ключу:
+
 ```sh
-git clone https://github.com/icas711/deepseek-harness.git /opt/dsh && cd /opt/dsh
+ssh-keygen -t ed25519 -f ~/.ssh/minions_deploy -N ''
+cat ~/.ssh/minions_deploy.pub
 ```
 
-Если репозиторий приватный — используйте Personal Access Token (GitHub → Settings → Developer settings → Tokens, права только на чтение): `git clone https://ТОКЕН@github.com/icas711/deepseek-harness.git /opt/dsh`.
+Содержимое `.pub` добавьте на GitHub: **minions → Settings → Deploy keys → Add deploy key** (право записи не нужно). Затем:
+
+```sh
+GIT_SSH_COMMAND='ssh -i ~/.ssh/minions_deploy -o IdentitiesOnly=yes' git clone git@github.com:icas711/minions.git /opt/dsh
+git -C /opt/dsh config core.sshCommand 'ssh -i ~/.ssh/minions_deploy -o IdentitiesOnly=yes'
+cd /opt/dsh
+```
+
+Альтернатива без SSH-ключа — Personal Access Token (GitHub → Settings → Developer settings → Tokens, только чтение): `git clone https://ТОКЕН@github.com/icas711/minions.git /opt/dsh`.
 
 ## 6. Конфигурация .env
 

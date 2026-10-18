@@ -41,7 +41,7 @@ ufw enable
 
 ```bash
 mkdir -p /opt/dsh && cd /opt/dsh
-git clone <URL вашего форка> deepseek-harness
+git clone git@github.com:icas711/minions.git deepseek-harness
 cd deepseek-harness
 ```
 
