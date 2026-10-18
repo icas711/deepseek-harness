@@ -5514,6 +5514,9 @@ importers:
       '@deepseek-ai/dsh-credentials':
         specifier: workspace:^
         version: link:../../credentials/credentials
+      '@deepseek-ai/dsh-fs-station':
+        specifier: workspace:^
+        version: link:../../station/fs-station
       '@deepseek-ai/dsh-goal':
         specifier: workspace:^
         version: link:../../goal/goal
@@ -5568,6 +5571,9 @@ importers:
       '@deepseek-ai/dsh-subagent':
         specifier: workspace:^
         version: link:../../subagent/subagent
+      '@deepseek-ai/dsh-subprocess-station':
+        specifier: workspace:^
+        version: link:../../station/subprocess-station
       '@deepseek-ai/dsh-tools':
         specifier: workspace:^
         version: link:../../core/tools
@@ -5791,6 +5797,9 @@ importers:
       '@deepseek-ai/dsh-brand':
         specifier: workspace:^
         version: link:../../util/brand
+      '@deepseek-ai/dsh-fs-station':
+        specifier: workspace:^
+        version: link:../../station/fs-station
       '@deepseek-ai/dsh-invariants':
         specifier: workspace:^
         version: link:../../runtime-diagnostics/invariants
@@ -5806,6 +5815,15 @@ importers:
       '@deepseek-ai/dsh-session-persistence-jsonl':
         specifier: workspace:^
         version: link:../../session/session-persistence-jsonl
+      '@deepseek-ai/dsh-station-protocol':
+        specifier: workspace:^
+        version: link:../../station/protocol
+      '@deepseek-ai/dsh-stations':
+        specifier: workspace:^
+        version: link:../stations
+      '@deepseek-ai/dsh-subprocess-station':
+        specifier: workspace:^
+        version: link:../../station/subprocess-station
       '@deepseek-ai/dsh-system-prompt':
         specifier: workspace:^
         version: link:../../core/system-prompt
