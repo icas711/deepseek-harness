@@ -1936,6 +1936,12 @@ importers:
       '@deepseek-ai/dsh-session-stats':
         specifier: workspace:^
         version: link:../../session/session-stats
+      '@deepseek-ai/dsh-station-protocol':
+        specifier: workspace:^
+        version: link:../../station/protocol
+      '@deepseek-ai/dsh-stations':
+        specifier: workspace:^
+        version: link:../../host/stations
       '@deepseek-ai/dsh-storage':
         specifier: workspace:^
         version: link:../../storage/storage
@@ -1982,6 +1988,12 @@ importers:
       '@deepseek-ai/dsh-system-prompt':
         specifier: workspace:^
         version: link:../../core/system-prompt
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
+      ws:
+        specifier: ^8.21.0
+        version: 8.21.0
 
   packages/client/connection:
     dependencies:
@@ -5547,6 +5559,12 @@ importers:
       '@deepseek-ai/dsh-skill':
         specifier: workspace:^
         version: link:../../skill/skill
+      '@deepseek-ai/dsh-station-protocol':
+        specifier: workspace:^
+        version: link:../../station/protocol
+      '@deepseek-ai/dsh-stations':
+        specifier: workspace:^
+        version: link:../stations
       '@deepseek-ai/dsh-subagent':
         specifier: workspace:^
         version: link:../../subagent/subagent
@@ -5717,6 +5735,34 @@ importers:
       '@deepseek-ai/dsh-typert-protocol':
         specifier: workspace:^
         version: link:../../typert/protocol
+
+  packages/host/stations:
+    dependencies:
+      '@deepseek-ai/dsh-atomic-write':
+        specifier: workspace:^
+        version: link:../../util/atomic-write
+      '@deepseek-ai/dsh-home-paths':
+        specifier: workspace:^
+        version: link:../../util/home-paths
+      ws:
+        specifier: ^8.21.0
+        version: 8.21.0
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-host-webserver':
+        specifier: workspace:^
+        version: link:../webserver
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/invariants
+      '@deepseek-ai/dsh-station-protocol':
+        specifier: workspace:^
+        version: link:../../station/protocol
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
 
   packages/host/task-supervisor:
     dependencies:
@@ -7782,6 +7828,85 @@ importers:
       '@deepseek-ai/dsh-tools':
         specifier: workspace:^
         version: link:../../core/tools
+
+  packages/station/connector:
+    dependencies:
+      '@deepseek-ai/dsh-atomic-write':
+        specifier: workspace:^
+        version: link:../../util/atomic-write
+      '@deepseek-ai/dsh-station-protocol':
+        specifier: workspace:^
+        version: link:../protocol
+      commander:
+        specifier: ^15.0.0
+        version: 15.0.0
+      ws:
+        specifier: ^8.21.0
+        version: 8.21.0
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/invariants
+      '@deepseek-ai/dsh-subprocess':
+        specifier: workspace:^
+        version: link:../../subprocess/subprocess
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
+
+  packages/station/fs-station:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-fs':
+        specifier: workspace:^
+        version: link:../../fs/fs
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/invariants
+      '@deepseek-ai/dsh-station-protocol':
+        specifier: workspace:^
+        version: link:../protocol
+      '@deepseek-ai/dsh-stations':
+        specifier: workspace:^
+        version: link:../../host/stations
+
+  packages/station/protocol:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-brand':
+        specifier: workspace:^
+        version: link:../../util/brand
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/invariants
+
+  packages/station/subprocess-station:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/invariants
+      '@deepseek-ai/dsh-station-protocol':
+        specifier: workspace:^
+        version: link:../protocol
+      '@deepseek-ai/dsh-stations':
+        specifier: workspace:^
+        version: link:../../host/stations
+      '@deepseek-ai/dsh-subprocess':
+        specifier: workspace:^
+        version: link:../../subprocess/subprocess
+      '@deepseek-ai/dsh-timeout':
+        specifier: workspace:^
+        version: link:../../util/timeout
 
   packages/storage/storage:
     devDependencies:
