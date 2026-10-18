@@ -37,17 +37,17 @@ const RECORDS: StationView[] = [
 function stubStations(overrides: { beginPairing?: () => never } = {}): object {
   return {
     list: (login?: string) => RECORDS.filter(record => login === undefined || record.login === login),
-    beginPairing: overrides.beginPairing ?? ((_login: string) => ({ code: "ABCD2345", wssPath: "/station-ws" })),
+    beginPairing: overrides.beginPairing ?? ((_login: string) => ({ code: 'ABCD2345', wssPath: '/station-ws' })),
   }
 }
 
 async function harness(options: { stations?: object } = {}): Promise<{ api: ApiProxy }> {
   const ctx = new Context()
-  if (options.stations !== undefined) ctx.provide("stations", options.stations as never)
+  if (options.stations !== undefined) ctx.provide('stations', options.stations as never)
   // Личность для гейта: identityFromCookie читает cookie login=<имя>.
-  ctx.provide("webAuth", {
+  ctx.provide('webAuth', {
     identityFromCookie: (cookie: string | undefined) => {
-      const login = cookie?.split(";").map(part => part.trim()).find(part => part.startsWith("login="))?.slice("login=".length)
+      const login = cookie?.split(';').map(part => part.trim()).find(part => part.startsWith('login='))?.slice('login='.length)
       return login === undefined ? undefined : IDENTITIES[login]
     },
   } as never)
@@ -56,7 +56,7 @@ async function harness(options: { stations?: object } = {}): Promise<{ api: ApiP
   await ctx.plugin(UserQuestionService)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(ApprovalService)
-  const api = createApiProxy(ctx, { defaultModelSelection: () => ({ provider: "p", model: "m" }), cwd: "/tmp" })
+  const api = createApiProxy(ctx, { defaultModelSelection: () => ({ provider: 'p', model: 'm' }), cwd: '/tmp' })
   return { api }
 }
 
@@ -67,7 +67,7 @@ async function call(
   login: string | undefined,
 ): Promise<RpcResponse<unknown>> {
   const face = (api.stations[method]) as (request: RpcRequest<never>) => Promise<RpcResponse<unknown>>
-  const request = { rpcId: RpcId("t"), payload: {} } as RpcRequest<never>
+  const request = { rpcId: RpcId('t'), payload: {} } as RpcRequest<never>
   return runWithWebRequestHeaders(
     login === undefined ? new Headers() : new Headers({ cookie: `login=${login}` }),
     () => face.call(api.stations, request),
@@ -78,30 +78,30 @@ async function call(
 async function errorOf(promise: Promise<RpcResponse<unknown>>): Promise<{ code: string; message: string }> {
   const response = await promise
   expect(response.result.ok).toBe(false)
-  if (response.result.ok) throw new Error("unreachable: the call should have failed")
+  if (response.result.ok) throw new Error('unreachable: the call should have failed')
   return response.result.error
 }
 
 describe('домен station.*', () => {
   it('не-веб-вызов и пассивное развёртывание отвечают stations-unavailable', async () => {
     const passive = await harness()
-    for (const login of [undefined, "user"]) {
-      await expect(errorOf(call(passive.api, "list", login))).resolves.toMatchObject({ code: "stations-unavailable" })
-      await expect(errorOf(call(passive.api, "beginPairing", login))).resolves.toMatchObject({ code: "stations-unavailable" })
+    for (const login of [undefined, 'user']) {
+      await expect(errorOf(call(passive.api, 'list', login))).resolves.toMatchObject({ code: 'stations-unavailable' })
+      await expect(errorOf(call(passive.api, 'beginPairing', login))).resolves.toMatchObject({ code: 'stations-unavailable' })
     }
     // Сервис есть, но личности нет — тот же отказ.
     const anonymous = await harness({ stations: stubStations() })
-    await expect(errorOf(call(anonymous.api, "beginPairing", undefined))).resolves.toMatchObject({ code: "stations-unavailable" })
+    await expect(errorOf(call(anonymous.api, 'beginPairing', undefined))).resolves.toMatchObject({ code: 'stations-unavailable' })
   })
 
   it('пользователь видит свои станции; админ — все; pair выдаёт код своего логина', async () => {
     const { api } = await harness({ stations: stubStations() })
-    const own = await call(api, "list", "user")
+    const own = await call(api, 'list', 'user')
     expect(own.result).toEqual({ ok: true, value: { stations: [RECORDS[0], RECORDS[1]] } })
-    const all = await call(api, "list", "admin")
+    const all = await call(api, 'list', 'admin')
     expect(all.result).toEqual({ ok: true, value: { stations: RECORDS } })
-    const pairing = await call(api, "beginPairing", "user")
-    expect(pairing.result).toEqual({ ok: true, value: { code: "ABCD2345", wssPath: "/station-ws" } })
+    const pairing = await call(api, 'beginPairing', 'user')
+    expect(pairing.result).toEqual({ ok: true, value: { code: 'ABCD2345', wssPath: '/station-ws' } })
   })
 
   it('отказ сервиса pair сворачивается в stations-unavailable с текстом сервиса', async () => {
@@ -111,8 +111,8 @@ describe('домен station.*', () => {
       },
     })
     const { api } = await harness({ stations: failing })
-    const error = await errorOf(call(api, "beginPairing", "user"))
-    expect(error.code).toBe("stations-unavailable")
-    expect(error.message).toContain("логин сопряжения")
+    const error = await errorOf(call(api, 'beginPairing', 'user'))
+    expect(error.code).toBe('stations-unavailable')
+    expect(error.message).toContain('логин сопряжения')
   })
 })

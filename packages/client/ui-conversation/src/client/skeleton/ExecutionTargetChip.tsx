@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import clsx from 'clsx'
 import { IconCheckOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-web-react'
 import { stagedName } from '../execution-target-store.ts'
 import type { ExecutionTargetController, ExecutionTargetState } from '../execution-target-store.ts'
@@ -22,11 +23,8 @@ export interface ExecutionTargetChipInjected {
   useExecutionTarget: SnapshotSelectorHook<ExecutionTargetState>
 }
 
-/** Полные пропы чипа: inject + словарь. */
-export type ExecutionTargetChipProps = ExecutionTargetChipInjected & {
-  /** Словарь разговора (общее пространство). */
-  t: (key: string, params?: Record<string, unknown>) => string
-}
+/** Полные пропы чипа: inject + словарь разговора. */
+export type ExecutionTargetChipProps = ExecutionTargetChipInjected & PropsLocale<'conversation'>
 
 /**
  * Отрисовать чип выбора исполнения.

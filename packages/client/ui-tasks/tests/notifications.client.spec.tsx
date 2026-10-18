@@ -13,8 +13,8 @@ afterEach(cleanup)
 function fakeApi() {
   return {
     notifier: {
-      status: vi.fn(async () => ({ result: { ok: true, value: { bound: false } } })),
-      beginBinding: vi.fn(async () => ({ result: { ok: true, value: { code: 'a1b2c3d4' } } })),
+      status: vi.fn(async (): Promise<unknown> => ({ result: { ok: true, value: { bound: false } } })),
+      beginBinding: vi.fn(async (): Promise<unknown> => ({ result: { ok: true, value: { code: 'a1b2c3d4' } } })),
     },
   }
 }

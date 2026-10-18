@@ -12,7 +12,17 @@ import SessionStore, { SessionId, type Session } from '@deepseek-ai/dsh-session'
 import UserQuestionService from '@deepseek-ai/dsh-user-questions'
 import { TaskSupervisorError } from '@deepseek-ai/dsh-task-supervisor'
 import type { TaskView } from '@deepseek-ai/dsh-task-supervisor'
+
+/** Записи-двойники с изменяемыми полями: стаб имитирует переходы реестра. */
+type MutableTaskView = { -readonly [K in keyof TaskView]: TaskView[K] }
+import type { TaskViewWire } from '../src/api/tasks.ts'
 import { RpcId, type RpcRequest, type RpcResponse } from '../src/api/rpc.ts'
+
+/** Сужение результата list до значения после ok-проверки. */
+function tasksOf(response: RpcResponse<unknown>): readonly TaskViewWire[] {
+  if (!response.result.ok) throw new Error('list failed')
+  return (response.result as { ok: true; value: { tasks: TaskViewWire[] } }).value.tasks
+}
 import { createApiProxy } from '../src/api-proxy.ts'
 import { runWithWebRequestHeaders, type WebIdentity } from '../src/web-identity.ts'
 
@@ -32,7 +42,7 @@ const IDENTITIES: Record<string, WebIdentity> = {
 }
 
 /** Записи реестра: задача anna (живая сессия), задача bob, прерванная anna. */
-function records(): TaskView[] {
+function records(): MutableTaskView[] {
   return [
     { taskId: 't-anna-1' as never, sessionId: SessionId('s-anna'), title: 'Отчёт', status: 'running', updatedAt: 10 },
     { taskId: 't-bob-1' as never, sessionId: SessionId('s-bob'), title: 'Чужая работа', status: 'running', updatedAt: 11 },
@@ -43,14 +53,14 @@ function records(): TaskView[] {
 
 /** Заглушка супервизора над фиксированным набором записей. */
 function stubSupervisor(options: { resumeError?: TaskSupervisorError } = {}) {
-  const all = records()
+  const all: MutableTaskView[] = records().map(record => ({ ...record }))
   const calls: string[] = []
   return {
     calls,
     async list(): Promise<TaskView[]> {
       return all.map(record => ({ ...record }))
     },
-    async resume(taskId: string): Promise<TaskView> {
+    async resume(taskId: string): Promise<MutableTaskView> {
       calls.push(`resume:${taskId}`)
       if (options.resumeError !== undefined) throw options.resumeError
       const record = all.find(candidate => String(candidate.taskId) === taskId)
@@ -113,7 +123,8 @@ async function callTask(
   payload: Record<string, unknown>,
   login: string | undefined,
 ): Promise<RpcResponse<unknown>> {
-  const face = (api as { tasks: Record<string, (request: RpcRequest<never>) => Promise<RpcResponse<unknown>>> }).tasks[method]
+  const face = (api as { tasks: Record<string, ((request: RpcRequest<never>) => Promise<RpcResponse<unknown>>) | undefined> }).tasks[method]
+  if (face === undefined) throw new Error('нет метода ' + method)
   return runWithWebRequestHeaders(
     login === undefined ? new Headers() : new Headers({ cookie: `login=${login}` }),
     () => face.call((api as { tasks: object }).tasks, request(payload) as RpcRequest<never>),
@@ -137,29 +148,25 @@ describe('домен tasks.*', () => {
   it('пользователь видит только свои задачи; админ — тоже только свои', async () => {
     const { api } = await harness({ supervisor: stubSupervisor() })
     const anna = await callTask(api, 'list', {}, 'anna')
-    expect(anna.result).toMatchObject({ ok: true })
-    if (anna.result.ok) {
-      expect(anna.result.value.tasks.map(task => task.taskId).sort()).toEqual(['t-anna-1', 't-anna-2'])
-    }
+    expect(anna.result.ok).toBe(true)
+    expect(tasksOf(anna).map(task => task.taskId).sort()).toEqual(['t-anna-1', 't-anna-2'])
     const admin = await callTask(api, 'list', {}, 'admin')
-    if (admin.result.ok) {
-      // Изоляция строже кабинетного правила: админ не видит чужих задач.
-      expect(admin.result.value.tasks).toEqual([])
-    }
+    expect(admin.result.ok).toBe(true)
+    // Изоляция строже кабинетного правила: админ не видит чужих задач.
+    expect(tasksOf(admin)).toEqual([])
     // Не-веб-вызов (TUI) видит весь реестр.
     const nonWeb = await callTask(api, 'list', {}, undefined)
-    if (nonWeb.result.ok) {
-      expect(nonWeb.result.value.tasks).toHaveLength(4)
-    }
+    expect(nonWeb.result.ok).toBe(true)
+    expect(tasksOf(nonWeb)).toHaveLength(4)
   })
 
   it('холодная сессия видна по cwd персистенса, пропавшая скрыта; список упорядочен по свежести', async () => {
     const { api } = await harness({ supervisor: stubSupervisor() })
     const response = await callTask(api, 'list', {}, 'anna')
-    if (!response.result.ok) throw new Error('list failed')
-    const ids = response.result.value.tasks.map(task => task.taskId)
-    expect(ids).toEqual(['t-anna-2', 't-anna-1'])
-    expect(response.result.value.tasks[0]).toMatchObject({ status: 'interrupted', sessionId: 's-cold-anna' })
+    expect(response.result.ok).toBe(true)
+    const tasks = tasksOf(response)
+    expect(tasks.map(task => task.taskId)).toEqual(['t-anna-2', 't-anna-1'])
+    expect(tasks[0]).toMatchObject({ status: 'interrupted', sessionId: 's-cold-anna' })
   })
 
   it('чужой и неизвестный resume отвечают одинаково; свой возобновляется', async () => {

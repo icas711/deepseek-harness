@@ -1,0 +1,1 @@
+{"version":3,"file":"notifier-error.d.ts","sourceRoot":"","sources":["notifier-error.ts"],"names":[],"mappings":"AAAA;;;GAGG;AAEH,yEAAyE;AACzE,MAAM,MAAM,iBAAiB;AAC3B,0DAA0D;AACxD,eAAe;AACjB,0EAA0E;GACxE,cAAc,CAAA;AAElB,6EAA6E;AAC7E,qBAAa,aAAc,SAAQ,KAAK;IACtC,4CAA4C;IAC5C,QAAQ,CAAC,IAAI,EAAE,iBAAiB,CAAA;IAEhC;;;;OAIG;gBACS,OAAO,EAAE,MAAM,EAAE,IAAI,EAAE,iBAAiB;CAKrD"}

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
+import { createElement } from 'react'
 import { cleanup, render, screen } from '@testing-library/react'
 import { apply, inject } from '@deepseek-ai/dsh-client-ui-tasks/client'
 import { TasksPage } from '../src/client/TasksPage.tsx'
@@ -96,8 +97,8 @@ describe('ui-tasks apply', () => {
     const overlay = slots.entries('shell.overlay')[0]!
     const injected = (overlay.inject as unknown as () => Record<string, unknown>)()
     cleanup()
-    const pageProps = { ...(injected as object), t: (key: keyof typeof ru) => ru[key] } as never
-    render(<TasksPage {...pageProps} />)
+    const pageProps = { ...(injected as object), t: (key: keyof typeof ru) => ru[key] }
+    render(createElement(TasksPage, pageProps as never))
     expect(screen.getByText(ru.title)).toBeTruthy()
   })
 

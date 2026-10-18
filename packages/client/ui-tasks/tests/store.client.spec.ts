@@ -5,8 +5,8 @@ import { TasksController, relativeWhen, whenParams } from '../src/client/store.t
 function fakeApi() {
   return {
     tasks: {
-      list: vi.fn(async () => ({ result: { ok: true, value: { tasks: [] } } })),
-      resume: vi.fn(async () => ({ result: { ok: true, value: {} } })),
+      list: vi.fn(async (): Promise<unknown> => ({ result: { ok: true, value: { tasks: [] } } })),
+      resume: vi.fn(async (): Promise<unknown> => ({ result: { ok: true, value: {} } })),
     },
   }
 }

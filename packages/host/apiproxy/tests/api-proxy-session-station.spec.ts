@@ -95,10 +95,11 @@ async function create(
   payload: Record<string, unknown>,
   login?: string,
 ): Promise<RpcResponse<unknown>> {
-  const face = (api as { sessions: { create: (request: RpcRequest<never>) => Promise<RpcResponse<unknown>> } }).sessions.create
+  const service = (api as { sessions: { create: (request: RpcRequest<never>) => Promise<RpcResponse<unknown>> } }).sessions
+  const face = service.create
   return runWithWebRequestHeaders(
     login === undefined ? new Headers() : new Headers({ cookie: `login=${login}` }),
-    () => face.call((api as { sessions: { create: (request: RpcRequest<never>) => Promise<RpcResponse<unknown>> } }).sessions, request(payload) as RpcRequest<never>),
+    () => face.call(service, request(payload) as RpcRequest<never>),
   )
 }
 

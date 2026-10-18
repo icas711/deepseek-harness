@@ -15,7 +15,11 @@ const STATIONS = [
   { stationId: 'stn-2', login: 'u', name: 'Нетбук', rootPath: '/w/2', platform: 'win32' as const, online: false, lastSeenAt: 2, createdAt: 2 },
 ]
 
-function fakeApi(result: { ok: true; value: { stations: typeof STATIONS } } | { ok: false; error: { code: string; message: string; details: object } }) {
+function fakeApi(
+  result:
+    | { ok: true; value: { stations: typeof STATIONS } }
+    | { ok: false; error: { code: string; message: string; details: object } },
+) {
   return { stations: { list: vi.fn(async () => ({ result })) } }
 }
 
@@ -24,8 +28,10 @@ function renderChip(api: ReturnType<typeof fakeApi>) {
   const props: ExecutionTargetChipProps = {
     controller,
     useExecutionTarget: bindSnapshotSelector(controller.store),
-    t: (key, params) => {
-      let text: string = (ru as Record<string, string>)[key]
+    t: (key: Parameters<ExecutionTargetChipProps['t']>[0],
+      params?: Record<string, unknown>) => {
+      const table = ru as Record<string, string>
+      let text: string = table[key]
       for (const [name, value] of Object.entries(params ?? {})) text = text.replaceAll('{' + name + '}', String(value))
       return text
     },

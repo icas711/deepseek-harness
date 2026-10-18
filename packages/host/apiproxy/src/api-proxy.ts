@@ -2513,7 +2513,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
             })
           }
           executionTarget = { stationId: requestedTarget.stationId }
-          sessionStations.set(sessionId, executionTarget.stationId)
+          sessionStations.set(sessionId, StationId(executionTarget.stationId))
         }
         try {
           await ensureSession(sessionId, cwd, request.payload.sessionId !== undefined, requestedPreset, executionTarget)

@@ -320,6 +320,16 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [],
       },
       {
+        signature: 'notifier: NotifierApi',
+        description: 'Уведомления Telegram: код привязки и статус привязки веб-логина.',
+        parameters: [],
+      },
+      {
+        signature: 'tasks: TasksApi',
+        description: 'Задачи супервизора: список своих и возобновление прерванной.',
+        parameters: [],
+      },
+      {
         signature: 'downloads: DownloadsApi',
         description: 'Host-only download surfaces (GET, no wire envelope); absent from IApiClient.',
         parameters: [],
@@ -3899,6 +3909,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface NotificationRequest {\n    readonly login: string;\n    readonly kind: NotificationKind;\n    readonly title: string;\n    readonly sessionId: SessionId;\n}',
   },
   {
+    name: 'NotifierApi',
+    declaration: 'export interface NotifierApi {\n    beginBinding(request: RpcRequest<{}>): Promise<RpcResponse<{\n        code: string;\n    }>>;\n    status(request: RpcRequest<{}>): Promise<RpcResponse<{\n        bound: boolean;\n    }>>;\n}',
+  },
+  {
     name: 'ObjectJsonSchema',
     declaration: 'export type ObjectJsonSchema = JsonSchemaNode & {\n    type: \'object\';\n};',
   },
@@ -4759,12 +4773,20 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface TaskRecord {\n    readonly taskId: TaskId;\n    readonly sessionId: SessionId;\n    readonly title: string;\n    readonly status: TaskStatus;\n    readonly updatedAt: number;\n    readonly stationId?: StationId;\n}',
   },
   {
+    name: 'TasksApi',
+    declaration: 'export interface TasksApi {\n    list(request: RpcRequest<{}>): Promise<RpcResponse<{\n        tasks: TaskViewWire[];\n    }>>;\n    resume(request: RpcRequest<{\n        taskId: string;\n    }>): Promise<RpcResponse<{}>>;\n}',
+  },
+  {
     name: 'TaskStatus',
     declaration: 'export type TaskStatus = \'running\' | \'paused\' | \'interrupted\' | \'waiting-station\' | \'completed\' | \'failed\';',
   },
   {
     name: 'TaskView',
     declaration: 'export type TaskView = TaskRecord;',
+  },
+  {
+    name: 'TaskViewWire',
+    declaration: 'export interface TaskViewWire {\n    taskId: string;\n    sessionId: string;\n    title: string;\n    status: \'running\' | \'paused\' | \'interrupted\' | \'waiting-station\' | \'completed\' | \'failed\';\n    updatedAt: number;\n    stationId?: string;\n}',
   },
   {
     name: 'TerminalBackend',

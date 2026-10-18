@@ -83,16 +83,18 @@ export class TasksController {
     }
     const response = await this.api.tasks.list({})
     if (!response.result.ok) {
+      const failure = response.result.error
       this.store.update((state) => {
         state.status = 'error'
-        state.error = messageOf(response.result)
+        state.error = failure.message
       })
       return
     }
+    const tasks = response.result.value.tasks
     this.store.update((state) => {
       state.status = 'ready'
       state.error = null
-      state.tasks = response.result.value.tasks
+      state.tasks = tasks
     })
   }
 

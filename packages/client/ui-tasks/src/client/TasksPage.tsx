@@ -120,6 +120,7 @@ export function TasksPage(props: TasksPageProps) {
     if (ui.open && state.status === 'idle') void props.controller.load()
   }, [props.controller, ui.open, state.status])
   if (!ui.open) return null
+
   return (
     <div className={css.overlay}>
       <div className={css.panel} role="dialog" aria-modal="true" aria-label={props.t('title')}>
@@ -159,7 +160,7 @@ export function TasksPage(props: TasksPageProps) {
                   task={task}
                   busy={state.busyTaskId === task.taskId}
                   t={props.t}
-                  onResume={taskId => { void props.controller.resume(taskId) }}
+                  onResume={(taskId) => { void props.controller.resume(taskId) }}
                   onOpenSession={(sessionId) => {
                     props.closeUi()
                     props.openSession(sessionId)

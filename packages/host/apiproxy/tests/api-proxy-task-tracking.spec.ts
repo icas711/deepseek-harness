@@ -11,7 +11,10 @@ import AgentRegistry, { type AgentFactory } from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import SessionStore, { SessionId, type Session } from '@deepseek-ai/dsh-session'
 import UserQuestionService from '@deepseek-ai/dsh-user-questions'
-import type { TaskView } from '@deepseek-ai/dsh-task-supervisor'
+import type { TaskId, TaskView } from '@deepseek-ai/dsh-task-supervisor'
+
+/** Записи-двойники с изменяемыми полями: стаб имитирует переходы реестра. */
+type MutableTaskView = { -readonly [K in keyof TaskView]: TaskView[K] }
 import { RpcId, type RpcRequest, type RpcResponse } from '../src/api/rpc.ts'
 import { createApiProxy } from '../src/api-proxy.ts'
 import { runWithWebRequestHeaders, type WebIdentity } from '../src/web-identity.ts'
@@ -33,10 +36,10 @@ function isActive(status: TaskView['status']): boolean {
 
 /** Заглушка супервизора: запись задач и вызовов в памяти. */
 function stubSupervisor() {
-  const records: TaskView[] = []
+  const records: MutableTaskView[] = []
   const calls: string[] = []
   let next = 0
-  const find = (taskId: string): TaskView | undefined =>
+  const find = (taskId: string): MutableTaskView | undefined =>
     records.find(record => String(record.taskId) === taskId)
   return {
     records,
@@ -45,8 +48,8 @@ function stubSupervisor() {
       calls.push('track')
       const existing = records.find(record => record.sessionId === input.sessionId && isActive(record.status))
       if (existing !== undefined) return existing
-      const record: TaskView = {
-        taskId: `t-${String(++next)}` as never,
+      const record: MutableTaskView = {
+        taskId: `t-${String(++next)}` as TaskId,
         sessionId: input.sessionId,
         title: input.title,
         status: 'running',
@@ -56,7 +59,7 @@ function stubSupervisor() {
       records.push(record)
       return record
     },
-    async markCompleted(taskId: string): Promise<TaskView> {
+    async markCompleted(taskId: string): Promise<MutableTaskView> {
       calls.push('complete')
       const record = find(taskId)
       if (record === undefined) throw new Error('unknown task')
@@ -64,7 +67,7 @@ function stubSupervisor() {
       record.updatedAt = Date.now()
       return record
     },
-    async markFailed(taskId: string, reason: string): Promise<TaskView> {
+    async markFailed(taskId: string, reason: string): Promise<MutableTaskView> {
       calls.push(`failed:${reason}`)
       const record = find(taskId)
       if (record === undefined) throw new Error('unknown task')
@@ -142,13 +145,13 @@ async function until(condition: () => boolean): Promise<void> {
 /** session.create под личностью anna. */
 async function create(api: unknown, payload: Record<string, unknown>): Promise<RpcResponse<unknown>> {
   const face = (api as { sessions: { create: (request: RpcRequest<never>) => Promise<RpcResponse<unknown>> } }).sessions.create
-  return runWithWebRequestHeaders(new Headers({ cookie: 'login=anna' }), () => face.call((api as { sessions: never }).sessions as never, request(payload) as RpcRequest<never>))
+  return runWithWebRequestHeaders(new Headers({ cookie: 'login=anna' }), () => face.call((api as { sessions: never }).sessions, request(payload) as RpcRequest<never>))
 }
 
 /** session.prompt под личностью anna. */
 async function prompt(api: unknown, sessionId: string, text: string): Promise<RpcResponse<unknown>> {
   const face = (api as { sessions: { prompt: (request: RpcRequest<never>) => Promise<RpcResponse<unknown>> } }).sessions.prompt
-  return runWithWebRequestHeaders(new Headers({ cookie: 'login=anna' }), () => face.call((api as { sessions: never }).sessions as never, request({
+  return runWithWebRequestHeaders(new Headers({ cookie: 'login=anna' }), () => face.call((api as { sessions: never }).sessions, request({
     sessionId: SessionId(sessionId),
     content: [{ type: 'text', text }],
   }) as RpcRequest<never>))
@@ -171,7 +174,7 @@ describe('проводка супервизора задач в шлюз', () =>
     await prompt(api, 's-station', 'Другая формулировка')
     await until(() => supervisor.calls.filter(call => call === 'track').length >= 2)
     expect(supervisor.records).toHaveLength(1)
-    expect(supervisor.records[0].title).toBe('Собери отчёт по продажам')
+    expect(supervisor.records[0]?.title).toBe('Собери отчёт по продажам')
     // Нормальный исход turn'а завершает задачу.
     ctx.sessions.get(SessionId('s-station'))?.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
     await until(() => supervisor.records[0]?.status === 'completed')
@@ -184,7 +187,7 @@ describe('проводка супервизора задач в шлюз', () =>
     await prompt(api, 's-local', 'Почини сборку')
     await until(() => supervisor.records.length === 1)
     expect(supervisor.records[0]).toMatchObject({ sessionId: 's-local', title: 'Почини сборку', status: 'running' })
-    expect(supervisor.records[0].stationId).toBeUndefined()
+    expect(supervisor.records[0]?.stationId).toBeUndefined()
     ctx.sessions.get(SessionId('s-local'))?.append('turn/end', {
       turn: 1,
       reason: { kind: 'error', error: { message: 'модель недоступна', code: 'UNKNOWN' } },

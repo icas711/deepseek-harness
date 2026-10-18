@@ -63,17 +63,19 @@ export class ExecutionTargetController {
     })
     const response = await this.api.stations.list({})
     if (!response.result.ok) {
+      const failure = response.result.error
       this.store.update((state) => {
         state.status = 'error'
-        state.error = response.result.error.message
-        state.unavailable = response.result.error.code === 'stations-unavailable'
+        state.error = failure.message
+        state.unavailable = failure.code === 'stations-unavailable'
       })
       return
     }
+    const stations = response.result.value.stations
     this.store.update((state) => {
       state.status = 'ready'
       state.error = null
-      state.stations = response.result.value.stations.map(station => ({
+      state.stations = stations.map(station => ({
         stationId: station.stationId,
         name: station.name,
         online: station.online,

@@ -1,6 +1,6 @@
 /** connectWorkspace с executionTarget: пропуск переиспользования blank и привязка в session.create. */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import type { SessionId, WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-remotes/client'
 import { SessionRuntime } from '../src/client/sessions/service.ts'
 import { WorkspaceRuntime } from '../src/client/workspaces/service.ts'
@@ -18,7 +18,7 @@ async function harness(opts: { blankInWorkspace?: boolean } = {}) {
   const api = new FakeApiClient()
   const createCalls: unknown[] = []
   const sessions = new SessionRuntime(ctx, api, { dispatch: async () => { throw new Error('no remotes') } } as never)
-  const workspaces = new WorkspaceRuntime(ctx, api, sessions as never)
+  const workspaces = new WorkspaceRuntime(ctx, api, sessions)
   api.onWorkspaceList = () => Promise.resolve(ok({
     items: [workspace('alpha', opts.blankInWorkspace === true ? [sid('s-blank')] : [])] as never[],
   }))

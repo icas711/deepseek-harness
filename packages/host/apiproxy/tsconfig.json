@@ -102,6 +102,12 @@
       "path": "../stations"
     },
     {
+      "path": "../../host/task-supervisor"
+    },
+    {
+      "path": "../../notify/notifier"
+    },
+    {
       "path": "../../station/fs-station"
     },
     {

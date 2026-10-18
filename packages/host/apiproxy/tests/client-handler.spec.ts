@@ -149,6 +149,14 @@ function scriptedApi(overrides: {
       list: r => ok(r, { stations: [] }),
       beginPairing: r => ok(r, { code: 'ABCD2345', wssPath: '/station-ws' }),
     },
+    notifier: {
+      beginBinding: r => ok(r, { code: 'a1b2c3d4' }),
+      status: r => ok(r, { bound: false }),
+    },
+    tasks: {
+      list: r => ok(r, { tasks: [] }),
+      resume: r => err(r),
+    },
     events: { mux: () => empty<MuxFrame>(), host: () => empty<HostFrame>(), ...overrides.events },
     respond: overrides.respond ?? (() => Promise.resolve({ accepted: false as const, reason: 'not-pending' as const })),
     downloads: { sessionLog: async () => new Response('stub', { status: 404 }) },
