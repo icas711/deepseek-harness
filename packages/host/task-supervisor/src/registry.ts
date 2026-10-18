@@ -10,6 +10,7 @@
 import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { writeFileAtomic, withFileLock } from '@deepseek-ai/dsh-atomic-write'
+import { StationId } from '@deepseek-ai/dsh-station-protocol'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import { TaskSupervisorError } from './task-error.ts'
 import type { TaskId, TaskRecord, TaskStatus } from './types.ts'
@@ -26,24 +27,27 @@ export function TaskId(value: string): TaskId {
 export const REGISTRY_FORMAT_VERSION = 1
 
 /** Every status the format admits; the parse rejects anything else. */
-const TASK_STATUSES: readonly TaskStatus[] = ['running', 'paused', 'interrupted', 'completed', 'failed']
+const TASK_STATUSES: readonly TaskStatus[] = ['running', 'paused', 'interrupted', 'waiting-station', 'completed', 'failed']
 
 /**
  * The closed transition table. `running -> interrupted` is the startup flip for
  * a predecessor process that died without parking, and the revert a failed
- * resume takes; `running -> paused` is the clean-unload flip; terminal statuses
- * accept nothing.
+ * resume takes; `running -> paused` is the clean-unload flip;
+ * `running -> waiting-station` and `waiting-station -> running` are the
+ * station-driven pair (the bound station dropped offline, then reconnected);
+ * terminal statuses accept nothing.
  */
 const ALLOWED_TRANSITIONS: Record<TaskStatus, readonly TaskStatus[]> = {
-  running: ['paused', 'interrupted', 'completed', 'failed'],
+  running: ['paused', 'interrupted', 'waiting-station', 'completed', 'failed'],
   paused: ['running', 'completed', 'failed'],
   interrupted: ['running', 'completed', 'failed'],
+  'waiting-station': ['running', 'completed', 'failed'],
   completed: [],
   failed: [],
 }
 
-/** Statuses that claim live or parked work; at most one per session id. */
-const ACTIVE_STATUSES: readonly TaskStatus[] = ['running', 'paused', 'interrupted']
+/** Statuses that claim live, parked, or station-blocked work; at most one per session id. */
+const ACTIVE_STATUSES: readonly TaskStatus[] = ['running', 'paused', 'interrupted', 'waiting-station']
 
 /** Whether a filesystem error means absence; every other failure surfaces. */
 function isENOENT(error: unknown): boolean {
@@ -103,7 +107,7 @@ export function parseRegistryDocument(text: string, filePath: string): TaskRecor
     if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
       throw new RegistryFileError(filePath, `tasks[${index}] is not a record`)
     }
-    const record = entry as { taskId?: unknown; sessionId?: unknown; title?: unknown; status?: unknown; updatedAt?: unknown }
+    const record = entry as { taskId?: unknown; sessionId?: unknown; title?: unknown; status?: unknown; updatedAt?: unknown; stationId?: unknown }
     for (const field of ['taskId', 'sessionId', 'title', 'status', 'updatedAt'] as const) {
       if (record[field] === undefined) {
         throw new RegistryFileError(filePath, `tasks[${index}] lacks "${field}"`)
@@ -120,12 +124,23 @@ export function parseRegistryDocument(text: string, filePath: string): TaskRecor
     if (typeof record.updatedAt !== 'number' || !Number.isSafeInteger(record.updatedAt)) {
       throw new RegistryFileError(filePath, `tasks[${index}] carries a non-integer updatedAt`)
     }
+    // Optional field: a task may run in the host's own execution world. When
+    // present it must be a well-formed station identity — garbage fails the
+    // load loud, same as any other boundary violation.
+    let stationId: TaskRecord['stationId']
+    if (record.stationId !== undefined) {
+      if (typeof record.stationId !== 'string' || record.stationId === '') {
+        throw new RegistryFileError(filePath, `tasks[${index}] carries a malformed stationId`)
+      }
+      stationId = StationId(record.stationId)
+    }
     return {
       taskId: TaskId(record.taskId),
       sessionId: SessionId(record.sessionId),
       title: record.title,
       status: record.status as TaskStatus,
       updatedAt: record.updatedAt,
+      ...(stationId === undefined ? {} : { stationId }),
     }
   })
 }
@@ -266,17 +281,26 @@ export class TaskRegistryStore {
   /**
    * Track work: create the session's active record or retarget the existing
    * one. Idempotent by session id — a repeated identical call for an already
-   * running task commits nothing.
-   * @param input - the session whose agent performs the work, and its label.
+   * running task commits nothing. An explicit station binding rebinds the
+   * record; an omitted one keeps the previous binding.
+   * @param input - the session whose agent performs the work, its label, and
+   *   the optional execution station the work is bound to.
    * @returns the up-to-date record and whether this call created it.
    */
-  async upsertRunning(input: { sessionId: SessionId; title: string }): Promise<{ record: TaskRecord; created: boolean }> {
+  async upsertRunning(input: { sessionId: SessionId; title: string; stationId?: TaskRecord['stationId'] }): Promise<{ record: TaskRecord; created: boolean }> {
     const existing = this.findActiveBySession(input.sessionId)
     if (existing !== undefined) {
-      if (existing.status === 'running' && existing.title === input.title) {
+      const stationId = input.stationId ?? existing.stationId
+      if (existing.status === 'running' && existing.title === input.title && existing.stationId === stationId) {
         return { record: existing, created: false }
       }
-      const record: TaskRecord = { ...existing, title: input.title, status: 'running', updatedAt: this.now() }
+      const record: TaskRecord = {
+        ...existing,
+        title: input.title,
+        status: 'running',
+        updatedAt: this.now(),
+        ...(stationId === undefined ? {} : { stationId }),
+      }
       await this.settle(record.taskId, record)
       return { record: { ...record }, created: false }
     }
@@ -286,9 +310,38 @@ export class TaskRegistryStore {
       title: input.title,
       status: 'running',
       updatedAt: this.now(),
+      ...(input.stationId === undefined ? {} : { stationId: input.stationId }),
     }
     await this.settle(record.taskId, record)
     return { record: { ...record }, created: true }
+  }
+
+  /**
+   * Flip every running record bound to one station to `waiting-station` in a
+   * single committed write — the station/status offline step. Tasks without
+   * that binding, and records in any other status, stay untouched.
+   * @param stationId - the station that dropped offline.
+   * @returns the flipped records, empty when nothing was running on it.
+   */
+  async parkStationRunning(stationId: StationId): Promise<TaskRecord[]> {
+    const previous = new Map<TaskId, TaskRecord>()
+    const flipped: TaskRecord[] = []
+    for (const record of this.records.values()) {
+      if (record.status !== 'running' || record.stationId !== stationId) continue
+      const next: TaskRecord = { ...record, status: 'waiting-station', updatedAt: this.now() }
+      previous.set(record.taskId, record)
+      this.records.set(record.taskId, next)
+      flipped.push({ ...next })
+    }
+    if (flipped.length > 0) {
+      try {
+        await this.commit()
+      } catch (error) {
+        for (const [taskId, record] of previous) this.records.set(taskId, record)
+        throw error
+      }
+    }
+    return flipped
   }
 
   /**

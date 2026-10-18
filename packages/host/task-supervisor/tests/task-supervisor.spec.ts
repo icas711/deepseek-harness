@@ -1,11 +1,19 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
+import type { Agent } from '@deepseek-ai/dsh-agent'
+import { StationId } from '@deepseek-ai/dsh-station-protocol'
 import { SessionId } from '@deepseek-ai/dsh-session'
-import TaskSupervisor, { CONTINUATION_PROMPT, buildContinuationMessage, TaskSupervisorError } from '../src/index.ts'
+import TaskSupervisor, {
+  CONTINUATION_PROMPT,
+  STATION_CONTINUATION_PROMPT,
+  buildContinuationMessage,
+  buildStationContinuationMessage,
+  TaskSupervisorError,
+} from '../src/index.ts'
 
 let root: string | undefined
 let context: Context | undefined
@@ -17,18 +25,44 @@ afterEach(async () => {
   root = undefined
 })
 
-interface Harness { supervisor: TaskSupervisor; registryPath: string }
+interface Harness { supervisor: TaskSupervisor; registryPath: string; stations: { online: Map<string, boolean> } }
 
-/** Boot one supervisor over a fresh temporary registry. */
+/**
+ * Boot one supervisor over a fresh temporary registry. The stations bridge is
+ * a stub keyed by its `isOnline` map — the seam face the supervisor reads
+ * (the `station/status` event rides the real cordis dispatch).
+ */
 async function boot(configure?: (registryPath: string) => Promise<void>): Promise<Harness> {
   root ??= await mkdtemp(join(tmpdir(), 'dsh-task-supervisor-'))
   const registryPath = join(root, 'task-registry.json')
   await configure?.(registryPath)
   context = new Context()
+  const stations = { online: new Map<string, boolean>() }
+  context.provide('stations', {
+    isOnline: (stationId: StationId) => stations.online.get(String(stationId)) === true,
+  } as never)
   await context.plugin(AgentRegistry)
   const fiber = context.plugin(TaskSupervisor, { registryPath })
   await fiber.await()
-  return { supervisor: context.taskSupervisor, registryPath }
+  return { supervisor: context.taskSupervisor, registryPath, stations }
+}
+
+/** Register a live agent double the supervisor reuses instead of a cold open. */
+function attachAgent(sessionId: SessionId, status: 'idle' | 'running' = 'idle'): { agent: Agent; followups: unknown[] } {
+  const followups: unknown[] = []
+  const agent = {
+    id: sessionId,
+    status,
+    session: { id: sessionId },
+    followup: (message: unknown) => { followups.push(message) },
+  } as unknown as Agent
+  context?.agents.register(agent)
+  return { agent, followups }
+}
+
+/** One station/status transition through the real cordis dispatch. */
+function emitStationStatus(stationId: StationId, online: boolean): void {
+  context?.emit('station/status', { stationId, online })
 }
 
 /** One on-disk task entry as the test reads it back. */
@@ -50,6 +84,9 @@ describe('CONTINUATION_PROMPT', () => {
     expect(CONTINUATION_PROMPT).toMatchInlineSnapshot(
       '"Задача была прервана рестартом сервера. Продолжи выполнение с места остановки; сначала кратко восстанови контекст по истории."',
     )
+    expect(STATION_CONTINUATION_PROMPT).toMatchInlineSnapshot(
+      '"Связь со станцией восстановлена. Продолжи выполнение задачи с места остановки."',
+    )
   })
 
   it('rides the ordinary logged user input path with the plugin source', () => {
@@ -57,6 +94,10 @@ describe('CONTINUATION_PROMPT', () => {
     expect(message.role).toBe('user')
     expect(message.source).toEqual({ kind: 'plugin', plugin: '@deepseek-ai/dsh-task-supervisor' })
     expect(message.content).toEqual([{ type: 'text', text: CONTINUATION_PROMPT }])
+    const station = buildStationContinuationMessage()
+    expect(station.role).toBe('user')
+    expect(station.source).toEqual({ kind: 'plugin', plugin: '@deepseek-ai/dsh-task-supervisor' })
+    expect(station.content).toEqual([{ type: 'text', text: STATION_CONTINUATION_PROMPT }])
   })
 })
 
@@ -153,5 +194,116 @@ describe('TaskSupervisor service', () => {
     // …and an explicit resume fails loud and reverts.
     await expect(context.taskSupervisor.resume(task.taskId)).rejects.toBeInstanceOf(TaskSupervisorError)
     expect((await context.taskSupervisor.list())[0]?.status).toBe('paused')
+  })
+
+  it('persists the station binding through track', async () => {
+    const { supervisor, registryPath } = await boot()
+    await supervisor.track({
+      sessionId: SessionId('s1'),
+      title: 'На станции',
+      stationId: StationId('stn-1'),
+    })
+    const disk = await readRegistry(registryPath)
+    expect(disk.tasks[0]).toMatchObject({ sessionId: 's1', stationId: 'stn-1', status: 'running' })
+  })
+
+  it('parks a bound running task as waiting-station when its station goes offline', async () => {
+    const { supervisor, registryPath } = await boot()
+    const bound = await supervisor.track({
+      sessionId: SessionId('s1'), title: 'На станции', stationId: StationId('stn-1'),
+    })
+    const other = await supervisor.track({
+      sessionId: SessionId('s2'), title: 'Другая станция', stationId: StationId('stn-2'),
+    })
+    const local = await supervisor.track({ sessionId: SessionId('s3'), title: 'Локальная' })
+    emitStationStatus(StationId('stn-1'), false)
+    // The durable park is the commit point: wait for the disk, not the memory.
+    await vi.waitFor(async () => {
+      const disk = await readRegistry(registryPath)
+      expect(disk.tasks.find(task => task.taskId === bound.taskId)?.status).toBe('waiting-station')
+    }, { timeout: 2_000, interval: 10 })
+    // Only the offline station's running records move.
+    expect((await supervisor.list()).find(task => task.taskId === other.taskId)?.status).toBe('running')
+    expect((await supervisor.list()).find(task => task.taskId === local.taskId)?.status).toBe('running')
+  })
+
+  it('auto-resumes a waiting-station task when its station returns, with the station wording', async () => {
+    const { supervisor, registryPath } = await boot()
+    const task = await supervisor.track({
+      sessionId: SessionId('s1'), title: 'На станции', stationId: StationId('stn-1'),
+    })
+    const { followups } = attachAgent(SessionId('s1'))
+    emitStationStatus(StationId('stn-1'), false)
+    // Both waits target the durable commit, not the pre-commit memory state.
+    await vi.waitFor(async () => {
+      const disk = await readRegistry(registryPath)
+      expect(disk.tasks[0]?.status).toBe('waiting-station')
+    }, { timeout: 2_000, interval: 10 })
+    emitStationStatus(StationId('stn-1'), true)
+    await vi.waitFor(async () => {
+      const disk = await readRegistry(registryPath)
+      expect(disk.tasks[0]?.status).toBe('running')
+    }, { timeout: 2_000, interval: 10 })
+    // The follow-up lands in the microtask chain right after the transition
+    // commit the disk wait just observed.
+    for (let i = 0; i < 5; i += 1) await new Promise(resolve => setImmediate(resolve))
+    // The idle agent's continuation carries the station-return text, not the
+    // restart text: the work continues on the reconnected bridge.
+    expect(followups).toHaveLength(1)
+    expect(followups[0]).toMatchObject({
+      role: 'user',
+      content: [{ type: 'text', text: STATION_CONTINUATION_PROMPT }],
+      source: { kind: 'plugin', plugin: '@deepseek-ai/dsh-task-supervisor' },
+    })
+    expect(task.stationId).toBe(StationId('stn-1'))
+  })
+
+  it('skips the continuation input when the resumed turn is still in flight', async () => {
+    const { supervisor, registryPath } = await boot()
+    await supervisor.track({
+      sessionId: SessionId('s1'), title: 'На станции', stationId: StationId('stn-1'),
+    })
+    // The turn never stopped across the offline window: the resume must not
+    // queue a follow-up behind the live turn.
+    const { followups } = attachAgent(SessionId('s1'), 'running')
+    emitStationStatus(StationId('stn-1'), false)
+    await vi.waitFor(async () => {
+      const disk = await readRegistry(registryPath)
+      expect(disk.tasks[0]?.status).toBe('waiting-station')
+    }, { timeout: 2_000, interval: 10 })
+    emitStationStatus(StationId('stn-1'), true)
+    await vi.waitFor(async () => {
+      const disk = await readRegistry(registryPath)
+      expect(disk.tasks[0]?.status).toBe('running')
+    }, { timeout: 2_000, interval: 10 })
+    for (let i = 0; i < 5; i += 1) await new Promise(resolve => setImmediate(resolve))
+    expect(followups).toHaveLength(0)
+  })
+
+  it('resumes a waiting-station task explicitly and keeps the wait across teardown', async () => {
+    const { supervisor, registryPath } = await boot()
+    const task = await supervisor.track({
+      sessionId: SessionId('s1'), title: 'На станции', stationId: StationId('stn-1'),
+    })
+    emitStationStatus(StationId('stn-1'), false)
+    await vi.waitFor(async () => {
+      const disk = await readRegistry(registryPath)
+      expect(disk.tasks[0]?.status).toBe('waiting-station')
+    }, { timeout: 2_000, interval: 10 })
+    // Explicit resume follows the same mechanics with the always-deliver rule.
+    const { followups } = attachAgent(SessionId('s1'))
+    const resumed = await supervisor.resume(task.taskId)
+    expect(resumed.status).toBe('running')
+    expect(followups).toHaveLength(1)
+    // The clean unload parks running tasks; a station wait is not a park —
+    // the offline window survives the restart.
+    emitStationStatus(StationId('stn-1'), false)
+    await vi.waitFor(async () => {
+      const disk = await readRegistry(registryPath)
+      expect(disk.tasks.find(entry => entry.taskId === task.taskId)?.status).toBe('waiting-station')
+    }, { timeout: 2_000, interval: 10 })
+    await context?.fiber.dispose()
+    const disk = await readRegistry(registryPath)
+    expect(disk.tasks.find(entry => entry.taskId === task.taskId)?.status).toBe('waiting-station')
   })
 })

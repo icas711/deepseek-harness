@@ -5,7 +5,10 @@
  */
 
 import type { Branded } from '@deepseek-ai/dsh-brand'
+import type { StationId } from '@deepseek-ai/dsh-station-protocol'
 import type { SessionId } from '@deepseek-ai/dsh-session'
+
+export type { StationId } from '@deepseek-ai/dsh-station-protocol'
 
 /** Opaque cross-boundary task identity; minted only by the owning supervisor. */
 export type TaskId = Branded<'TaskId'>
@@ -18,6 +21,8 @@ export type TaskStatus =
   | 'paused'
   /** The previous process died without parking the task (hard crash). */
   | 'interrupted'
+  /** The bound execution station is offline; the station/status online event resumes the task. */
+  | 'waiting-station'
   /** The owner reported success. */
   | 'completed'
   /** The owner reported failure. */
@@ -38,6 +43,13 @@ export interface TaskRecord {
   readonly status: TaskStatus
   /** Epoch milliseconds of the last durable status or title change. */
   readonly updatedAt: number
+  /**
+   * The execution station the work is bound to, when any. Absent for tasks
+   * that run in the host's own execution world; present, the supervisor moves
+   * running records to `waiting-station` when that station drops offline and
+   * auto-resumes them when it reconnects.
+   */
+  readonly stationId?: StationId
 }
 
 /** Detached view served by the service API; values are fresh copies. */
