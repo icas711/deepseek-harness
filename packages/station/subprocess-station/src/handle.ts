@@ -63,24 +63,24 @@ export class StationSubprocessHandle implements SubprocessHandle {
       id: this.id,
       argv: [...spec.argv],
       cwd: spec.cwd,
-      ...(spec.stdio.stdin.mode === 'data'
-        ? { stdin: { mode: 'data' as const, data: Buffer.from(spec.stdio.stdin.data, 'utf8').toString('base64') } }
-        : { stdin: { mode: 'ignore' as const } }),
+      ...(typeof spec.stdio.stdin === 'string'
+        ? { stdin: { mode: 'ignore' as const } }
+        : { stdin: { mode: 'data' as const, data: Buffer.from(spec.stdio.stdin.data, 'utf8').toString('base64') } }),
       stdoutInherit: spec.stdio.stdout === 'inherit',
       stderrInherit: spec.stdio.stderr === 'inherit',
       env,
     })
     const settled = spawnRequest.then(
-      result => {
+      (result) => {
         this.processPid = result.pid
       },
-      error => {
+      (error: unknown) => {
         // Уровень запуска: шов велит отклонить done, pid остаётся -1.
         this.exit.reject(error)
       },
     )
-    const disposeEvents = bridge.onEvent(event => {
-      if (event.t !== 'evt' || event.p.id !== this.id) return
+    const disposeEvents = bridge.onEvent((event) => {
+      if (event.p.id !== this.id) return
       if (event.event === 'proc/stdout') this.absorb(this.stdoutWindow, this.rawStreams.stdout, event.p.data)
       if (event.event === 'proc/stderr') this.absorb(this.stderrWindow, this.rawStreams.stderr, event.p.data)
       if (event.event === 'proc/exit') {
@@ -147,7 +147,7 @@ export class StationSubprocessHandle implements SubprocessHandle {
       await this.exit.promise.catch(() => {})
       return true
     }
-    return await new Promise<boolean>(resolve => {
+    return await new Promise<boolean>((resolve) => {
       const done = (won: boolean): void => {
         signal.removeEventListener('abort', onAbort)
         resolve(won)
@@ -203,10 +203,10 @@ export class StationSubprocessHandle implements SubprocessHandle {
         bridge.request('proc/write', {
           id: this.id,
           data: chunk.toString('base64'),
-        }).then(() => { callback() }, error => { callback(error instanceof Error ? error : new Error(String(error))) })
+        }).then(() => { callback() }, (error: unknown) => { callback(error instanceof Error ? error : new Error(String(error))) })
       },
-      final: callback => {
-        bridge.request('proc/close-stdin', { id: this.id }).then(() => { callback() }, error => { callback(error instanceof Error ? error : new Error(String(error))) })
+      final: (callback) => {
+        bridge.request('proc/close-stdin', { id: this.id }).then(() => { callback() }, (error: unknown) => { callback(error instanceof Error ? error : new Error(String(error))) })
       },
     })
   }

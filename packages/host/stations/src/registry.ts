@@ -83,7 +83,7 @@ export function parseRegistryDocument(text: string, filePath: string): StationRe
       }
     }
     for (const field of ['stationId', 'login', 'name', 'rootPath', 'tokenHash'] as const) {
-      if (typeof record[field] !== 'string' || (record[field] as string).length === 0) {
+      if (typeof record[field] !== 'string' || (record[field]).length === 0) {
         throw new RegistryFileError(filePath, `stations[${index}] несёт некорректное поле "${field}"`)
       }
     }
@@ -106,8 +106,8 @@ export function parseRegistryDocument(text: string, filePath: string): StationRe
       rootPath: String(record.rootPath),
       platform: record.platform as StationRecord['platform'],
       tokenHash: String(record.tokenHash),
-      createdAt: Number(record.createdAt),
-      lastSeenAt: Number(record.lastSeenAt),
+      createdAt: record.createdAt,
+      lastSeenAt: record.lastSeenAt,
     }
   })
 }

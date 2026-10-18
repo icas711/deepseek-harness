@@ -12,6 +12,7 @@ import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { resolveWithinRoot } from '@deepseek-ai/dsh-station-protocol'
 import type { StationId, StationPlatform, StationStatResult } from '@deepseek-ai/dsh-station-protocol'
+type StationStatPresent = Extract<StationStatResult, { exists: true }>
 import { StationsError } from '@deepseek-ai/dsh-stations'
 import type { StationBridge } from '@deepseek-ai/dsh-stations'
 import { FileSystem, FsError, FsTargetKey, FsVersion } from '@deepseek-ai/dsh-fs'
@@ -124,7 +125,7 @@ export class StationFileSystem extends FileSystem {
     try {
       return this.ctx.stations.bridge(this.stationId)
     } catch (error) {
-      throw this.mapRemote(error, `станция офлайн`)
+      throw this.mapRemote(error, 'станция офлайн')
     }
   }
 
@@ -213,6 +214,8 @@ export class StationFileSystem extends FileSystem {
   override async streamText(target: FsTarget, signal?: AbortSignal): Promise<AsyncIterable<string>> {
     const whole = await this.readText(target, signal)
     return {
+      // Граница отмены — само чтение выше; итератор лишь раздаёт готовые куски.
+      // oxlint-disable-next-line typescript/require-await
       async *[Symbol.asyncIterator](): AsyncGenerator<string> {
         // Чтение через мост ограничено readLimitBytes, поэтому разбиение —
         // вопрос потребления, а не памяти: отдаём кусками по 64 КиБ.
@@ -229,7 +232,7 @@ export class StationFileSystem extends FileSystem {
     assertNotAborted(signal, 'read')
     const bridge = this.bridge()
     try {
-      const result = await bridge.request('fs/read', { path: String(target.targetKey), maxBytes }, { signal })
+      const result = await bridge.request('fs/read', { path: String(target.targetKey), maxBytes }, signal === undefined ? {} : { signal })
       return new Uint8Array(Buffer.from(result.data, 'base64'))
     } catch (error) {
       throw this.mapRemote(error, `чтение «${target.displayPath}»`)
@@ -243,11 +246,11 @@ export class StationFileSystem extends FileSystem {
     const bridge = this.bridge()
     let result
     try {
-      result = await bridge.request('fs/list', { path: String(target.targetKey) }, { signal })
+      result = await bridge.request('fs/list', { path: String(target.targetKey) }, signal === undefined ? {} : { signal })
     } catch (error) {
       throw this.mapRemote(error, `список «${target.displayPath}»`)
     }
-    return result.entries.map(entry => {
+    return result.entries.map((entry) => {
       const childPath = joinPath(platform, String(target.targetKey), entry.name)
       return {
         name: entry.name,
@@ -293,7 +296,7 @@ export class StationFileSystem extends FileSystem {
         path: String(target.targetKey),
         data: Buffer.from(content, 'utf8').toString('base64'),
         createOnly: false,
-      }, { signal })
+      }, signal === undefined ? {} : { signal })
     } catch (error) {
       throw this.mapRemote(error, `запись «${target.displayPath}»`)
     }
@@ -330,11 +333,11 @@ export class StationFileSystem extends FileSystem {
   }
 
   /** stat-зонд станции: absent — undefined, прочий отказ — коды шва. */
-  private async probe(target: FsTarget, lstat: boolean, signal: AbortSignal | undefined): Promise<StationStatResult | undefined> {
+  private async probe(target: FsTarget, lstat: boolean, signal: AbortSignal | undefined): Promise<StationStatPresent | undefined> {
     const bridge = this.bridge()
     let result
     try {
-      result = await bridge.request('fs/stat', { path: String(target.targetKey), ...(lstat ? { lstat: true } : {}) }, { signal })
+      result = await bridge.request('fs/stat', { path: String(target.targetKey), ...(lstat ? { lstat: true } : {}) }, signal === undefined ? {} : { signal })
     } catch (error) {
       throw this.mapRemote(error, `stat «${target.displayPath}»`)
     }

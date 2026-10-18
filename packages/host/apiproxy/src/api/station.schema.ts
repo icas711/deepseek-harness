@@ -6,7 +6,6 @@
 import { z } from 'zod'
 import type { RequestPayload, ResponseValue } from './rpc-map.ts'
 import type { Wire } from './rpc.schema.ts'
-import type { StationViewWire } from './station.ts'
 
 /** station.list request payload (empty). */
 export const stationListRequestSchema = z.object({}) satisfies z.ZodType<Wire<RequestPayload<'station.list'>>>

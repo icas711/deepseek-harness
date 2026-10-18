@@ -21,6 +21,21 @@ function currentPlatform(): StationPlatform {
   return process.platform === 'win32' ? 'win32' : process.platform === 'darwin' ? 'darwin' : 'linux'
 }
 
+/** Разобранные опции команды pair; name несёт умолчание командира. */
+interface PairOptions {
+  server: string
+  code: string
+  name: string
+  root?: string
+  home?: string
+}
+
+/** Разобранные опции команды run. */
+interface ServeOptions {
+  server?: string
+  home?: string
+}
+
 /**
  * Собирает программу CLI. Разделение buildProgram и главной функции
  * позволяет тестам строить программу без системного выхода.
@@ -37,7 +52,7 @@ export function buildProgram(): Command {
     .option('--name <name>', 'показательное имя станции', 'моя станция')
     .option('--root <path>', 'корневая папка мира исполнения (по умолчанию — текущая)')
     .option('--home <path>', 'домашняя папка коннектора (по умолчанию ~/.dsh-station)')
-    .action(async options => {
+    .action(async (options: PairOptions) => {
       const home = options.home ?? stationHome()
       const root = options.root ?? process.cwd()
       const exit = await runPair(home, options.server, options.code, options.name, root)
@@ -48,7 +63,7 @@ export function buildProgram(): Command {
     .description('Подключи станцию к оркестратору и обслуживай операции (после сопряжения)')
     .option('--server <url>', 'переопределить URL хоста из конфига')
     .option('--home <path>', 'домашняя папка коннектора (по умолчанию ~/.dsh-station)')
-    .action(async options => {
+    .action(async (options: ServeOptions) => {
       const home = options.home ?? stationHome()
       const exit = await runServe(home, options.server)
       if (exit !== 0) process.exitCode = exit
@@ -127,7 +142,8 @@ export async function runServe(home: string, serverOverride?: string): Promise<n
     console.error('Ошибка: станция ещё не сопряжена. Выполните: dsh-station pair --server <url> --code <code>')
     return 2
   }
-  if (config.token === undefined || config.root === undefined) {
+  const { token, root } = config
+  if (token === undefined || root === undefined) {
     console.error('Ошибка: в конфиге нет токена или корня — повторите сопряжение.')
     return 2
   }
@@ -141,16 +157,16 @@ export async function runServe(home: string, serverOverride?: string): Promise<n
   process.once('SIGTERM', onSignal)
   // События исполнителя (stdout/stderr/exit) едут в активный сокет.
   let socket: WebSocket | undefined
-  const executor = new StationExecutor(config.root, currentPlatform(), event => {
+  const executor = new StationExecutor(root, currentPlatform(), (event) => {
     socket?.send(JSON.stringify(event))
   })
   try {
-    console.log(`Подключение к ${url}; корень: ${config.root}`)
+    console.log(`Подключение к ${url}; корень: ${root}`)
     await runConnectorLoop({
       url,
       auth: () => ({
         mode: 'token',
-        token: config!.token!,
+        token,
       }),
       executor,
       reconnect: true,
@@ -160,7 +176,7 @@ export async function runServe(home: string, serverOverride?: string): Promise<n
         if (state === 'waiting') console.log(`Соединение потеряно (${detail ?? 'нет деталей'}); переподключаюсь…`)
         if (state === 'stopped' && detail !== undefined) console.log(`Остановлено: ${detail}`)
       },
-      socketHook: ws => {
+      socketHook: (ws) => {
         socket = ws
       },
     })
@@ -189,7 +205,7 @@ export async function runServe(home: string, serverOverride?: string): Promise<n
 export function stationUrl(base: string): string {
   const trimmed = base.trim().replace(/\/+$/, '')
   if (/^wss?:\/\//.test(trimmed)) {
-    return trimmed.endsWith("/station-ws") ? trimmed : `${trimmed}/station-ws`
+    return trimmed.endsWith('/station-ws') ? trimmed : `${trimmed}/station-ws`
   }
   if (/^https?:\/\//.test(trimmed)) {
     return `${trimmed.replace(/^http/, 'ws')}/station-ws`
@@ -203,16 +219,23 @@ async function pairOnce(url: string, auth: StationHelloAuth): Promise<{ stationI
     ws.on('open', () => {
       ws.send(JSON.stringify({ t: 'hello', version: STATION_PROTOCOL_VERSION, auth }))
     })
-    ws.on('message', data => {
+    ws.on('message', (data: Buffer) => {
       try {
-        const frame = JSON.parse(String(data)) as { t?: string; stationId?: string; token?: string; rootPath?: string; reason?: string; message?: string }
+        const frame = JSON.parse(data.toString('utf8')) as {
+          t?: string
+          stationId?: string
+          token?: string
+          rootPath?: string
+          reason?: string
+          message?: string
+        }
         if (frame.t === 'welcome') {
           if (frame.token === undefined || frame.stationId === undefined) {
             reject(new Error('хост не вернул токен или идентификатор сопряжения'))
             ws.close()
             return
           }
-          resolve({ stationId: frame.stationId, token: frame.token, rootPath: frame.rootPath ?? "" })
+          resolve({ stationId: frame.stationId, token: frame.token, rootPath: frame.rootPath ?? '' })
           ws.close()
           return
         }
@@ -228,7 +251,7 @@ async function pairOnce(url: string, auth: StationHelloAuth): Promise<{ stationI
         ws.close()
       }
     })
-    ws.on('error', error => {
+    ws.on('error', (error) => {
       reject(error)
     })
   })

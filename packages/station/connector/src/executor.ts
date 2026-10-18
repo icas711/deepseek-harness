@@ -10,15 +10,14 @@
 import { createHash } from 'node:crypto'
 import { spawn as nodeSpawn, type ChildProcess } from 'node:child_process'
 import { constants as fsConstants } from 'node:fs'
-import { access, mkdir, readdir, readFile, realpath, rename, stat, unlink, writeFile } from 'node:fs/promises'
+import { access, lstat, mkdir, readdir, readFile, realpath, rename, stat, unlink, writeFile } from 'node:fs/promises'
 import { randomBytes } from 'node:crypto'
 import { dirname, isAbsolute as posixIsAbsolute, win32 as win32Path } from 'node:path'
-import { resolveWithinRoot, realpathWithinRoot, StationOpRemoteError, StationPathError } from '@deepseek-ai/dsh-station-protocol'
+import { realpathWithinRoot, StationOpRemoteError, StationPathError } from '@deepseek-ai/dsh-station-protocol'
 import type {
   StationDirEntry,
   StationEntryType,
   StationEventFrame,
-  StationOpErrorCode,
   StationOpName,
   StationOpPayloadMap,
   StationOpValueMap,
@@ -43,7 +42,7 @@ function isENOENT(error: unknown): boolean {
 }
 
 function entryTypeOf(isDirectory: boolean, isSymbolicLink: boolean): StationEntryType {
-  return isSymbolicLink ? 'other' : isDirectory ? 'directory' : 'file'
+  return isSymbolicLink ? 'symlink' : isDirectory ? 'directory' : 'file'
 }
 
 /**
@@ -91,7 +90,7 @@ export class StationExecutor {
    */
   async dispatch<K extends StationOpName>(op: K, p: StationOpPayloadMap[K]): Promise<StationOpValueMap[K]> {
     try {
-      return await this.dispatchInner(op, p)
+      return await this.dispatchInner(op, p) as StationOpValueMap[K]
     } catch (error) {
       // Канонизация пути бросает StationPathError до входа в обработчик:
       // единая точка перевода в стабильный код denied.
@@ -102,32 +101,37 @@ export class StationExecutor {
     }
   }
 
-  private async dispatchInner<K extends StationOpName>(op: K, p: StationOpPayloadMap[K]): Promise<StationOpValueMap[K]> {
+  /**
+   * Таблица операций. Касты полезных нагрузок корректны: проводной декодер
+   * уже проверил форму кадра по имени операции, а корреляцию «op ↔ p» TS
+   * не сужает через общий дженерик (известное ограничение связанных юнионов).
+   */
+  private async dispatchInner(op: StationOpName, p: unknown): Promise<unknown> {
     switch (op) {
       case 'fs/stat':
-        return await this.stat(p) as StationOpValueMap[K]
+        return await this.stat(p as StationOpPayloadMap['fs/stat'])
       case 'fs/list':
-        return await this.list(p) as StationOpValueMap[K]
+        return await this.list(p as StationOpPayloadMap['fs/list'])
       case 'fs/read':
-        return await this.read(p) as StationOpValueMap[K]
+        return await this.read(p as StationOpPayloadMap['fs/read'])
       case 'fs/write':
-        return await this.write(p) as StationOpValueMap[K]
+        return await this.write(p as StationOpPayloadMap['fs/write'])
       case 'fs/mkdir':
-        return await this.mkdir(p) as StationOpValueMap[K]
+        return await this.mkdir(p as StationOpPayloadMap['fs/mkdir'])
       case 'fs/unlink':
-        return await this.unlink(p) as StationOpValueMap[K]
+        return await this.unlink(p as StationOpPayloadMap['fs/unlink'])
       case 'proc/resolve':
-        return await this.resolveExecutable(p) as StationOpValueMap[K]
+        return await this.resolveExecutable(p as StationOpPayloadMap['proc/resolve'])
       case 'proc/spawn':
-        return await this.spawn(p) as StationOpValueMap[K]
+        return await this.spawn(p as StationOpPayloadMap['proc/spawn'])
       case 'proc/write':
-        return this.writeStdin(p) as StationOpValueMap[K]
+        return this.writeStdin(p as StationOpPayloadMap['proc/write'])
       case 'proc/close-stdin':
-        return this.closeStdin(p) as StationOpValueMap[K]
+        return this.closeStdin(p as StationOpPayloadMap['proc/close-stdin'])
       case 'proc/kill':
-        return await this.kill(p) as StationOpValueMap[K]
+        return await this.kill(p as StationOpPayloadMap['proc/kill'])
       case 'proc/list':
-        return { processes: this.live() } as StationOpValueMap[K]
+        return { processes: this.live() }
       default:
         throw new StationOpRemoteError('bad-request', `неизвестная операция ${JSON.stringify(String(op))}`)
     }
@@ -142,7 +146,9 @@ export class StationExecutor {
   private async stat(p: StationOpPayloadMap['fs/stat']): Promise<StationStatResult> {
     const abs = await this.canonical(p.path)
     try {
-      const info = await stat(abs)
+      // lstat-режим не следует финальной символьной ссылке — так потребитель
+      // шва fs видит саму ссылку, а не её цель.
+      const info = p.lstat === true ? await lstat(abs) : await stat(abs)
       const type = entryTypeOf(info.isDirectory(), info.isSymbolicLink())
       return {
         exists: true,
@@ -300,7 +306,8 @@ export class StationExecutor {
   }
 
   private async spawn(p: StationOpPayloadMap['proc/spawn']): Promise<StationOpValueMap['proc/spawn']> {
-    if (p.argv.length === 0 || p.argv[0]!.length === 0) {
+    const program = p.argv[0]
+    if (program === undefined || program.length === 0) {
       throw new StationOpRemoteError('bad-request', 'proc/spawn: argv обязан начинаться с непустой программы')
     }
     if (this.children.has(p.id)) {
@@ -318,7 +325,7 @@ export class StationExecutor {
       p.stdoutInherit ? 'inherit' : 'pipe',
       p.stderrInherit ? 'inherit' : 'pipe',
     ]
-    const child = nodeSpawn(p.argv[0]!, p.argv.slice(1), {
+    const child = nodeSpawn(program, p.argv.slice(1), {
       cwd,
       ...(p.env === undefined ? {} : { env: p.env }),
       stdio,
@@ -383,7 +390,7 @@ export class StationExecutor {
       if (this.platform === 'win32') {
         // Windows: дерево убивает taskkill; мягкого варианта нет.
         const killer = nodeSpawn('taskkill', ['/pid', String(pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' })
-        await new Promise<void>(resolve => { killer.once('close', () => resolve()) })
+        await new Promise<void>((resolve) => { killer.once('close', () => { resolve() }) })
       } else if (managed.child.pid !== undefined) {
         try {
           // Своя группа процесса: сигнал уходит всему дереву.
@@ -410,7 +417,7 @@ export class StationExecutor {
     const live = [...this.children.values()].filter(entry => !entry.exited)
     await Promise.allSettled(live.map(entry => this.kill({ id: entry.id, force: true })))
     if (live.length === 0) return
-    await new Promise<void>(resolve => {
+    await new Promise<void>((resolve) => {
       const done = (): void => {
         if ([...this.children.values()].every(entry => entry.exited)) resolve()
       }
@@ -435,7 +442,7 @@ export class StationExecutor {
     }
     const code = (error as NodeJS.ErrnoException | null)?.code
     if (code === 'EACCES' || code === 'EPERM') {
-      return new StationOpRemoteError('denied', `доступ к «${displayPath}» запрещён (${String(code)})`)
+      return new StationOpRemoteError('denied', `доступ к «${displayPath}» запрещён (${code})`)
     }
     return new StationOpRemoteError('io', `операция над «${displayPath}» не удалась: ${error instanceof Error ? error.message : String(error)}`)
   }

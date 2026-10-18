@@ -6,7 +6,7 @@
  * @module @deepseek-ai/dsh-station-connector/session
  */
 
-import WebSocket, { type RawData } from 'ws'
+import WebSocket from 'ws'
 import {
   decodeStationText,
   STATION_PROTOCOL_VERSION,
@@ -81,8 +81,8 @@ export async function runConnectorLoop(opts: ConnectorLoopOptions): Promise<void
       // а успешный сеанс сбрасывает её в начало.
       const delay = nextBackoffMs(backoffAttempt, opts.random)
       opts.onState?.('waiting', `переподключение через ${String(delay)} мс`)
-      await sleep(delay, opts.signal)
-      if (opts.signal.aborted) return
+      const abortedDuringWait = await sleep(delay, opts.signal)
+      if (abortedDuringWait) return
       backoffAttempt += 1
     }
     totalAttempts += 1
@@ -99,15 +99,17 @@ type ServeOutcome =
   | { kind: 'dropped' }
   | { kind: 'permanent'; error: unknown }
 
-function sleep(ms: number, signal: AbortSignal): Promise<void> {
+/** Итог ожидания: true — отменено сигналом, false — таймер истёк. */
+function sleep(ms: number, signal: AbortSignal): Promise<boolean> {
   return new Promise((resolve) => {
-    const timer = setTimeout(done, ms)
-    function done(): void {
+    const timer = setTimeout(() => { done(false) }, ms)
+    function done(aborted: boolean): void {
       clearTimeout(timer)
-      signal.removeEventListener('abort', done)
-      resolve()
+      signal.removeEventListener('abort', onAbort)
+      resolve(aborted)
     }
-    signal.addEventListener('abort', done, { once: true })
+    const onAbort = (): void => { done(true) }
+    signal.addEventListener('abort', onAbort, { once: true })
   })
 }
 
@@ -134,22 +136,22 @@ async function serveOnce(opts: ConnectorLoopOptions): Promise<ServeOutcome> {
       opts.socketHook?.(ws)
       ws.send(JSON.stringify({ t: 'hello', version: STATION_PROTOCOL_VERSION, auth: opts.auth() }))
     })
-    ws.on('message', data => {
+    ws.on('message', (data: Buffer) => {
       void handleMessage(data)
     })
     ws.on('close', () => {
       finish(served ? { kind: 'served' } : { kind: 'dropped' })
     })
-    ws.on('error', error => {
+    ws.on('error', (error) => {
       // Ошибка транспорта до установления — тоже обрыв: бэкофф продолжит.
       if (!settled) finish({ kind: 'dropped' })
       void error
     })
 
-    async function handleMessage(data: RawData): Promise<void> {
+    async function handleMessage(data: Buffer): Promise<void> {
       let frame: StationFrame
       try {
-        frame = decodeStationText(String(data))
+        frame = decodeStationText(data.toString('utf8'))
       } catch (error) {
         // Отправитель вне формата: соединение не имеет смысла.
         opts.onState?.('stopped', error instanceof Error ? error.message : String(error))
@@ -200,12 +202,4 @@ function toRemoteError(error: unknown): { code: string; message: string } {
     return { code: typed.code, message: typed.message }
   }
   return { code: 'io', message: error instanceof Error ? error.message : String(error) }
-}
-
-/**
- * Собирает корреляционный id; вынесено для читаемости вызовов.
- * @returns свежий UUID.
- */
-export function mintRequestId(): string {
-  return randomUUID()
 }

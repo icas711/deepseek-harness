@@ -60,7 +60,7 @@ export class StationSubprocessRuntime extends SubprocessRuntime {
         pending.push(handle.waitForExit())
       }
       const outcomes = await Promise.allSettled(pending)
-      const failures = outcomes.flatMap(outcome => outcome.status === 'rejected' ? [outcome.reason] : [])
+      const failures = outcomes.flatMap(outcome => outcome.status === 'rejected' ? [outcome.reason as unknown] : [])
       if (failures.length === 1) throw failures[0]
       if (failures.length > 1) throw new AggregateError(failures, 'subprocess-station: teardown failed')
     }, 'subprocess-station teardown')
@@ -86,7 +86,7 @@ export class StationSubprocessRuntime extends SubprocessRuntime {
     const result = await this.bridge().request('proc/resolve', {
       command,
       ...(pathEnv === undefined ? {} : { pathEnv }),
-    }, { signal })
+    }, signal === undefined ? {} : { signal })
     return result.executable
   }
 
@@ -101,8 +101,13 @@ export class StationSubprocessRuntime extends SubprocessRuntime {
       throw new Error(`aborted before spawn: ${String(spec.signal.reason)}`)
     }
     // Скраб хоста + явные записи спеки: итог едет по проводу целиком,
-    // коннектор не смешивает своё окружение.
-    const env: Record<string, string> = { ...scrubbedParentEnv(), ...(spec.env ?? {}) }
+    // коннектор не смешивает своё окружение. undefined-значения спеки —
+    // «убрать запись», поэтому их отсеиваем до провода.
+    const env: Record<string, string> = { ...scrubbedParentEnv() }
+    for (const [key, value] of Object.entries(spec.env ?? {})) {
+      if (value === undefined) continue
+      env[key] = value
+    }
     const bridge = this.bridge()
     const handle = new StationSubprocessHandle(bridge, spec, env, spec.graceMs, () => this.bridge())
     this.live.add(handle)
@@ -116,6 +121,7 @@ export class StationSubprocessRuntime extends SubprocessRuntime {
   }
 
   /** @inheritdoc */
+  // oxlint-disable-next-line typescript/require-await -- async держит отказ типа rejected promise, а не синхронный throw
   async spawnTerminal(spec: SubprocessTerminalSpawnSpec): Promise<SubprocessTerminalHandle> {
     void spec
     throw new Error('subprocess-station: терминальные сессии (PTY) через мост появятся на этапе 5b')

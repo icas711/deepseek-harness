@@ -86,10 +86,13 @@ export interface StationWelcome {
   token?: string
 }
 
+/** Причины отказа в привязке; закрытый юнион. */
+export type StationRejectReason = 'protocol-version' | 'bad-code' | 'bad-token' | 'bad-request'
+
 /** Отказ в привязке: хост → коннектор, затем соединение закрывается. */
 export interface StationReject {
   t: 'reject'
-  reason: 'protocol-version' | 'bad-code' | 'bad-token' | 'bad-request'
+  reason: StationRejectReason
   /** Человекочитаемая причина на русском для лога коннектора. */
   message: string
 }

@@ -8,7 +8,7 @@
  */
 
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
-import { isAbsolute, posix, win32 } from 'node:path'
+import { posix, win32 } from 'node:path'
 import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { mintPairingCode, STATION_WS_PATH, StationId } from '@deepseek-ai/dsh-station-protocol'
@@ -21,7 +21,8 @@ import { StationsError } from './types.ts'
 import type { PendingPairing, StationRecord, StationView } from './types.ts'
 
 export { STATION_WS_PATH } from '@deepseek-ai/dsh-station-protocol'
-export { StationBridgeClosedError, StationOpRemoteError, StationServerSession } from './session.ts'
+export { StationOpRemoteError } from '@deepseek-ai/dsh-station-protocol'
+export { StationBridgeClosedError, StationServerSession } from './session.ts'
 export { RegistryFileError, parseRegistryDocument, serializeRegistryDocument } from './registry.ts'
 export { StationsError } from './types.ts'
 export type { PendingPairing, StationRecord, StationView, StationsErrorCode } from './types.ts'
@@ -42,11 +43,11 @@ export interface Config {
 const DEFAULT_PAIRING_TTL_MS = 600_000
 
 /** Имя станции: до 64 знаков без управляющих символов. */
+/** Управляющие символы ASCII запрещены в имени станции. */
+const CONTROL_CHARS = /[\u0000-\u001f\u007f]/
+
 function validStationName(name: string): boolean {
-  return name.length > 0 && name.length <= 64 && ![...name].some(ch => {
-    const code = ch.codePointAt(0) ?? 0
-    return code < 0x20 || code === 0x7f
-  })
+  return name.length > 0 && name.length <= 64 && !CONTROL_CHARS.test(name)
 }
 
 declare module '@deepseek-ai/cordis' {
@@ -134,11 +135,11 @@ export class StationsService extends Service {
     const route: WebUpgradeRoute = {
       path: STATION_WS_PATH,
       handler: (req, socket, head) => {
-        webserver.handleUpgrade(req, socket, head, ws => this.attach(ws))
+        webserver.handleUpgrade(req, socket, head, (ws) => { this.attach(ws) })
       },
     }
     const disposeRoute = this.ctx.webServer.registerUpgrade(route)
-    this.ctx.effect(() => async () => {
+    this.ctx.effect(() => () => {
       disposeRoute()
       for (const session of [...this.sessions.values()]) {
         session.handleClose()
@@ -244,12 +245,26 @@ export class StationsService extends Service {
    */
   bridge(stationId: StationId): StationBridge {
     const session = this.sessions.get(String(stationId))
-    if (session !== undefined) return session
+    if (session !== undefined) return this.toBridge(session)
     const known = this.store.get(String(stationId))
     if (known === undefined) {
       throw new StationsError(`станция ${String(stationId)} не сопряжена`, 'unknown-station')
     }
     throw new StationsError(`станция «${known.name}» сейчас офлайн: дождитесь подключения коннектора`, 'offline')
+  }
+
+  /** Узкая грань моста поверх живой сессии: приветствие уже прошло. */
+  private toBridge(session: StationServerSession): StationBridge {
+    if (session.stationId === undefined || session.rootPath === undefined || session.platform === undefined) {
+      throw new StationsError('сессия станции ещё не прошла приветствие', 'offline')
+    }
+    return {
+      stationId: session.stationId,
+      platform: session.platform,
+      rootPath: session.rootPath,
+      request: (op, payload, opts) => session.request(op, payload, opts),
+      onEvent: handler => session.onEvent(handler),
+    }
   }
 
   /** Онлайн-ли станция прямо сейчас. */
@@ -274,13 +289,13 @@ export class StationsService extends Service {
   /** Подключает новый сокет: одна сессия на сокет, свежая заменяет прежнюю. */
   private attach(ws: WebSocket): void {
     const session = new StationServerSession(ws, this.sessionHost())
-    ws.on('message', data => {
-      session.handleMessage(String(data))
+    ws.on('message', (data: Buffer) => {
+      session.handleMessage(data.toString('utf8'))
     })
     ws.on('close', () => {
       session.handleClose()
     })
-    ws.on('error', error => {
+    ws.on('error', (error) => {
       this.ctx.logger.warn(`stations: ошибка транспорта станции: ${error instanceof Error ? error.message : String(error)}`)
       session.handleClose()
     })

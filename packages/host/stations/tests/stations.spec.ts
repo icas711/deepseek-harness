@@ -13,7 +13,7 @@ import { Context, Service } from '@deepseek-ai/cordis'
 import { StationsError, StationsService, StationOpRemoteError } from '../src/index.ts'
 import { StationServerSession, StationBridgeClosedError } from '../src/session.ts'
 import type { StationSessionHost } from '../src/session.ts'
-import type { StationEventFrame, StationId } from '@deepseek-ai/dsh-station-protocol'
+import { StationId, type StationEventFrame } from '@deepseek-ai/dsh-station-protocol'
 
 /** Подменённый сокет: копит отправленное, играет по тесту. */
 class FakeSocket {
@@ -35,11 +35,11 @@ function fakeHost(overrides: Partial<StationSessionHost> = {}): StationSessionHo
   const state: { online: string[] } = { online: [] }
   return {
     online: state.online,
-    completePairing: async () => {
-      return { stationId: 'stn-1' as StationId, token: 'tok', rootPath: '/w' }
+    completePairing: async (): Promise<{ stationId: StationId; token: string; rootPath: string }> => {
+      return { stationId: StationId('stn-1'), token: 'tok', rootPath: '/w' }
     },
-    verifyStationToken: (token: string) =>
-      token === 'хороший' ? { stationId: 'stn-2' as StationId, rootPath: '/w2', platform: 'linux' as const } : undefined,
+    verifyStationToken: (token: string): { stationId: StationId; rootPath: string; platform: 'win32' | 'darwin' | 'linux' } | undefined =>
+      token === 'хороший' ? { stationId: StationId('stn-2'), rootPath: '/w2', platform: 'linux' } : undefined,
     markOnline: (stationId: StationId) => {
       state.online.push(String(stationId))
     },
@@ -116,7 +116,7 @@ describe('сопряжение', () => {
 
 describe('StationServerSession', () => {
   /** Прогоняет микрозадачи: async-приветствие успевает отправить кадр. */
-  const flush = async (): Promise<void> => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); }
+  const flush = async (): Promise<void> => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve() }
   it('приветствие сопряжением отправляет welcome с токеном и выходит онлайн', async () => {
     const socket = new FakeSocket()
     const host = fakeHost()
@@ -125,7 +125,7 @@ describe('StationServerSession', () => {
     await flush()
     const frames = socket.out.map(line => JSON.parse(line) as StationFrame)
     expect(frames[0]).toMatchObject({ t: 'welcome', stationId: 'stn-1', rootPath: '/w', token: 'tok' })
-    expect(session.stationId).toBe("stn-1")
+    expect(session.stationId).toBe('stn-1')
     expect(host.online).toEqual(['stn-1'])
   })
 
@@ -143,7 +143,7 @@ describe('StationServerSession', () => {
     const session = new StationServerSession(socket, fakeHost())
     session.handleMessage(JSON.stringify({ t: 'hello', version: 1, auth: { mode: 'token', token: 'хороший' } }))
     await flush()
-    const done = session.request("fs/stat", { path: "/w/файл" })
+    const done = session.request('fs/stat', { path: '/w/файл' })
     const reqFrame = JSON.parse(socket.out.at(-1) as string) as { t: string; id: string; op: string; p: unknown }
     expect(reqFrame.t).toBe('req')
     expect(reqFrame.op).toBe('fs/stat')
@@ -156,15 +156,15 @@ describe('StationServerSession', () => {
     const session = new StationServerSession(socket, fakeHost())
     session.handleMessage(JSON.stringify({ t: 'hello', version: 1, auth: { mode: 'token', token: 'хороший' } }))
     await flush()
-    const done = session.request("proc/list", {})
+    const done = session.request('proc/list', {})
     const reqFrame = JSON.parse(socket.out.at(-1) as string) as { id: string }
     session.handleMessage(JSON.stringify({ t: 'res', id: reqFrame.id, ok: true, value: { processes: [] } }))
     await expect(done).resolves.toEqual({ processes: [] })
 
-    const pending = session.request("fs/list", { path: "/w" })
+    const pending = session.request('fs/list', { path: '/w' })
     session.handleClose()
     await expect(pending).rejects.toThrow(StationBridgeClosedError)
-    await expect(session.request("fs/list", { path: "/w" })).rejects.toThrow(StationBridgeClosedError)
+    await expect(session.request('fs/list', { path: '/w' })).rejects.toThrow(StationBridgeClosedError)
   })
 
   it('события доходят подписчикам; диспозер отписывает', async () => {
@@ -173,7 +173,7 @@ describe('StationServerSession', () => {
     session.handleMessage(JSON.stringify({ t: 'hello', version: 1, auth: { mode: 'token', token: 'хороший' } }))
     await flush()
     const events: StationEventFrame[] = []
-    const dispose = session.onEvent(event => { events.push(event) })
+    const dispose = session.onEvent((event) => { events.push(event) })
     session.handleMessage(JSON.stringify({ t: 'evt', event: 'proc/stdout', p: { id: 'p1', data: 'aGk=' } }))
     expect(events).toHaveLength(1)
     dispose()

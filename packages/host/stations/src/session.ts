@@ -6,7 +6,7 @@
  */
 
 import { randomUUID } from 'node:crypto'
-import { StationProtocolError, decodeStationText, STATION_PROTOCOL_VERSION } from '@deepseek-ai/dsh-station-protocol'
+import { StationOpRemoteError, StationProtocolError, decodeStationText, STATION_PROTOCOL_VERSION } from '@deepseek-ai/dsh-station-protocol'
 import type {
   StationEventFrame,
   StationFrame,
@@ -43,7 +43,7 @@ export interface StationSessionHost {
    * @returns идентификатор, токен и эхо корня, либо ошибку сервиса.
    */
   completePairing(code: string, stationName: string, rootPath: string, platform: StationPlatform):
-    Promise<{ stationId: StationId; token: string; rootPath: string }>
+  Promise<{ stationId: StationId; token: string; rootPath: string }>
   /**
    * Проверяет токен станции (timing-safe сравнение хэша).
    * @param token - предъявленный токен.
@@ -117,7 +117,8 @@ export class StationServerSession {
     }
     switch (frame.t) {
       case 'hello':
-        this.handleHello(frame)
+        // Приветствие асинхронно; его отказы уходят в сокет сами.
+        void this.handleHello(frame)
         return
       case 'res': {
         const waiting = this.pending.get(frame.id)
@@ -261,19 +262,3 @@ export class StationServerSession {
   }
 }
 
-/** Отказ, приехавший со станции в кадре res; код стабилен для машрутизации. */
-export class StationOpRemoteError extends Error {
-  /** Стабильный код операции протокола. */
-  readonly code: string
-
-  /**
-   * Собирает отказ операции.
-   * @param code - код ошибки из протокола.
-   * @param message - текст на русском от станции.
-   */
-  constructor(code: string, message: string) {
-    super(message)
-    this.name = 'StationOpRemoteError'
-    this.code = code
-  }
-}

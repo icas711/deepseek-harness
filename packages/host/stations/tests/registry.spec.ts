@@ -111,7 +111,7 @@ describe('StationRegistryStore', () => {
       tokenHash: 'cc'.repeat(32),
     })
     // Второй процесс добавил свою станцию между нашими операциями.
-    const foreign = record({ stationId: StationId("stn-foreign"), name: "чужая" })
+    const foreign = record({ stationId: StationId('stn-foreign'), name: 'чужая' })
     await writeFile(path, serializeRegistryDocument([foreign]))
     await store.touch('stn-mine')
     const merged = parseRegistryDocument(await readFile(path, 'utf8'), path)

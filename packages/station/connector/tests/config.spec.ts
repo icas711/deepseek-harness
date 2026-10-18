@@ -1,6 +1,6 @@
 /** Юнит-тесты конфига: чтение, строгий разбор, запись. */
 
-import { mkdtemp, readFile, rm, writeFile, mkdir } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -35,7 +35,7 @@ describe('readConfig/writeConfig', () => {
     const config = await readConfig(root)
     expect(config?.token).toBe('секрет')
     const text = await readFile(join(root, 'config.json'), 'utf8')
-    expect(text.endsWith("\n")).toBe(true)
+    expect(text.endsWith('\n')).toBe(true)
   })
 
   it('битый и чужой документы падают громко', async () => {
@@ -49,7 +49,7 @@ describe('readConfig/writeConfig', () => {
   it('writeConfig создаёт домашнюю папку при необходимости', async () => {
     root = await mkdtemp(join(tmpdir(), 'dsh-connector-config-'))
     const home = join(root, 'вложенная', 'папка')
-    await writeConfig(home, { server: "ws://x/station-ws" })
+    await writeConfig(home, { server: 'ws://x/station-ws' })
     expect((await readConfig(home))?.server).toBe('ws://x/station-ws')
   })
 })

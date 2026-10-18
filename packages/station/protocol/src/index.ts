@@ -10,12 +10,15 @@
 import { posix, win32 } from 'node:path'
 import type {
   StationEventFrame,
+  StationEventName,
   StationFrame,
+  StationOpErrorCode,
   StationOpName,
   StationOpPayloadMap,
   StationPlatform,
-  StationReject,
+  StationRejectReason,
   StationRequestFrame,
+  StationResponseFrame,
 } from './types.ts'
 
 export type {
@@ -73,7 +76,9 @@ export const PAIRING_CODE_LENGTH = 8
 export function mintPairingCode(random: (size: number) => Uint8Array): string {
   const bytes = random(PAIRING_CODE_LENGTH)
   let code = ''
-  for (const byte of bytes) code += PAIRING_ALPHABET[byte % PAIRING_ALPHABET.length]
+  for (const byte of bytes) {
+    code += PAIRING_ALPHABET.charAt(byte % PAIRING_ALPHABET.length)
+  }
   return code
 }
 
@@ -135,22 +140,9 @@ function requireNumber(record: Record<string, unknown>, field: string): number {
   return value
 }
 
-function optionalNumber(record: Record<string, unknown>, field: string): number | undefined {
-  const value = record[field]
-  if (value === undefined) return undefined
-  return requireNumber(record, field)
-}
-
 function requireBoolean(record: Record<string, unknown>, field: string): boolean {
   const value = record[field]
   if (typeof value !== 'boolean') throw new StationProtocolError(`кадр: поле "${field}" должно быть булевым`)
-  return value
-}
-
-function decodeEntryType(value: unknown): 'file' | 'directory' | 'symlink' | 'other' {
-  if (value !== 'file' && value !== 'directory' && value !== 'symlink' && value !== 'other') {
-    throw new StationProtocolError('кадр: неизвестный тип записи каталога')
-  }
   return value
 }
 
@@ -187,14 +179,14 @@ function decodeHello(record: Record<string, unknown>): StationFrame {
   throw new StationProtocolError('hello: неизвестный способ аутентификации')
 }
 
-const REJECT_REASONS: readonly StationReject['reason'][] = ['protocol-version', 'bad-code', 'bad-token', 'bad-request']
+const REJECT_REASONS: readonly StationRejectReason[] = ['protocol-version', 'bad-code', 'bad-token', 'bad-request']
 
 function decodeReject(record: Record<string, unknown>): StationFrame {
   const reason = record.reason
-  if (typeof reason !== 'string' || !REJECT_REASONS.includes(reason as StationReject['reason'])) {
+  if (typeof reason !== 'string' || !REJECT_REASONS.includes(reason as StationRejectReason)) {
     throw new StationProtocolError('reject: неизвестная причина отказа')
   }
-  return { t: 'reject', reason, message: requireString(record, 'message') }
+  return { t: 'reject', reason: reason as StationRejectReason, message: requireString(record, 'message') }
 }
 
 const OP_NAMES: readonly StationOpName[] = [
@@ -272,15 +264,9 @@ function decodeRequestPayload(op: StationOpName, p: Record<string, unknown>): St
     case 'proc/write':
       return { t: 'req', id: '', op, p: { id: requireString(p, 'id'), data: requireString(p, 'data') } }
     case 'proc/close-stdin':
+      return { t: 'req', id: '', op, p: { id: requireString(p, 'id') } }
     case 'proc/kill':
-      return {
-        t: 'req',
-        id: '',
-        op,
-        p: op === 'proc/close-stdin'
-          ? { id: requireString(p, 'id') }
-          : { id: requireString(p, 'id'), force: requireBoolean(p, 'force') },
-      }
+      return { t: 'req', id: '', op, p: { id: requireString(p, 'id'), force: requireBoolean(p, 'force') } }
     case 'proc/list':
       return { t: 'req', id: '', op, p: {} }
     default:
@@ -352,13 +338,13 @@ export function decodeStationFrame(raw: unknown): StationFrame {
       if (typeof raw.id !== 'string' || raw.id.length === 0) {
         throw new StationProtocolError('res: id корреляции обязателен')
       }
-      if (raw.ok === true) return { t: 'res', id: raw.id, ok: true, value: raw.value }
+      if (raw.ok === true) return { t: 'res', id: raw.id, ok: true, value: raw.value } as StationResponseFrame
       if (raw.ok === false) {
         const error = raw.error
         if (!isRecord(error)) throw new StationProtocolError('res: отсутствует блок error')
         const code = error.code
         if (typeof code !== 'string') throw new StationProtocolError('res: код ошибки обязателен')
-        return { t: 'res', id: raw.id, ok: false, error: { code, message: requireString(error, 'message') } }
+        return { t: 'res', id: raw.id, ok: false, error: { code: code as StationOpErrorCode, message: requireString(error, 'message') } }
       }
       throw new StationProtocolError('res: поле ok обязательно')
     }
@@ -464,7 +450,8 @@ export async function realpathWithinRoot(
     }
   }
   const canonicalRoot = await realpath(root)
-  const canonical = module.join(canonicalAncestor ?? resolved, ...missing.reverse())
+  // Цикл выше выходит только через успешный realpath предка.
+  const canonical = module.join(canonicalAncestor, ...missing.reverse())
   const samePath = (value: string): string => platform === 'win32' ? value.toLowerCase() : value
   const relative = module.relative(samePath(canonicalRoot), samePath(canonical))
   if (relative !== '' && (relative === '..' || relative.startsWith('../') || relative.startsWith('..\\') || module.isAbsolute(relative))) {

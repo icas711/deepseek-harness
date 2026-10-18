@@ -5,7 +5,6 @@
  * @module @deepseek-ai/dsh-stations/types
  */
 
-import type { Branded } from '@deepseek-ai/dsh-brand'
 import type { StationId, StationPlatform } from '@deepseek-ai/dsh-station-protocol'
 
 export type { StationId, StationPlatform }

@@ -11,7 +11,7 @@ describe('OutputWindow', () => {
     const window = new OutputWindow(10)
     window.push(Buffer.from('0123456789'))
     expect(window.text()).toBe('0123456789')
-    window.push(Buffer.from("abc"))
+    window.push(Buffer.from('abc'))
     expect(window.text()).toBe('3456789abc')
     expect(window.truncated).toBe(true)
     expect(window.totalBytes).toBe(13)
