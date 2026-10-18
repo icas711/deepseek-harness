@@ -78,6 +78,9 @@ import {
   adminListUsersRequestSchema, adminResetPasswordRequestSchema, adminRevokeAllDevicesRequestSchema,
   adminRevokeDeviceRequestSchema, adminSetRoleRequestSchema, adminStatusRequestSchema,
 } from '../api/admin.schema.ts'
+import {
+  stationBeginPairingRequestSchema, stationListRequestSchema,
+} from '../api/station.schema.ts'
 
 /**
  * Unary dispatch table, keyed by (and compiler-locked to) RpcMethodMap: a map row without a
@@ -161,6 +164,8 @@ const UNARY_ROUTES: UnaryRoutes = {
   'admin.listDevices': { schema: adminListDevicesRequestSchema, invoke: (api, r) => api.admin.listDevices(r) },
   'admin.revokeDevice': { schema: adminRevokeDeviceRequestSchema, invoke: (api, r) => api.admin.revokeDevice(r) },
   'admin.revokeAllDevices': { schema: adminRevokeAllDevicesRequestSchema, invoke: (api, r) => api.admin.revokeAllDevices(r) },
+  'station.list': { schema: stationListRequestSchema, invoke: (api, r) => api.stations.list(r) },
+  'station.beginPairing': { schema: stationBeginPairingRequestSchema, invoke: (api, r) => api.stations.beginPairing(r) },
 }
 
 /** Route lookup that narrows an arbitrary path segment to a map key (single cast point for the string→key refinement). */

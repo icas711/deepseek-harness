@@ -243,6 +243,11 @@ export class FakeApiClient implements IApiClient {
     revokeAllDevices: payload => this.record('admin.revokeAllDevices', payload, Promise.resolve(ok({ revoked: 0 }))),
   }
 
+  readonly stations: IApiClient['stations'] = {
+    list: async () => ({ rpcId: 'fake' as never, result: { ok: true, value: { stations: [] } } }),
+    beginPairing: async () => ({ rpcId: 'fake' as never, result: { ok: true, value: { code: '00000000', wssPath: '/station-ws' } } }),
+  }
+
   /** When true, streams never fire onOpen (misbehaving-carrier material for the handshake timeout guard). */
   suppressStreamOpen = false
 

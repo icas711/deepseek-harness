@@ -3934,6 +3934,45 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
       },
     },
 
+    stations: {
+      // Станции адресуются веб-личности: pair выдаётся её логину, list
+      // показывает её станции (админ видит все). Не-веб-вызов и пассивное
+      // развёртывание (строки stations нет) отвечают одним typed-отказом.
+      async list(request) {
+        const stations = ctx.get('stations')
+        const identity = requestIdentity(ctx)
+        if (stations === undefined || identity === undefined) {
+          return err(request, {
+            code: 'stations-unavailable',
+            message: 'станции недоступны: нужен вход через веб и смонтированный мост станций',
+            details: {},
+          })
+        }
+        return ok(request, { stations: await stations.list(identity.admin ? undefined : identity.login) })
+      },
+
+      async beginPairing(request) {
+        const stations = ctx.get('stations')
+        const identity = requestIdentity(ctx)
+        if (stations === undefined || identity === undefined) {
+          return err(request, {
+            code: 'stations-unavailable',
+            message: 'сопряжение недоступно: нужен вход через веб и смонтированный мост станций',
+            details: {},
+          })
+        }
+        try {
+          return ok(request, stations.beginPairing(identity.login))
+        } catch (error: unknown) {
+          return err(request, {
+            code: 'stations-unavailable',
+            message: error instanceof Error ? error.message : String(error),
+            details: {},
+          })
+        }
+      },
+    },
+
     events: {
       mux(_request, signal) {
         const queue = new FrameQueue<RpcRequest<MuxFrame>>()

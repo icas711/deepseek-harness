@@ -17,6 +17,7 @@ import type { CredentialsApi } from './credentials.ts'
 import type { LlmApi } from './llm.ts'
 import type { DownloadsApi } from './downloads.ts'
 import type { AdminApi } from './admin.ts'
+import type { StationApi } from './station.ts'
 import type { ClientResponse, RpcReceipt } from './rpc.ts'
 
 /** Root interface of the unified API. New client-request domain = one new file pair + one field here + one map row. */
@@ -34,6 +35,8 @@ export interface ApiProxy {
   llm: LlmApi
   /** Web-account administration (role-gated on the host; see ./admin.ts). */
   admin: AdminApi
+  /** Станции (мост): список и выдача кода сопряжения для будущего UI. */
+  stations: StationApi
   /** Host-only download surfaces (GET, no wire envelope); absent from IApiClient. */
   downloads: DownloadsApi
   /**
@@ -68,6 +71,7 @@ export type { CredentialsApi, CredentialView } from './credentials.ts'
 export type { ConfigurableProviderView, DiscoveredModelView, LlmApi } from './llm.ts'
 export type { DownloadsApi } from './downloads.ts'
 export type { AdminApi, AdminDeviceView, AdminRole, AdminUserView } from './admin.ts'
+export type { StationApi, StationViewWire } from './station.ts'
 export type { ApprovalResponsePayload } from './approvals.ts'
 
 export type { QuestionResponsePayload } from './questions.ts'

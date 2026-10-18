@@ -75,6 +75,9 @@ import {
   adminListUsersValueSchema, adminResetPasswordValueSchema, adminRevokeAllDevicesValueSchema,
   adminRevokeDeviceValueSchema, adminSetRoleValueSchema, adminStatusValueSchema,
 } from '../api/admin.schema.ts'
+import {
+  stationBeginPairingValueSchema, stationListValueSchema,
+} from '../api/station.schema.ts'
 
 /**
  * Client consumption face of the contract (shape a): same domain tree as ApiProxy, but unary
@@ -184,6 +187,10 @@ export interface IApiClient {
     revokeDevice(payload: RequestPayload<'admin.revokeDevice'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'admin.revokeDevice'>>>
     revokeAllDevices(payload: RequestPayload<'admin.revokeAllDevices'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'admin.revokeAllDevices'>>>
   }
+  stations: {
+    list(payload: RequestPayload<'station.list'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'station.list'>>>
+    beginPairing(payload: RequestPayload<'station.beginPairing'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'station.beginPairing'>>>
+  }
   /** client-response passthrough (rpcId is a backfill of the server-request's id — never minted here). */
   respond(message: ClientResponse, signal?: AbortSignal): Promise<RpcReceipt>
 }
@@ -258,6 +265,8 @@ const UNARY_VALUE_SCHEMAS: { [K in keyof RpcMethodMap]: z.ZodType<Wire<ResponseV
   'admin.listDevices': adminListDevicesValueSchema,
   'admin.revokeDevice': adminRevokeDeviceValueSchema,
   'admin.revokeAllDevices': adminRevokeAllDevicesValueSchema,
+  'station.list': stationListValueSchema,
+  'station.beginPairing': stationBeginPairingValueSchema,
 }
 
 /** Default timeout for bounded unary calls (rpc-compare 2026-07-19: a hung host must not leave callers pending forever). */
@@ -550,6 +559,11 @@ export abstract class AbstractApiClient implements IApiClient {
     listDevices: (payload, signal) => this.callUnary('admin.listDevices', payload, signal),
     revokeDevice: (payload, signal) => this.callUnary('admin.revokeDevice', payload, signal),
     revokeAllDevices: (payload, signal) => this.callUnary('admin.revokeAllDevices', payload, signal),
+  }
+
+  readonly stations: IApiClient['stations'] = {
+    list: (payload, signal) => this.callUnary('station.list', payload, signal),
+    beginPairing: (payload, signal) => this.callUnary('station.beginPairing', payload, signal),
   }
 
   readonly events: IApiClient['events'] = {

@@ -143,6 +143,11 @@ export interface RpcErrorDetailsMap {
   'admin-last-admin': { login: string }
   /** The service refused the login or password input (charset, length); the message says why. */
   'admin-rejected': {}
+  /**
+   * Станции недоступны: развёртывание без строки stations (пассивный режим)
+   * или вызов без веб-личности — pair/list адресуются логину вызывающего.
+   */
+  'stations-unavailable': {}
   'internal': {}
 }
 

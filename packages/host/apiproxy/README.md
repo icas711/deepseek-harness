@@ -72,6 +72,10 @@ The `settings.*`, `credentials.*`, and `llm.*` domains are the configuration-pag
 
 Домен `admin.*` ([`src/api/admin.ts`](src/api/admin.ts)) обслуживает управляемое хранилище пользователей плагина `web-auth`: `admin.status` (`{admin}` — доступен каждому аутентифицированному вызывающему, клиент скрывает страницу не-админам), `admin.listUsers`, `admin.createUser` (хост считает scrypt-хэш сам; пароль в открытом виде пересекает канал один раз), `admin.deleteUser` (с отзывом всех сессий логина), `admin.resetPassword` (новый хэш плюс отзыв всех сессий), `admin.setRole` (флаг админа перечитывается на каждом запросе, сессии не трогаются), `admin.listDevices` (живые сессии логина) и `admin.revokeDevice`/`admin.revokeAllDevices` (отзыв точечный и полный). Каждый метод данных гейтится через одну точку: без веб-личности (TUI/headless/пассивный деплой без гейта) или с ролью не-админа — типизированный отказ `admin-forbidden`; отказы сервиса (`WebAdminError`) маппятся один в один: `admin-user-not-found`, `admin-user-exists`, `admin-device-not-found`, `admin-last-admin` (последнего админа нельзя удалить или понизить — деплой потерял бы управление), невалидный логин/пароль — `admin-rejected`. Устройства — те же серверные сессии, что гасит `/logout` и смена хэша; отзыв немедленно персистит хранилище сессий.
 
+## Домен station.* — мост станций, минимум для UI (рус.)
+
+Домен `station.*` ([`src/api/station.ts`](src/api/station.ts)) — минимальная wire-грань будущего UI станций: `station.list` возвращает станции вызывающего веб-пользователя (админ видит все; вид без секретного материала — токен станции существует ровно один раз, в ответе `completePairing` коннектору), а `station.beginPairing` выдаёт одноразовый код сопряжения и путь WSS-маршрута. Оба метода адресуются веб-личности: не-веб-вызов и пассивное развёртывание без строки `stations` отвечают типизированным `stations-unavailable`. Привязка задач и офлайн-очередь — этап 5b, страница UI — этап 6.
+
 ## Model Experience
 
 None, as the package defines the client↔host wire contract and carriers; nothing here reaches a model request.

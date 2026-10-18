@@ -15,6 +15,7 @@ import type { CredentialsApi } from './credentials.ts'
 import type { LlmApi } from './llm.ts'
 import type { SubagentsApi } from './subagents.ts'
 import type { AdminApi } from './admin.ts'
+import type { StationApi } from './station.ts'
 import type { RpcResponse } from './rpc.ts'
 
 /**
@@ -88,6 +89,8 @@ export interface RpcMethodMap {
   'admin.listDevices': AdminApi['listDevices']
   'admin.revokeDevice': AdminApi['revokeDevice']
   'admin.revokeAllDevices': AdminApi['revokeAllDevices']
+  'station.list': StationApi['list']
+  'station.beginPairing': StationApi['beginPairing']
 }
 
 /** Business request payload of method K (reaches through the RpcRequest narrow form to payload). */
