@@ -781,45 +781,45 @@ describe('webauth administration service', () => {
  * Один WebSocket к маршруту станции с заголовками: 'open' — seat пропустил;
  * число — статус отказа до апгрейда.
  */
-function wsProbe(port: number, path: string, headers: Record<string, string> = {}): Promise<"open" | number> {
+function wsProbe(port: number, path: string, headers: Record<string, string> = {}): Promise<'open' | number> {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(`ws://127.0.0.1:${String(port)}${path}`, { headers })
-    ws.on("open", () => {
+    ws.on('open', () => {
       ws.close()
-      resolve("open")
+      resolve('open')
     })
-    ws.on("unexpected-response", (_req, response) => {
+    ws.on('unexpected-response', (_req, response) => {
       resolve(response.statusCode ?? 0)
     })
-    ws.on("error", error => { reject(error) })
+    ws.on('error', (error) => { reject(error) })
   })
 }
 
 describe('путь станции в auth-месте', () => {
   it('пускает по токену станции и не пускает без него; чужие пути токен не открывает', { timeout: 60_000 }, async () => {
     const { ctx, port } = await loadComposition({ stations: true })
-    const stations = ctx.get("stations")!
-    const { code } = stations.beginPairing("bob")
+    const stations = ctx.get('stations')!
+    const { code } = stations.beginPairing('bob')
 
     // До сопряжения у коннектора токена нет: seat закрывает путь
     // (сопряжение кадром hello тестирует bridge-спека коннектора, где
     // composition без seat; здесь проверяется транспортный допуск).
-    expect(await wsProbe(port, "/station-ws")).toBe(401)
-    expect(await wsProbe(port, "/station-ws", { authorization: 'Bearer not-a-token' })).toBe(401)
+    expect(await wsProbe(port, '/station-ws')).toBe(401)
+    expect(await wsProbe(port, '/station-ws', { authorization: 'Bearer not-a-token' })).toBe(401)
 
     // Сопрягаем через сервис (как pair-поток коннектора) и проверяем,
     // что токен станции открывает именно путь станции.
-    const { token } = await stations.completePairing(code, "спека-станция", "/tmp/dsh-spec-root", process.platform === "win32" ? "win32" : "linux")
-    expect(await wsProbe(port, "/station-ws", { authorization: `Bearer ${token}` })).toBe("open")
+    const { token } = await stations.completePairing(code, 'спека-станция', '/tmp/dsh-spec-root', process.platform === 'win32' ? 'win32' : 'linux')
+    expect(await wsProbe(port, '/station-ws', { authorization: `Bearer ${token}` })).toBe('open')
 
     // Тот же токен не открывает другие апгрейды и HTTP-запросы.
-    expect(await wsProbe(port, "/events", { authorization: `Bearer ${token}` })).toBe(401)
-    await expect(request(port, "/probe", { headers: { authorization: `Bearer ${token}` } }))
+    expect(await wsProbe(port, '/events', { authorization: `Bearer ${token}` })).toBe(401)
+    await expect(request(port, '/probe', { headers: { authorization: `Bearer ${token}` } }))
       .resolves.toMatchObject({ status: 401 })
   })
 
   it('без сервиса станций путь станции закрыт совсем', { timeout: 60_000 }, async () => {
     const { port } = await loadComposition()
-    expect(await wsProbe(port, "/station-ws", { authorization: 'Bearer whatever' })).toBe(401)
+    expect(await wsProbe(port, '/station-ws', { authorization: 'Bearer whatever' })).toBe(401)
   })
 })
