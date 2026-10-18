@@ -320,6 +320,12 @@
     - id: ui-admin
       name: '@deepseek-ai/dsh-client-ui-admin'
 
+    # Страница «Задачи» (overlay + кнопка в панели), deep-link'и /tasks и
+    # /session/<id> и раздел «Уведомления» в настройках: свои задачи через
+    # tasks.* (изоляция на хосте), код привязки Telegram через notifier.*.
+    - id: ui-tasks
+      name: '@deepseek-ai/dsh-client-ui-tasks'
+
     # Fleet limits in General settings: the per-fanout attempt cap and the
     # delegation-depth ceiling, edited live through the `fleet` settings
     # namespace. A composition without the fleet service renders nothing.
