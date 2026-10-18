@@ -19,6 +19,10 @@ export type NotificationKind =
   | 'paused'
   /** The previous process died on the task (hard crash). */
   | 'interrupted'
+  /** The task's bound execution station is offline; it resumes on return. */
+  | 'waiting-station'
+  /** The bound station returned and the task resumed automatically. */
+  | 'resumed'
   /** The owner reported success. */
   | 'completed'
   /** The owner reported failure. */

@@ -10,6 +10,8 @@ import type { NotificationKind } from '@deepseek-ai/dsh-notifier'
 const HEADLINES: Record<NotificationKind, string> = {
   paused: 'Требуется действие: задача приостановлена',
   interrupted: 'Требуется действие: задача прервана сбоем',
+  'waiting-station': 'Задача ждёт станцию',
+  resumed: 'Станция вернулась — задача продолжена',
   completed: 'Задача завершена',
   failed: 'Задача провалена',
 }
