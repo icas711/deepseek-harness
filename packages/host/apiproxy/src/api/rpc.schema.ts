@@ -79,6 +79,12 @@ export const rpcErrorSchema: z.ZodType<RpcError> = z.discriminatedUnion('code', 
   z.object({ code: z.literal('subagent-unauthorized'), message: z.string(), details: z.object({ childSessionId: z.string() }) }),
   z.object({ code: z.literal('subagent-delivery-unavailable'), message: z.string(), details: z.object({ childSessionId: z.string() }) }),
   z.object({ code: z.literal('session-ownership'), message: z.string(), details: z.object({ sessionId: z.string() }) }),
+  z.object({ code: z.literal('admin-forbidden'), message: z.string(), details: z.object({}) }),
+  z.object({ code: z.literal('admin-user-not-found'), message: z.string(), details: z.object({ login: z.string() }) }),
+  z.object({ code: z.literal('admin-user-exists'), message: z.string(), details: z.object({ login: z.string() }) }),
+  z.object({ code: z.literal('admin-device-not-found'), message: z.string(), details: z.object({ login: z.string(), sessionId: z.string() }) }),
+  z.object({ code: z.literal('admin-last-admin'), message: z.string(), details: z.object({ login: z.string() }) }),
+  z.object({ code: z.literal('admin-rejected'), message: z.string(), details: z.object({}) }),
   z.object({ code: z.literal('internal'), message: z.string(), details: z.object({}) }),
 ]) as unknown as z.ZodType<RpcError>
 

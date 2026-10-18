@@ -1,0 +1,111 @@
+/* Раздел «Уведомления»: вертикальная стопка, как у страниц настроек. */
+.title {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 640px;
+}
+
+.intro {
+  margin: 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 20px;
+  background: var(--dsw-alias-bg-secondary);
+  color: var(--dsw-alias-label-secondary);
+}
+
+.badgeDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.badgeBound {
+  color: var(--dsw-alias-label-success, #2e8b57);
+}
+
+.error {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 20px;
+  background: var(--dsw-alias-bg-secondary);
+  color: var(--dsw-alias-label-danger, var(--dsw-alias-label-primary));
+}
+
+.codeCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--dsw-alias-bg-secondary);
+}
+
+.codeTitle {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.codeHint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.codeRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.code {
+  font-family: var(--dsw-font-mono, monospace);
+  font-size: 18px;
+  line-height: 26px;
+  letter-spacing: 2px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.codeFooter {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+/* Крупные тач-цели: командная кнопка не ниже 40px на узких экранах. */
+@media (max-width: 720px) {
+  .section button {
+    min-height: 40px;
+  }
+}

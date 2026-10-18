@@ -1645,6 +1645,9 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
     for (const conn of hostConns) conn.push({ rpcId: mint(), payload: frame })
   }
 
+  /** The admin.* refusal the gate-less fixture answers with (the host's own text). */
+  const FORBIDDEN = { code: 'admin-forbidden', message: 'требуется роль администратора: вызов отклонён', details: {} } as const
+
   /** OK response echoing the caller's rpcId (contract: responses always backfill, never mint). */
   function ok<P, T>(request: RpcRequest<P>, value: T): Promise<RpcResponse<T>> {
     return Promise.resolve({ rpcId: request.rpcId, result: { ok: true, value } })
@@ -3005,6 +3008,37 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         models: fixtureModelGroups().reduce((total, group) => total + group.models.length, 0),
       }),
     },
+    // The fixture models a deployment without the login gate: nobody is an
+    // admin, and every data method refuses the way the host would.
+    admin: {
+      status: request => ok(request, { admin: false }),
+      listUsers: request => err(request, FORBIDDEN),
+      createUser: request => err(request, FORBIDDEN),
+      deleteUser: request => err(request, FORBIDDEN),
+      resetPassword: request => err(request, FORBIDDEN),
+      setRole: request => err(request, FORBIDDEN),
+      listDevices: request => err(request, FORBIDDEN),
+      revokeDevice: request => err(request, FORBIDDEN),
+      revokeAllDevices: request => err(request, FORBIDDEN),
+    },
+    stations: {
+      list: request => ok(request, { stations: [] }),
+      beginPairing: request => err(request, FORBIDDEN),
+    },
+    // Без гейта логина нет, поэтому beginBinding отказывает как хост без
+    // личности; пустая страница задач — пассивное развёртывание.
+    notifier: {
+      beginBinding: request => err(request, FORBIDDEN),
+      status: request => ok(request, { bound: false }),
+    },
+    tasks: {
+      list: request => ok(request, { tasks: [] }),
+      resume: request => err(request, {
+        code: 'tasks-task-not-found',
+        message: `задача "${request.payload.taskId}" не найдена среди ваших`,
+        details: { taskId: request.payload.taskId },
+      }),
+    },
     respond(message: ClientResponse): Promise<RpcReceipt> {
       // Same routing discipline as the host: rpcId first, then the payload's
       // audit correlation; a settled or unknown id is not-pending.
@@ -3176,6 +3210,21 @@ export class FixtureApiClient extends AbstractApiClient {
       case 'llm.models': return this.api.llm.models(request)
       case 'llm.discoverModels': return this.api.llm.discoverModels(request, signal)
       case 'llm.provisionProvider': return this.api.llm.provisionProvider(request, signal)
+      case 'admin.status': return this.api.admin.status(request)
+      case 'admin.listUsers': return this.api.admin.listUsers(request)
+      case 'admin.createUser': return this.api.admin.createUser(request)
+      case 'admin.deleteUser': return this.api.admin.deleteUser(request)
+      case 'admin.resetPassword': return this.api.admin.resetPassword(request)
+      case 'admin.setRole': return this.api.admin.setRole(request)
+      case 'admin.listDevices': return this.api.admin.listDevices(request)
+      case 'admin.revokeDevice': return this.api.admin.revokeDevice(request)
+      case 'admin.revokeAllDevices': return this.api.admin.revokeAllDevices(request)
+      case 'station.list': return this.api.stations.list(request)
+      case 'station.beginPairing': return this.api.stations.beginPairing(request)
+      case 'notifier.beginBinding': return this.api.notifier.beginBinding(request)
+      case 'notifier.status': return this.api.notifier.status(request)
+      case 'tasks.list': return this.api.tasks.list(request)
+      case 'tasks.resume': return this.api.tasks.resume(request)
     }
   }
 

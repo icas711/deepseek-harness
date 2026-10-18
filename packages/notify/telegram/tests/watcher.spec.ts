@@ -75,11 +75,62 @@ describe('TaskWatcher diff and dedup', () => {
     const { watcher } = makeWatcher([
       record('t1', 'paused'),
       record('t2', 'interrupted'),
-      record('t3', 'completed'),
-      record('t4', 'failed'),
+      record('t3', 'waiting-station'),
+      record('t4', 'completed'),
+      record('t5', 'failed'),
     ], notifier)
     await watcher.pollOnce()
-    expect(notifier.sent.map(sent => sent.kind)).toEqual(['paused', 'interrupted', 'completed', 'failed'])
+    expect(notifier.sent.map(sent => sent.kind)).toEqual(['paused', 'interrupted', 'waiting-station', 'completed', 'failed'])
+  })
+
+  it('notifies the station return once per waiting-station to running transition', async () => {
+    const notifier = new FakeNotifier()
+    notifier.logins = ['anna']
+    const records = [record('t1', 'waiting-station')]
+    const { watcher } = makeWatcher(records, notifier)
+    await watcher.pollOnce()
+    records[0] = record('t1', 'running')
+    await watcher.pollOnce()
+    // running is not news on its own: the next tick stays quiet.
+    await watcher.pollOnce()
+    expect(notifier.sent.map(sent => sent.kind)).toEqual(['waiting-station', 'resumed'])
+    // A new offline window re-arms the transition.
+    records[0] = record('t1', 'waiting-station')
+    await watcher.pollOnce()
+    records[0] = record('t1', 'running')
+    await watcher.pollOnce()
+    expect(notifier.sent.map(sent => sent.kind)).toEqual(['waiting-station', 'resumed', 'waiting-station', 'resumed'])
+  })
+
+  it('retries a failed resumed delivery on the next tick', async () => {
+    const notifier = new FakeNotifier()
+    notifier.logins = ['anna']
+    notifier.outcome = [() => 'sent' as const, () => {
+      throw new Error('telegram down')
+    }]
+    const records = [record('t1', 'waiting-station')]
+    const { watcher, errors } = makeWatcher(records, notifier)
+    await watcher.pollOnce()
+    records[0] = record('t1', 'running')
+    await watcher.pollOnce()
+    expect(errors).toHaveLength(1)
+    // The failed resumed delivery stays unnotified and retries next tick.
+    await watcher.pollOnce()
+    expect(notifier.sent.map(sent => sent.kind)).toEqual(['waiting-station', 'resumed'])
+  })
+
+  it('never invents the resumed transition without the observed waiting status', async () => {
+    const notifier = new FakeNotifier()
+    const records = [record('t1', 'waiting-station')]
+    const { watcher } = makeWatcher(records, notifier)
+    await watcher.pollOnce()
+    records[0] = record('t1', 'running')
+    // No bindings at the transition tick: the diff loses the edge, like every
+    // fast transition this poll-based watcher can miss.
+    await watcher.pollOnce()
+    notifier.logins = ['anna']
+    await watcher.pollOnce()
+    expect(notifier.sent).toHaveLength(0)
   })
 
   it('broadcasts to every bound login and marks the pair after any delivery', async () => {

@@ -33,10 +33,13 @@ export interface SessionsPort {
   readonly list: ObservableSnapshot<SessionsPortList>
   /**
    * Create a session on the host.
-   * @param opts - target workspace.
+   * @param opts - target workspace and, when the session must run on a
+   * paired station, that station's binding (validated at the wire boundary;
+   * set only by the composer's station picker, whose staged pick is spent on
+   * this create).
    * @returns the new session id.
    */
-  create(opts: { workspaceId: WorkspaceId }): Promise<SessionId>
+  create(opts: { workspaceId: WorkspaceId; executionTarget?: { stationId: string } }): Promise<SessionId>
   /**
    * Select a session as current.
    * @param id - session id (must exist in the list store).

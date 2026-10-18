@@ -17,9 +17,12 @@ export interface IWorkspaces {
   /**
    * Connect a Workspace to its reusable or freshly created blank session.
    * @param workspaceId - target workspace.
+   * @param executionTarget - station binding for a freshly created session
+   * (the composer's station picker); set only when the session must run on
+   * that station — the blank-reuse arm is skipped under a binding.
    * @returns the connected session id.
    */
-  connectWorkspace(workspaceId: WorkspaceId): Promise<SessionId>
+  connectWorkspace(workspaceId: WorkspaceId, executionTarget?: { stationId: string }): Promise<SessionId>
   /**
    * The New Session flow: connect the explicit, current-Session, or recent
    * Workspace and open the resulting session; failures surface on the session

@@ -78,6 +78,15 @@ export const ru = {
   'hero.headline': 'Поехали',
   'hero.preview': 'Превью',
   'hero.chooseWorkspace': 'Выбрать рабочую область',
+
+  // Пикер станции исполнения на экране новой сессии.
+  'executionTarget.label': 'Где исполнять задачу',
+  'executionTarget.server': 'Сервер',
+  'executionTarget.station': 'Станция «{name}»',
+  'executionTarget.empty': 'Станций нет — выполните dsh-station pair на своём компьютере',
+  'executionTarget.pairHint': 'Подключить компьютер: dsh-station pair, затем dsh-station run',
+  'executionTarget.online': 'Станция на связи',
+  'executionTarget.offline': 'Станция не на связи',
   'session.hierarchy': 'Иерархия сессий',
   'details.title': 'Детали',
   'details.close': 'Закрыть детали',

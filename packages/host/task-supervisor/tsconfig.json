@@ -39,6 +39,18 @@
       "path": "../../session/session-persistence"
     },
     {
+      "path": "../../station/fs-station"
+    },
+    {
+      "path": "../../station/protocol"
+    },
+    {
+      "path": "../../station/subprocess-station"
+    },
+    {
+      "path": "../stations"
+    },
+    {
       "path": "../../runtime-diagnostics/invariants"
     }
   ]

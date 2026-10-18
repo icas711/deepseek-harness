@@ -15,9 +15,11 @@ export const inject = ['invariants']
  * No runtime invariant: the package's guarantees are the durable file
  * round-trip, the writer-lock merge, and the transition table — medium and
  * lifecycle effects proven by the package's unit and real-composition
- * tests. The supervisor exposes no continuously observable in-process
- * event relation of its own; the model-visible continuation rides the
- * ordinary logged `user/message`, whose log relation `dsh-agent` owns.
+ * tests. The station/status subscription is eventually consistent by design
+ * (the offline park commits a bounded moment after the event), so it has no
+ * continuously observable in-process relation to assert; the model-visible
+ * continuations ride the ordinary logged `user/message`, whose log relation
+ * `dsh-agent` owns.
  */
 const install: InvariantInstaller = () => {}
 

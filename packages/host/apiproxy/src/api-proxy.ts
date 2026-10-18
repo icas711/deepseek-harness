@@ -95,6 +95,30 @@ import type {} from '@deepseek-ai/dsh-session-telemetry'
 // Side-effect type import: resolves `ctx.get('quotaPause')` (optional
 // composition — the quota-pause guard's Context merge only).
 import type {} from '@deepseek-ai/dsh-quota-pause'
+// Type-only: resolve ctx.get('taskSupervisor') (опциональная композиция — проводка задач)
+// и ctx.get('notifier') (опциональная композиция — домен notifier.*).
+import type {} from '@deepseek-ai/dsh-notifier'
+// Type-only: resolve ctx.get('notifier') (опциональная композиция — домен notifier.*).
+import type {} from '@deepseek-ai/dsh-notifier'
+// Type-only: resolve ctx.get('taskSupervisor') (опциональная композиция — проводка задач).
+// Type-only: resolve ctx.get('notifier') (опциональная композиция — домен notifier.*).
+import type {} from '@deepseek-ai/dsh-notifier'
+// Type-only: resolve ctx.get('taskSupervisor') (опциональная композиция — проводка задач).
+// Type-only: resolve ctx.get('notifier') (опциональная композиция — домен notifier.*).
+import type {} from '@deepseek-ai/dsh-notifier'
+// Type-only: resolve ctx.get('taskSupervisor') (опциональная композиция — проводка задач).
+// Type-only: resolve ctx.get('notifier') (опциональная композиция — домен notifier.*).
+import type {} from '@deepseek-ai/dsh-notifier'
+// Type-only: resolve ctx.get('taskSupervisor') (опциональная композиция — проводка задач).
+// Type-only: resolve ctx.get('notifier') (опциональная композиция — домен notifier.*).
+import type {} from '@deepseek-ai/dsh-notifier'
+// Type-only: resolve ctx.get('taskSupervisor') (опциональная композиция — проводка задач).
+import type {} from '@deepseek-ai/dsh-task-supervisor'
+import { TaskSupervisorError } from '@deepseek-ai/dsh-task-supervisor'
+import type { TaskView } from '@deepseek-ai/dsh-task-supervisor'
+import { StationId } from '@deepseek-ai/dsh-station-protocol'
+import { StationFileSystem } from '@deepseek-ai/dsh-fs-station'
+import { StationSubprocessRuntime } from '@deepseek-ai/dsh-subprocess-station'
 import { approvalResponsePayloadSchema } from './api/approvals.schema.ts'
 import { imageLimitsProjectionSchema, sessionListMetadataProjectionSchema } from './api/sessions.schema.ts'
 import { questionResponsePayloadSchema } from './api/questions.schema.ts'
@@ -115,8 +139,9 @@ import {
   inspectApiRemoteSession,
 } from '@deepseek-ai/dsh-api-remotes'
 import { canOpenNativePath, openNativePath, openNativeTextFile } from './native-path-opener.ts'
-import { isWithinRoot, scopingIdentity } from './web-identity.ts'
-import type { WebIdentity } from './web-identity.ts'
+import { isWithinRoot, requestIdentity, scopingIdentity, WebAdminError } from './web-identity.ts'
+import type { WebAuthService, WebIdentity } from './web-identity.ts'
+import { createTaskTracking } from './task-tracking.ts'
 import { realpathSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -435,6 +460,73 @@ async function buildModelCatalog(ctx: Context): Promise<{
 /** Wrap an error result echoing the request's rpcId. */
 function err<T>(request: RpcRequest<unknown>, error: RpcError): RpcResponse<T> {
   return { rpcId: request.rpcId, result: { ok: false, error } }
+}
+
+/**
+ * The web-auth service when the calling web user holds the admin role, else
+ * the typed `admin-forbidden` response: every admin.* data method gates
+ * through this one read, and no identity (a non-web caller, a passive
+ * deployment) refuses the same way.
+ * @param ctx - the gateway context.
+ * @param request - the request being answered (for the refusal's rpcId echo).
+ * @returns the service, or the `admin-forbidden` error response.
+ */
+function requireAdmin(ctx: Context, request: RpcRequest<unknown>): WebAuthService | RpcResponse<never> {
+  const auth = ctx.get('webAuth')
+  const identity = requestIdentity(ctx)
+  if (auth === undefined || identity === undefined || !identity.admin) {
+    return err(request, {
+      code: 'admin-forbidden',
+      message: 'требуется роль администратора: вызов отклонён',
+      details: {},
+    })
+  }
+  return auth
+}
+
+/**
+ * Fold a web-auth administration failure into its typed wire error. A
+ * WebAdminError narrows by its code; anything else is an internal fault.
+ * @param request - the request being answered.
+ * @param error - the thrown value from the service call.
+ * @returns the RpcError for the response.
+ */
+function webAdminError(request: RpcRequest<unknown>, error: unknown): RpcError {
+  if (!(error instanceof WebAdminError)) {
+    return {
+      code: 'internal',
+      message: error instanceof Error ? error.message : String(error),
+      details: {},
+    }
+  }
+  switch (error.code) {
+    case 'user-exists':
+      return { code: 'admin-user-exists', message: error.message, details: { login: adminErrorLogin(request) } }
+    case 'user-not-found':
+      return { code: 'admin-user-not-found', message: error.message, details: { login: adminErrorLogin(request) } }
+    case 'last-admin':
+      return { code: 'admin-last-admin', message: error.message, details: { login: adminErrorLogin(request) } }
+    case 'device-not-found':
+      return {
+        code: 'admin-device-not-found',
+        message: error.message,
+        details: { login: adminErrorLogin(request), sessionId: adminErrorSessionId(request) },
+      }
+    case 'invalid-input':
+      return { code: 'admin-rejected', message: error.message, details: {} }
+  }
+}
+
+/** The login the failed request named, for the error details. */
+function adminErrorLogin(request: RpcRequest<unknown>): string {
+  const payload = request.payload as { login?: unknown } | undefined
+  return typeof payload?.login === 'string' ? payload.login : ''
+}
+
+/** The session id the failed request named, for the error details. */
+function adminErrorSessionId(request: RpcRequest<unknown>): string {
+  const payload = request.payload as { sessionId?: unknown } | undefined
+  return typeof payload?.sessionId === 'string' ? payload.sessionId : ''
 }
 
 /**
@@ -1207,6 +1299,10 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
    * nothing: admins and non-web callers see every session.
    */
   const muxQueues = new Map<FrameQueue<RpcRequest<MuxFrame>>, WebIdentity | undefined>()
+  // Проводка супервизора задач: станционные привязки создания сессий и
+  // регистрация/завершение задач по принятому промпту и исходу turn'а.
+  const sessionStations = new Map<SessionId, StationId>()
+  const taskTracking = createTaskTracking()
   /**
    * Open host-stream queues. The `events.host` stream owns the listener side;
    * this registry lets a unary handler publish the same frames (a durable
@@ -1297,6 +1393,28 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
   }
 
   /**
+   * The agent-scope setup that mounts one station's execution world: the
+   * fs-station and subprocess-station providers of that station replace the
+   * local world for everything composed inside the returned scope. Each mount
+   * gets a private `isolate` label — two sessions bound to different
+   * stations must not collide on the shared service store, and an unlabeled
+   * registration would throw against the host's own `fs`/`subprocess`
+   * providers (the preset/isolate mechanic).
+   *
+   * The same mount lives in `dsh-task-supervisor`'s resume path; it is kept
+   * local to each consumer because a helper in `dsh-stations` would make the
+   * provider packages depend on the bridge that depends on them.
+   * @param stationId - the station whose world the setup mounts.
+   * @returns the setup callback for the agent factory.
+   */
+  function stationWorldSetup(stationId: string): (agentCtx: Context) => Promise<void> {
+    return async (agentCtx: Context) => {
+      await agentCtx.isolate('fs').plugin(StationFileSystem, { stationId })
+      await agentCtx.isolate('subprocess').plugin(StationSubprocessRuntime, { stationId })
+    }
+  }
+
+  /**
    * Resolve the preset an agent will be composed from, and the setup that
    * installs it.
    *
@@ -1309,28 +1427,35 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
    * A deployment with no preset roster composes nothing and every session
    * shares the host composition, which is the behavior before presets existed.
    * @param presetId - the requested preset, or `undefined` for the default.
+   * @param executionTarget - the station whose execution world the setup
+   * mounts in the agent scope, when the request named one.
    * @returns the id to record on the header (absent without a roster) and the setup callback.
    * @throws when the roster supplies no such preset.
    */
-  async function composeAgent(presetId: string | undefined): Promise<{
+  async function composeAgent(presetId: string | undefined, executionTarget?: { stationId: string }): Promise<{
     agentPreset?: string
     setup: (agentCtx: Context) => Promise<void>
   }> {
-    const presets = ctx.get('agentPresets')
-    if (presets === undefined) {
-      return {
-        setup: (agentCtx: Context) => {
-          installSelection(agentCtx)
-          return Promise.resolve()
-        },
-      }
-    }
-    const resolvedId = (await presets.resolve(presetId)).id
-    return {
-      agentPreset: resolvedId,
-      setup: async (agentCtx: Context) => {
+    const steps: Array<(agentCtx: Context) => Promise<void>> = [
+      (agentCtx: Context) => {
         installSelection(agentCtx)
+        return Promise.resolve()
+      },
+    ]
+    const presets = ctx.get('agentPresets')
+    let agentPreset: string | undefined
+    if (presets !== undefined) {
+      const resolvedId = (await presets.resolve(presetId)).id
+      agentPreset = resolvedId
+      steps.push(async (agentCtx: Context) => {
         await presets.mount(agentCtx, resolvedId)
+      })
+    }
+    if (executionTarget !== undefined) steps.push(stationWorldSetup(executionTarget.stationId))
+    return {
+      ...(agentPreset === undefined ? {} : { agentPreset }),
+      setup: async (agentCtx: Context) => {
+        for (const step of steps) await step(agentCtx)
       },
     }
   }
@@ -1384,6 +1509,20 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     if (scope === undefined) return true
     const cwd = ctx.sessions.get(sessionId)?.header.cwd
     return cwd !== undefined && isWithinRoot(cwd, scope.root)
+  }
+
+  /**
+   * Владелец задачи — владелец её сессии по кабинетному правилу cwd. Задачи
+   * изолируются строже списка сессий: даже админ видит только свои, потому что
+   * resume запускает работу в чужом списке. Вне веб-запроса ничего не
+   * изолируется. Пропавшая сессия (удалённый лог) владение не доказывает —
+   * запись скрывается.
+   */
+  async function taskVisibleTo(identity: WebIdentity | undefined, record: TaskView): Promise<boolean> {
+    if (identity === undefined) return true
+    const cwd = ctx.sessions.get(record.sessionId)?.header.cwd
+      ?? (await ctx.get('sessionPersistence')?.list())?.find(header => header.id === record.sessionId)?.cwd
+    return cwd !== undefined && isWithinRoot(cwd, identity.root)
   }
 
   /** Record a settled answerable id (bounded FIFO) for the duplicate-answer receipt. */
@@ -1471,6 +1610,15 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     const agent = ctx.agents.get(session.id)
     if (agent?.session !== session) return
     broadcast({ type: 'session/queue', sessionId: session.id, items: queueItems(agent, event.data) })
+  })
+
+  // Исход turn'а завершает задачу сессии: completed → markCompleted,
+  // error → markFailed (текст из errorChain); отмена и blocked оставляют
+  // задачу running — работа не закончена и не провалена. Подписка живёт в
+  // волокне шлюза: с его выгрузкой уходит и проводка.
+  ctx.on('session/event', (session, event) => {
+    if (event.type !== 'turn/end') return
+    void taskTracking.settleTurnEnd(ctx, session.id, event.data.reason)
   })
 
   /** Remove a wait before settling it: synchronous deletion makes the first claimant win. */
@@ -1739,6 +1887,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     cwd: string,
     checkPersistedIdentity: boolean,
     presetId?: string,
+    executionTarget?: { stationId: string },
   ): Promise<Agent> {
     let creation = sessionCreations.get(sessionId)
     if (creation === undefined) {
@@ -1776,7 +1925,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
           const resumed = await ctx.agents.resume({
             resumeSessionId: sessionId,
             agentOptions: agentOptions(),
-            setup: (await composeAgent(storedPreset)).setup,
+            setup: (await composeAgent(storedPreset, executionTarget)).setup,
           })
           agentHandles.set(sessionId, resumed)
           return resumed.agent
@@ -1787,7 +1936,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         } catch (error: unknown) {
           throw new Error(`failed to ensure project directory "${cwd}": ${String(error)}`, { cause: error })
         }
-        const composition = await composeAgent(presetId)
+        const composition = await composeAgent(presetId, executionTarget)
         const created = await ctx.agents.create({
           sessionId,
           agentOptions: agentOptions(),
@@ -2333,8 +2482,41 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         }
         const cwd = workspace?.path ?? request.payload.cwd ?? scope?.root ?? defaults.cwd
         const requestedPreset = request.payload.agentPreset
+        // Station binding is validated at this wire boundary: the station must
+        // be registered and owned by the calling login (admins included — the
+        // list domain shows all stations, but a session binds the caller's own).
+        const requestedTarget = request.payload.executionTarget
+        let executionTarget: { stationId: string } | undefined
+        if (requestedTarget !== undefined) {
+          const stations = ctx.get('stations')
+          const identity = requestIdentity(ctx)
+          if (stations === undefined || identity === undefined) {
+            return err(request, {
+              code: 'stations-unavailable',
+              message: 'станция исполнения недоступна: нужен вход через веб и смонтированный мост станций',
+              details: {},
+            })
+          }
+          const record = await stations.get(StationId(requestedTarget.stationId))
+          if (record === undefined) {
+            return err(request, {
+              code: 'station-not-found',
+              message: `станция "${requestedTarget.stationId}" не сопряжена`,
+              details: { stationId: requestedTarget.stationId },
+            })
+          }
+          if (record.login !== identity.login) {
+            return err(request, {
+              code: 'station-forbidden',
+              message: `станция «${record.name}» сопряжена с другим логином`,
+              details: { stationId: requestedTarget.stationId },
+            })
+          }
+          executionTarget = { stationId: requestedTarget.stationId }
+          sessionStations.set(sessionId, StationId(executionTarget.stationId))
+        }
         try {
-          await ensureSession(sessionId, cwd, request.payload.sessionId !== undefined, requestedPreset)
+          await ensureSession(sessionId, cwd, request.payload.sessionId !== undefined, requestedPreset, executionTarget)
         } catch (error: unknown) {
           if (error instanceof AgentPresetConflict) {
             return err(request, {
@@ -2751,6 +2933,12 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
               details: { reason: String(error) },
             })
           }
+          // Принятый промпт регистрирует задачу сессии: активная запись не
+          // переметывается (метка — первый промпт), завершённая сменяется
+          // новой. Станция берётся из факта создания (executionTarget);
+          // локальные сессии ведутся без неё — страница задач едина.
+          const promptText = content.map(part => part.type === 'text' ? part.text : '').join(' ')
+          void taskTracking.trackAcceptedPrompt(ctx, sessionId, promptText, sessionStations.get(sessionId))
           return ok(request, { accepted: true as const })
         }
         return hasImage ? serializeImageAdmission(agent, admit) : admit()
@@ -3776,6 +3964,248 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
             details: { settingsNs, provider },
           })
         }
+      },
+    },
+
+    admin: {
+      status(request) {
+        const identity = requestIdentity(ctx)
+        return Promise.resolve(ok(request, { admin: identity?.admin === true }))
+      },
+
+      listUsers(request) {
+        const auth = requireAdmin(ctx, request)
+        if ('result' in auth) return Promise.resolve(auth)
+        return Promise.resolve(ok(request, { users: auth.listUsers() }))
+      },
+
+      async createUser(request) {
+        const auth = requireAdmin(ctx, request)
+        if ('result' in auth) return auth
+        try {
+          await auth.createUser(request.payload)
+        } catch (error: unknown) {
+          return err(request, webAdminError(request, error))
+        }
+        return ok(request, {})
+      },
+
+      async deleteUser(request) {
+        const auth = requireAdmin(ctx, request)
+        if ('result' in auth) return auth
+        try {
+          await auth.deleteUser(request.payload.login)
+        } catch (error: unknown) {
+          return err(request, webAdminError(request, error))
+        }
+        return ok(request, {})
+      },
+
+      async resetPassword(request) {
+        const auth = requireAdmin(ctx, request)
+        if ('result' in auth) return auth
+        try {
+          await auth.resetPassword(request.payload.login, request.payload.newPassword)
+        } catch (error: unknown) {
+          return err(request, webAdminError(request, error))
+        }
+        return ok(request, {})
+      },
+
+      async setRole(request) {
+        const auth = requireAdmin(ctx, request)
+        if ('result' in auth) return auth
+        try {
+          await auth.setRole(request.payload.login, request.payload.role)
+        } catch (error: unknown) {
+          return err(request, webAdminError(request, error))
+        }
+        return ok(request, {})
+      },
+
+      listDevices(request) {
+        const auth = requireAdmin(ctx, request)
+        if ('result' in auth) return Promise.resolve(auth)
+        try {
+          return Promise.resolve(ok(request, { devices: auth.listDevices(request.payload.login) }))
+        } catch (error: unknown) {
+          return Promise.resolve(err(request, webAdminError(request, error)))
+        }
+      },
+
+      async revokeDevice(request) {
+        const auth = requireAdmin(ctx, request)
+        if ('result' in auth) return auth
+        try {
+          await auth.revokeDevice(request.payload.login, request.payload.sessionId)
+        } catch (error: unknown) {
+          return err(request, webAdminError(request, error))
+        }
+        return ok(request, {})
+      },
+
+      async revokeAllDevices(request) {
+        const auth = requireAdmin(ctx, request)
+        if ('result' in auth) return auth
+        try {
+          return ok(request, { revoked: await auth.revokeAllDevices(request.payload.login) })
+        } catch (error: unknown) {
+          return err(request, webAdminError(request, error))
+        }
+      },
+    },
+
+    stations: {
+      // Станции адресуются веб-личности: pair выдаётся её логину, list
+      // показывает её станции (админ видит все). Не-веб-вызов и пассивное
+      // развёртывание (строки stations нет) отвечают одним typed-отказом.
+      async list(request) {
+        const stations = ctx.get('stations')
+        const identity = requestIdentity(ctx)
+        if (stations === undefined || identity === undefined) {
+          return err(request, {
+            code: 'stations-unavailable',
+            message: 'станции недоступны: нужен вход через веб и смонтированный мост станций',
+            details: {},
+          })
+        }
+        return ok(request, { stations: await stations.list(identity.admin ? undefined : identity.login) })
+      },
+
+      async beginPairing(request) {
+        const stations = ctx.get('stations')
+        const identity = requestIdentity(ctx)
+        if (stations === undefined || identity === undefined) {
+          return err(request, {
+            code: 'stations-unavailable',
+            message: 'сопряжение недоступно: нужен вход через веб и смонтированный мост станций',
+            details: {},
+          })
+        }
+        try {
+          return ok(request, stations.beginPairing(identity.login))
+        } catch (error: unknown) {
+          return err(request, {
+            code: 'stations-unavailable',
+            message: error instanceof Error ? error.message : String(error),
+            details: {},
+          })
+        }
+      },
+    },
+
+    notifier: {
+      // Код и статус адресуются логину веб-личности (по образцу station.*):
+      // не-веб-вызов и развёртывание без провайдера нотификаций отвечают
+      // одним typed-отказом.
+      async beginBinding(request) {
+        const notifier = ctx.get('notifier')
+        const identity = requestIdentity(ctx)
+        if (notifier === undefined || identity === undefined) {
+          return err(request, {
+            code: 'notifier-unavailable',
+            message: 'уведомления недоступны: нужен вход через веб и провайдер нотификаций (DSH_TELEGRAM_BOT_TOKEN)',
+            details: {},
+          })
+        }
+        try {
+          const challenge = await notifier.beginBinding(identity.login)
+          return ok(request, { code: String(challenge.code) })
+        } catch (error: unknown) {
+          return err(request, {
+            code: 'notifier-unavailable',
+            message: error instanceof Error ? error.message : String(error),
+            details: {},
+          })
+        }
+      },
+
+      async status(request) {
+        const notifier = ctx.get('notifier')
+        const identity = requestIdentity(ctx)
+        if (notifier === undefined || identity === undefined) {
+          return err(request, {
+            code: 'notifier-unavailable',
+            message: 'уведомления недоступны: нужен вход через веб и провайдер нотификаций (DSH_TELEGRAM_BOT_TOKEN)',
+            details: {},
+          })
+        }
+        const bound = (await notifier.boundLogins()).includes(identity.login)
+        return ok(request, { bound })
+      },
+    },
+
+    tasks: {
+      // Свои задачи вызывающего: веб-личность изолирует по владельцу сессии
+      // (админ включительно — resume запускает работу в чужом списке),
+      // не-веб-вызов видит весь реестр. Отметку завершённой клиент не
+      // передаёт — исход работы известен только хосту.
+      async list(request) {
+        const supervisor = ctx.get('taskSupervisor')
+        if (supervisor === undefined) {
+          return err(request, {
+            code: 'tasks-unavailable',
+            message: 'задачи недоступны: развёртывание без супервизора задач',
+            details: {},
+          })
+        }
+        const identity = requestIdentity(ctx)
+        const records = await supervisor.list()
+        const visible: TaskView[] = []
+        for (const record of records) {
+          if (await taskVisibleTo(identity, record)) visible.push(record)
+        }
+        // Свежее изменение первым — страница задач читается сверху вниз.
+        visible.sort((a, b) => b.updatedAt - a.updatedAt)
+        return ok(request, {
+          tasks: visible.map(record => ({
+            taskId: String(record.taskId),
+            sessionId: record.sessionId,
+            title: record.title,
+            status: record.status,
+            updatedAt: record.updatedAt,
+            ...record.stationId === undefined ? {} : { stationId: String(record.stationId) },
+          })),
+        })
+      },
+
+      async resume(request) {
+        const supervisor = ctx.get('taskSupervisor')
+        if (supervisor === undefined) {
+          return err(request, {
+            code: 'tasks-unavailable',
+            message: 'задачи недоступны: развёртывание без супервизора задач',
+            details: {},
+          })
+        }
+        const records = await supervisor.list()
+        const record = records.find(candidate => String(candidate.taskId) === request.payload.taskId)
+        // Неизвестный и чужой идентификатор отвечают одинаково: probing
+        // чужого списка не должен отличаться от опечатки.
+        if (record === undefined || !(await taskVisibleTo(requestIdentity(ctx), record))) {
+          return err(request, {
+            code: 'tasks-task-not-found',
+            message: `задача "${request.payload.taskId}" не найдена среди ваших`,
+            details: { taskId: request.payload.taskId },
+          })
+        }
+        try {
+          await supervisor.resume(record.taskId)
+        } catch (error: unknown) {
+          if (error instanceof TaskSupervisorError) {
+            return err(request, {
+              code: 'tasks-resume-rejected',
+              message: error.message,
+              details: { taskId: request.payload.taskId },
+            })
+          }
+          return err(request, {
+            code: 'internal',
+            message: `возобновление задачи "${request.payload.taskId}" не выполнено: ${String(error)}`,
+            details: {},
+          })
+        }
+        return ok(request, {})
       },
     },
 

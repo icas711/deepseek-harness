@@ -73,6 +73,18 @@ import {
   subagentListRequestSchema,
   subagentPromptRequestSchema,
 } from '../api/subagents.schema.ts'
+import {
+  adminCreateUserRequestSchema, adminDeleteUserRequestSchema, adminListDevicesRequestSchema,
+  adminListUsersRequestSchema, adminResetPasswordRequestSchema, adminRevokeAllDevicesRequestSchema,
+  adminRevokeDeviceRequestSchema, adminSetRoleRequestSchema, adminStatusRequestSchema,
+} from '../api/admin.schema.ts'
+import {
+  stationBeginPairingRequestSchema, stationListRequestSchema,
+} from '../api/station.schema.ts'
+import {
+  notifierBeginBindingRequestSchema, notifierStatusRequestSchema,
+} from '../api/notifier.schema.ts'
+import { tasksListRequestSchema, tasksResumeRequestSchema } from '../api/tasks.schema.ts'
 
 /**
  * Unary dispatch table, keyed by (and compiler-locked to) RpcMethodMap: a map row without a
@@ -147,6 +159,21 @@ const UNARY_ROUTES: UnaryRoutes = {
   'llm.models': { schema: llmModelsRequestSchema, invoke: (api, r) => api.llm.models(r) },
   'llm.discoverModels': { schema: llmDiscoverModelsRequestSchema, invoke: (api, r, signal) => api.llm.discoverModels(r, signal) },
   'llm.provisionProvider': { schema: llmProvisionProviderRequestSchema, invoke: (api, r, signal) => api.llm.provisionProvider(r, signal) },
+  'admin.status': { schema: adminStatusRequestSchema, invoke: (api, r) => api.admin.status(r) },
+  'admin.listUsers': { schema: adminListUsersRequestSchema, invoke: (api, r) => api.admin.listUsers(r) },
+  'admin.createUser': { schema: adminCreateUserRequestSchema, invoke: (api, r) => api.admin.createUser(r) },
+  'admin.deleteUser': { schema: adminDeleteUserRequestSchema, invoke: (api, r) => api.admin.deleteUser(r) },
+  'admin.resetPassword': { schema: adminResetPasswordRequestSchema, invoke: (api, r) => api.admin.resetPassword(r) },
+  'admin.setRole': { schema: adminSetRoleRequestSchema, invoke: (api, r) => api.admin.setRole(r) },
+  'admin.listDevices': { schema: adminListDevicesRequestSchema, invoke: (api, r) => api.admin.listDevices(r) },
+  'admin.revokeDevice': { schema: adminRevokeDeviceRequestSchema, invoke: (api, r) => api.admin.revokeDevice(r) },
+  'admin.revokeAllDevices': { schema: adminRevokeAllDevicesRequestSchema, invoke: (api, r) => api.admin.revokeAllDevices(r) },
+  'station.list': { schema: stationListRequestSchema, invoke: (api, r) => api.stations.list(r) },
+  'station.beginPairing': { schema: stationBeginPairingRequestSchema, invoke: (api, r) => api.stations.beginPairing(r) },
+  'notifier.beginBinding': { schema: notifierBeginBindingRequestSchema, invoke: (api, r) => api.notifier.beginBinding(r) },
+  'notifier.status': { schema: notifierStatusRequestSchema, invoke: (api, r) => api.notifier.status(r) },
+  'tasks.list': { schema: tasksListRequestSchema, invoke: (api, r) => api.tasks.list(r) },
+  'tasks.resume': { schema: tasksResumeRequestSchema, invoke: (api, r) => api.tasks.resume(r) },
 }
 
 /** Route lookup that narrows an arbitrary path segment to a map key (single cast point for the string→key refinement). */

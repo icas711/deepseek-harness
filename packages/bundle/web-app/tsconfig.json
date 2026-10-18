@@ -30,6 +30,12 @@
       "path": "../../host/webserver"
     },
     {
+      "path": "../../host/stations"
+    },
+    {
+      "path": "../../station/protocol"
+    },
+    {
       "path": "../../host/apiproxy"
     },
     {

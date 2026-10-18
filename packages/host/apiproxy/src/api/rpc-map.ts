@@ -14,6 +14,10 @@ import type { SettingsApi } from './settings.ts'
 import type { CredentialsApi } from './credentials.ts'
 import type { LlmApi } from './llm.ts'
 import type { SubagentsApi } from './subagents.ts'
+import type { AdminApi } from './admin.ts'
+import type { StationApi } from './station.ts'
+import type { NotifierApi } from './notifier.ts'
+import type { TasksApi } from './tasks.ts'
 import type { RpcResponse } from './rpc.ts'
 
 /**
@@ -78,6 +82,21 @@ export interface RpcMethodMap {
   'llm.models': LlmApi['models']
   'llm.discoverModels': LlmApi['discoverModels']
   'llm.provisionProvider': LlmApi['provisionProvider']
+  'admin.status': AdminApi['status']
+  'admin.listUsers': AdminApi['listUsers']
+  'admin.createUser': AdminApi['createUser']
+  'admin.deleteUser': AdminApi['deleteUser']
+  'admin.resetPassword': AdminApi['resetPassword']
+  'admin.setRole': AdminApi['setRole']
+  'admin.listDevices': AdminApi['listDevices']
+  'admin.revokeDevice': AdminApi['revokeDevice']
+  'admin.revokeAllDevices': AdminApi['revokeAllDevices']
+  'station.list': StationApi['list']
+  'station.beginPairing': StationApi['beginPairing']
+  'notifier.beginBinding': NotifierApi['beginBinding']
+  'notifier.status': NotifierApi['status']
+  'tasks.list': TasksApi['list']
+  'tasks.resume': TasksApi['resume']
 }
 
 /** Business request payload of method K (reaches through the RpcRequest narrow form to payload). */

@@ -3,9 +3,11 @@
  * supervisor exposes no event feed, so the watcher polls `list()` and diffs
  * statuses in memory: every transition into a notifiable status produces at
  * most one active notification per (task, status) pair — a pair re-arms
- * only after the task leaves that status. A pair with no delivered send
- * stays unnotified, so the next tick retries it (a user who binds later
- * still receives the notification).
+ * only after the task leaves that status. The station return adds one
+ * transition-kind: waiting-station -> running delivers `resumed` once per
+ * such transition. A pair with no delivered send stays unnotified, so the
+ * next tick retries it (a user who binds later still receives the
+ * notification).
  * @module @deepseek-ai/dsh-telegram-notifier/watcher
  */
 
@@ -38,8 +40,9 @@ export interface NotifierFace {
   send(request: NotificationRequest): Promise<SendResult>
 }
 
-/** Statuses worth a notification; `running` means live work, not news. */
-const NOTIFIABLE_KINDS: readonly NotificationKind[] = ['paused', 'interrupted', 'completed', 'failed']
+/** Statuses worth a notification; `running` means live work, not news — its
+ * one newsworthy edge, the station return, is a transition, not a status. */
+const NOTIFIABLE_KINDS: readonly NotificationKind[] = ['paused', 'interrupted', 'waiting-station', 'completed', 'failed']
 
 /**
  * Map a task status to its notification kind.
@@ -54,6 +57,10 @@ function toKind(status: TaskStatus): NotificationKind | undefined {
 export class TaskWatcher {
   /** Pairs this watcher has actively notified; pruned when the pair disappears. */
   private readonly notified = new Set<string>()
+  /** Statuses observed on the previous tick; the transition source for `resumed`. */
+  private readonly previous = new Map<string, TaskStatus>()
+  /** Tasks whose `resumed` transition was delivered; observing `waiting-station` re-arms them. */
+  private readonly resumedNotified = new Set<string>()
   private timer: NodeJS.Timeout | undefined
   private stopped = false
 
@@ -82,10 +89,37 @@ export class TaskWatcher {
     const records = await this.source.list()
     const logins = await this.notifier.boundLogins()
     const current = new Set<string>()
+    const seen = new Set<string>()
     for (const record of records) {
+      const taskId = String(record.taskId)
+      seen.add(taskId)
+      // The station return: waiting-station -> running means the bound
+      // station reconnected and the supervisor resumed the task. One active
+      // notification per transition; observing waiting-station again re-arms
+      // it. A failed or unbound delivery stays unmarked and retries on the
+      // next tick, like every other pair.
+      if (
+        this.previous.get(taskId) === 'waiting-station'
+        && record.status === 'running'
+        && !this.resumedNotified.has(taskId)
+        && logins.length > 0
+      ) {
+        let delivered = false
+        for (const login of logins) {
+          try {
+            const result = await this.notifier.send({ login, kind: 'resumed', title: record.title, sessionId: record.sessionId })
+            if (result === 'sent') delivered = true
+          } catch (error) {
+            this.onError(error)
+          }
+        }
+        if (delivered) this.resumedNotified.add(taskId)
+      }
+      if (record.status === 'waiting-station') this.resumedNotified.delete(taskId)
+      this.previous.set(taskId, record.status)
       const kind = toKind(record.status)
       if (kind === undefined) continue
-      const pair = `${String(record.taskId)}:${record.status}`
+      const pair = `${taskId}:${record.status}`
       current.add(pair)
       if (this.notified.has(pair) || logins.length === 0) continue
       let delivered = false
@@ -101,6 +135,12 @@ export class TaskWatcher {
     }
     for (const pair of this.notified) {
       if (!current.has(pair)) this.notified.delete(pair)
+    }
+    for (const taskId of [...this.previous.keys()]) {
+      if (!seen.has(taskId)) this.previous.delete(taskId)
+    }
+    for (const taskId of [...this.resumedNotified]) {
+      if (!seen.has(taskId)) this.resumedNotified.delete(taskId)
     }
   }
 

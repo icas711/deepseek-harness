@@ -12,11 +12,13 @@ it('ships install metadata with the built web application', async () => {
   const manifest: unknown = JSON.parse(await readFile(join(DIST_ROOT, 'manifest.webmanifest'), 'utf8'))
   expect(manifest).toEqual({
     id: '/',
-    name: 'custom-harness',
-    short_name: 'custom-harness',
+    name: 'DSH Оркестратор',
+    short_name: 'DSH',
     start_url: '/',
     scope: '/',
     display: 'fullscreen',
+    background_color: '#ffffff',
+    theme_color: '#0a0a0a',
     icons: [{
       src: '/favicon.svg',
       sizes: 'any',
@@ -24,6 +26,10 @@ it('ships install metadata with the built web application', async () => {
       purpose: 'any',
     }],
   })
+
+  // theme-color дублируется мета-тегом: вкладка и шапка ОС красятся до
+  // загрузки манифеста.
+  expect(index).toContain('<meta name="theme-color" content="#0a0a0a" />')
 })
 
 it('ships a favicon that switches to a light mark under dark color scheme', async () => {

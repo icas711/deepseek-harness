@@ -99,6 +99,24 @@
       "path": "../directory-picker"
     },
     {
+      "path": "../stations"
+    },
+    {
+      "path": "../../host/task-supervisor"
+    },
+    {
+      "path": "../../notify/notifier"
+    },
+    {
+      "path": "../../station/fs-station"
+    },
+    {
+      "path": "../../station/protocol"
+    },
+    {
+      "path": "../../station/subprocess-station"
+    },
+    {
       "path": "../../extensions/cordis-host-runner"
     },
     {

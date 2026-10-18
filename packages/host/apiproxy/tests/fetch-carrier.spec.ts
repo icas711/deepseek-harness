@@ -294,6 +294,62 @@ function fakeApi(overrides: Partial<{ muxFrames: MuxFrame[]; hostFrames: HostFra
         return { rpcId: request.rpcId, result: { ok: true, value: { models: 0 } } }
       },
     },
+    admin: {
+      async status(request) {
+        return { rpcId: request.rpcId, result: { ok: true, value: { admin: false } } }
+      },
+      async listUsers(request) {
+        return { rpcId: request.rpcId, result: { ok: false, error: { code: 'internal' as const, message: 'stub', details: {} } } }
+      },
+      async createUser(request) {
+        return { rpcId: request.rpcId, result: { ok: false, error: { code: 'internal' as const, message: 'stub', details: {} } } }
+      },
+      async deleteUser(request) {
+        return { rpcId: request.rpcId, result: { ok: false, error: { code: 'internal' as const, message: 'stub', details: {} } } }
+      },
+      async resetPassword(request) {
+        return { rpcId: request.rpcId, result: { ok: false, error: { code: 'internal' as const, message: 'stub', details: {} } } }
+      },
+      async setRole(request) {
+        return { rpcId: request.rpcId, result: { ok: false, error: { code: 'internal' as const, message: 'stub', details: {} } } }
+      },
+      async listDevices(request) {
+        return { rpcId: request.rpcId, result: { ok: false, error: { code: 'internal' as const, message: 'stub', details: {} } } }
+      },
+      async revokeDevice(request) {
+        return { rpcId: request.rpcId, result: { ok: false, error: { code: 'internal' as const, message: 'stub', details: {} } } }
+      },
+      async revokeAllDevices(request) {
+        return { rpcId: request.rpcId, result: { ok: false, error: { code: 'internal' as const, message: 'stub', details: {} } } }
+      },
+    },
+    stations: {
+      async list(request) {
+        return { rpcId: request.rpcId, result: { ok: true, value: { stations: [] } } }
+      },
+      async beginPairing(request) {
+        return { rpcId: request.rpcId, result: { ok: true, value: { code: 'ABCD2345', wssPath: '/station-ws' } } }
+      },
+    },
+    notifier: {
+      async beginBinding(request) {
+        return { rpcId: request.rpcId, result: { ok: true, value: { code: 'a1b2c3d4' } } }
+      },
+      async status(request) {
+        return { rpcId: request.rpcId, result: { ok: true, value: { bound: false } } }
+      },
+    },
+    tasks: {
+      async list(request) {
+        return { rpcId: request.rpcId, result: { ok: true, value: { tasks: [] } } }
+      },
+      async resume(request) {
+        return {
+          rpcId: request.rpcId,
+          result: { ok: false, error: { code: 'tasks-task-not-found' as const, message: 'не найдена', details: { taskId: 'x' } } },
+        }
+      },
+    },
     events: {
       mux: (_request, signal) => stream(muxFrames, signal),
       host: (_request, signal) => stream(hostFrames, signal),

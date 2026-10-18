@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
+import { StationId } from '@deepseek-ai/dsh-station-protocol'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import {
   TaskId,
@@ -47,6 +48,33 @@ describe('parseRegistryDocument', () => {
     expect(parseRegistryDocument(text, 'task-registry.json')).toEqual(records)
   })
 
+  it('round-trips the optional station binding and accepts the waiting-station status', () => {
+    const records: TaskRecord[] = [{
+      taskId: TaskId('task-1'),
+      sessionId: SessionId('session-1'),
+      title: 'На станции',
+      status: 'waiting-station',
+      updatedAt: 42,
+      stationId: StationId('stn-1'),
+    }]
+    const text = serializeRegistryDocument(records)
+    expect(text).toContain('"stationId": "stn-1"')
+    expect(parseRegistryDocument(text, 'task-registry.json')).toEqual(records)
+    // A document without the binding parses unchanged: the field is optional,
+    // the structural version did not move.
+    const unbound = parseRegistryDocument(JSON.stringify({
+      version: REGISTRY_FORMAT_VERSION,
+      tasks: [{ taskId: 'task-2', sessionId: 's2', title: 'Локальная', status: 'running', updatedAt: 7 }],
+    }), 'task-registry.json')
+    expect(unbound).toEqual([{
+      taskId: TaskId('task-2'),
+      sessionId: SessionId('s2'),
+      title: 'Локальная',
+      status: 'running',
+      updatedAt: 7,
+    }])
+  })
+
   it('rejects malformed documents with a RegistryFileError naming the file', () => {
     const cases: [string, RegExp][] = [
       ['not json at all', /not valid JSON/],
@@ -58,6 +86,8 @@ describe('parseRegistryDocument', () => {
       ['{"version": 1, "tasks": [{"taskId": "t", "sessionId": "", "title": "x", "status": "running", "updatedAt": 1}]}', /malformed identity/],
       ['{"version": 1, "tasks": [{"taskId": "t", "sessionId": "s", "title": "x", "status": "flying", "updatedAt": 1}]}', /unknown status/],
       ['{"version": 1, "tasks": [{"taskId": "t", "sessionId": "s", "title": "x", "status": "running", "updatedAt": 1.5}]}', /non-integer updatedAt/],
+      ['{"version": 1, "tasks": [{"taskId": "t", "sessionId": "s", "title": "x", "status": "running", "updatedAt": 1, "stationId": ""}]}', /malformed stationId/],
+      ['{"version": 1, "tasks": [{"taskId": "t", "sessionId": "s", "title": "x", "status": "running", "updatedAt": 1, "stationId": 7}]}', /malformed stationId/],
     ]
     for (const [text, expected] of cases) {
       expect(() => parseRegistryDocument(text, 'reg.json')).toThrow(RegistryFileError)
@@ -129,6 +159,28 @@ describe('TaskRegistryStore', () => {
     expect(retitled.record.title).toBe('Другая работа')
   })
 
+  it('rebinds the station on an explicit stationId and keeps it when omitted', async () => {
+    const { store } = await storeAtPath('reg.json', fakeClock([100, 200, 300, 400, 500]))
+    await store.load()
+    const first = await store.upsertRunning({
+      sessionId: SessionId('s1'), title: 'Работа', stationId: StationId('stn-1'),
+    })
+    expect(first.record.stationId).toBe(StationId('stn-1'))
+    // Identical retrack with the same binding commits nothing new.
+    const same = await store.upsertRunning({
+      sessionId: SessionId('s1'), title: 'Работа', stationId: StationId('stn-1'),
+    })
+    expect(same.record).toEqual(first.record)
+    // An explicit new binding rebinds...
+    const rebound = await store.upsertRunning({
+      sessionId: SessionId('s1'), title: 'Работа', stationId: StationId('stn-2'),
+    })
+    expect(rebound.record.stationId).toBe(StationId('stn-2'))
+    // ...and an omitted one keeps the standing binding.
+    const kept = await store.upsertRunning({ sessionId: SessionId('s1'), title: 'Работа' })
+    expect(kept.record.stationId).toBe(StationId('stn-2'))
+  })
+
   it('opens a fresh task identity when the session has only terminal history', async () => {
     const { store } = await storeAtPath('reg.json', fakeClock([100, 200, 300, 400]))
     await store.load()
@@ -152,6 +204,31 @@ describe('TaskRegistryStore', () => {
     expect(store.get(record.taskId)?.status).toBe('completed')
   })
 
+  it('moves a bound task through the station pair and rejects foreign transitions', async () => {
+    const { store } = await storeAtPath('reg.json', fakeClock([100, 200, 300, 400, 500]))
+    await store.load()
+    const { record } = await store.upsertRunning({
+      sessionId: SessionId('s1'),
+      title: 'На станции',
+      stationId: StationId('stn-1'),
+    })
+    // The station-driven pair: running -> waiting-station on offline, back on return.
+    await store.transition(record.taskId, 'waiting-station')
+    expect(store.get(record.taskId)?.status).toBe('waiting-station')
+    await store.transition(record.taskId, 'running')
+    expect(store.get(record.taskId)?.status).toBe('running')
+    await store.transition(record.taskId, 'waiting-station')
+    // Terminal settles are allowed from the waiting status.
+    const settled = await store.transition(record.taskId, 'failed')
+    expect(settled.status).toBe('failed')
+    await expect(store.transition(record.taskId, 'running')).rejects.toThrow(/from "failed"/)
+    // Parking a waiting task (the unload flip) is not a table move: only the
+    // station return or an explicit resume lifts the wait.
+    const { record: second } = await store.upsertRunning({ sessionId: SessionId('s2'), title: 'Вторая' })
+    await store.transition(second.taskId, 'waiting-station')
+    await expect(store.transition(second.taskId, 'paused')).rejects.toThrow(/from "waiting-station" to "paused"/)
+  })
+
   it('flips every running record in one write and leaves the rest untouched', async () => {
     const { store, path } = await storeAtPath('reg.json', fakeClock([100, 200, 300, 400, 500, 600]))
     await store.load()
@@ -164,6 +241,42 @@ describe('TaskRegistryStore', () => {
     const disk = JSON.parse(await readFile(path, 'utf8')) as { tasks: TaskRecord[] }
     expect(disk.tasks.find(task => task.taskId === a.record.taskId)?.status).toBe('completed')
     expect(disk.tasks.find(task => task.taskId === b.record.taskId)?.status).toBe('paused')
+  })
+
+  it('parks only the running records bound to the station that went offline', async () => {
+    const { store, path } = await storeAtPath('reg.json', fakeClock([100, 200, 300, 400, 500, 600, 700]))
+    await store.load()
+    const bound = await store.upsertRunning({
+      sessionId: SessionId('s1'), title: 'На станции', stationId: StationId('stn-1'),
+    })
+    const otherStation = await store.upsertRunning({
+      sessionId: SessionId('s2'), title: 'Другая станция', stationId: StationId('stn-2'),
+    })
+    const local = await store.upsertRunning({ sessionId: SessionId('s3'), title: 'Локальная' })
+    await store.transition(bound.record.taskId, 'completed')
+    const boundWaiting = await store.upsertRunning({
+      sessionId: SessionId('s1'), title: 'Снова на станции', stationId: StationId('stn-1'),
+    })
+    const flipped = await store.parkStationRunning(StationId('stn-1'))
+    // Only the running record bound to stn-1 flips; other stations, unbound
+    // tasks, and terminal records stay untouched.
+    expect(flipped.map(record => record.taskId)).toEqual([boundWaiting.record.taskId])
+    expect(flipped[0]?.status).toBe('waiting-station')
+    const disk = JSON.parse(await readFile(path, 'utf8')) as { tasks: TaskRecord[] }
+    expect(disk.tasks.find(task => task.taskId === bound.record.taskId)?.status).toBe('completed')
+    expect(disk.tasks.find(task => task.taskId === otherStation.record.taskId)?.status).toBe('running')
+    expect(disk.tasks.find(task => task.taskId === local.record.taskId)?.status).toBe('running')
+    // An empty flip commits nothing.
+    expect(await store.parkStationRunning(StationId('stn-none'))).toEqual([])
+  })
+
+  it('rolls the station park back when its commit fails', async () => {
+    const { store, path } = await storeAtPath('reg.json', fakeClock([100, 200]))
+    await store.load()
+    await store.upsertRunning({ sessionId: SessionId('s1'), title: 'A', stationId: StationId('stn-1') })
+    await writeFile(path, 'garbage{', 'utf8')
+    await expect(store.parkStationRunning(StationId('stn-1'))).rejects.toThrow(RegistryFileError)
+    expect(store.snapshot().every(record => record.status === 'running')).toBe(true)
   })
 
   it('skips the commit when nothing is running', async () => {

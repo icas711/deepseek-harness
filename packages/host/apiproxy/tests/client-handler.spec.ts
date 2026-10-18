@@ -28,6 +28,7 @@ function scriptedApi(overrides: {
   settings?: Partial<ApiProxy['settings']>
   credentials?: Partial<ApiProxy['credentials']>
   llm?: Partial<ApiProxy['llm']>
+  admin?: Partial<ApiProxy['admin']>
   respond?: ApiProxy['respond']
 } = {}): ApiProxy {
   async function *empty<F>(): AsyncGenerator<RpcRequest<F>> { /* no frames */ }
@@ -131,6 +132,30 @@ function scriptedApi(overrides: {
       discoverModels: err,
       provisionProvider: err,
       ...overrides.llm,
+    },
+    admin: {
+      status: r => ok(r, { admin: false }),
+      listUsers: err,
+      createUser: err,
+      deleteUser: err,
+      resetPassword: err,
+      setRole: err,
+      listDevices: err,
+      revokeDevice: err,
+      revokeAllDevices: err,
+      ...overrides.admin,
+    },
+    stations: {
+      list: r => ok(r, { stations: [] }),
+      beginPairing: r => ok(r, { code: 'ABCD2345', wssPath: '/station-ws' }),
+    },
+    notifier: {
+      beginBinding: r => ok(r, { code: 'a1b2c3d4' }),
+      status: r => ok(r, { bound: false }),
+    },
+    tasks: {
+      list: r => ok(r, { tasks: [] }),
+      resume: r => err(r),
     },
     events: { mux: () => empty<MuxFrame>(), host: () => empty<HostFrame>(), ...overrides.events },
     respond: overrides.respond ?? (() => Promise.resolve({ accepted: false as const, reason: 'not-pending' as const })),

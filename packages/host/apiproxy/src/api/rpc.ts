@@ -124,6 +124,45 @@ export interface RpcErrorDetailsMap {
   'telemetry-not-configured': {}
   /** No quota-pause guard is composed, so parked work has no release path. */
   'quota-resume-unavailable': {}
+  /**
+   * An admin.* data method was called without an admin web identity: the
+   * caller has no live session, their account is not an admin, or the
+   * deployment runs no login-password gate at all.
+   */
+  'admin-forbidden': {}
+  /** A user-management method named a login the store does not hold. */
+  'admin-user-not-found': { login: string }
+  /** admin.createUser named a login the store already holds. */
+  'admin-user-exists': { login: string }
+  /** A device-revocation method named a session the login does not hold. */
+  'admin-device-not-found': { login: string; sessionId: string }
+  /**
+   * The change would leave the deployment without any admin (deleting or
+   * demoting the last admin account); the store keeps the last admin.
+   */
+  'admin-last-admin': { login: string }
+  /** The service refused the login or password input (charset, length); the message says why. */
+  'admin-rejected': {}
+  /**
+   * Станции недоступны: развёртывание без строки stations (пассивный режим)
+   * или вызов без веб-личности — pair/list адресуются логину вызывающего.
+   */
+  'stations-unavailable': {}
+  /** executionTarget назвал станцию, которой нет в реестре. */
+  'station-not-found': { stationId: string }
+  /** executionTarget назвал чужую станцию: владелец — другой логин. */
+  'station-forbidden': { stationId: string }
+  /**
+   * Уведомления недоступны: развёртывание без провайдера нотификаций или вызов
+   * без веб-личности — код и статус адресуются логину вызывающего.
+   */
+  'notifier-unavailable': {}
+  /** Задачи недоступны: развёртывание без супервизора задач. */
+  'tasks-unavailable': {}
+  /** tasks.resume назвал идентификатор, которого нет в реестре задач. */
+  'tasks-task-not-found': { taskId: string }
+  /** tasks.resume отклонил супервизор (чужой статус жизненного цикла, остановка). */
+  'tasks-resume-rejected': { taskId: string }
   'internal': {}
 }
 

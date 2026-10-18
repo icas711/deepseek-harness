@@ -45,6 +45,30 @@ describe('notification text format', () => {
       )
   })
 
+  it('renders the waiting-station headline', () => {
+    expect(formatTaskText({ kind: 'waiting-station', title: 'На станции', sessionId: 's5' }, 'http://127.0.0.1:3080'))
+      .toMatchInlineSnapshot(
+        `
+        "Задача ждёт станцию
+
+Задача: «На станции»
+Открыть сессию: http://127.0.0.1:3080/session/s5"
+      `,
+      )
+  })
+
+  it('renders the resumed headline', () => {
+    expect(formatTaskText({ kind: 'resumed', title: 'На станции', sessionId: 's5' }, 'http://127.0.0.1:3080'))
+      .toMatchInlineSnapshot(
+        `
+        "Станция вернулась — задача продолжена
+
+Задача: «На станции»
+Открыть сессию: http://127.0.0.1:3080/session/s5"
+      `,
+      )
+  })
+
   it('renders the failed headline', () => {
     expect(formatTaskText({ kind: 'failed', title: 'Сломавшаяся', sessionId: 's4' }, 'http://127.0.0.1:3080'))
       .toMatchInlineSnapshot(

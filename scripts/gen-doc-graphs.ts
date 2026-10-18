@@ -598,12 +598,21 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Registers host inspect providers, mirrors the client provider manifest, and routes client queries through the dynamic Cordis transport.',
   },
   {
+    key: 'stations',
+    pkg: 'stations',
+    title: 'Station bridge: pairing, registry, live sockets',
+    mode: 'seam',
+    implementations: ['fs-station', 'subprocess-station'],
+    consumers: ['apiproxy', 'task-supervisor'],
+    note: 'Owns pairing codes, the durable station registry, and the WSS upgrade route; providers of the fs/subprocess seams execute one station world, the gateway validates ownership for executionTarget bindings, and the supervisor rides the station/status event to park and auto-resume bound tasks.',
+  },
+  {
     key: 'taskSupervisor',
     pkg: 'task-supervisor',
     title: 'Durable cross-restart task registry',
     mode: 'seam',
     consumers: ['telegram'],
-    note: 'Tasks persist in the harness home: dispose parks running tasks with one atomic write, boot resumes parked tasks through the ordinary logged input path, and a hard crash marks running records interrupted until an explicit resume.',
+    note: 'Tasks persist in the harness home: dispose parks running tasks with one atomic write, boot resumes parked tasks through the ordinary logged input path, a hard crash marks running records interrupted until an explicit resume, and a station/status event moves station-bound tasks between running and waiting-station with automatic continuation on the station return.',
   },
   {
     key: 'notifier',
@@ -612,7 +621,7 @@ const SERVICE_ROLES: ServiceRole[] = [
     mode: 'seam',
     implementations: ['telegram'],
     consumers: ['telegram'],
-    note: 'The definition owns the send vocabulary, one-time binding challenges, and durable login targets; the telegram provider delivers through its channel, answers binding codes, and its consumer watches task statuses for notifications.',
+    note: 'The definition owns the send vocabulary, one-time binding challenges, and durable login targets; the telegram provider delivers through its channel, answers binding codes, and its consumer watches task statuses and station-return transitions for notifications.',
   },
 ]
 

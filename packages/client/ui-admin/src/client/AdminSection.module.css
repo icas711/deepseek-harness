@@ -1,0 +1,225 @@
+/* Страница «Администрирование» — язык настроек: 14/22 текст, 12/18 подписи,
+ * поля 32px, капсульные кнопки. Каждый цвет — через токен --dsw-alias-*:
+ * буквальные цвета ломают тёмную тему. */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 760px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.title {
+  margin: 0;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+  color: var(--dsw-alias-label-primary);
+}
+
+.intro {
+  margin: 0;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--dsw-alias-state-warn-bg, transparent);
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--dsw-alias-state-warn-label);
+}
+
+.errorText {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-state-danger-label, var(--dsw-alias-state-warn-label));
+}
+
+/* ── форма создания ─────────────────────────────────────────────────────── */
+
+.create {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--dsw-alias-border-secondary);
+  border-radius: 10px;
+}
+
+.createTitle {
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 500;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fieldLabel {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.passwordRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.select {
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--dsw-alias-border-secondary);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+}
+
+.createFooter {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ── список пользователей ───────────────────────────────────────────────── */
+
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.head {
+  display: grid;
+  grid-template-columns: minmax(120px, 1.4fr) minmax(90px, 1fr) minmax(110px, 1fr) minmax(220px, 2fr);
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--dsw-alias-border-secondary);
+}
+
+.headCell {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.rowBlock {
+  border-bottom: 1px solid var(--dsw-alias-border-secondary);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1.4fr) minmax(90px, 1fr) minmax(110px, 1fr) minmax(220px, 2fr);
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+}
+
+.login {
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.role {
+  justify-self: start;
+  padding: 1px 8px;
+  border-radius: 9px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--dsw-alias-label-secondary);
+  background: var(--dsw-alias-fill-secondary, transparent);
+}
+
+.role[data-role='admin'] {
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-fill-primary, var(--dsw-alias-fill-secondary));
+}
+
+.created {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.rowActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+/* ── устройства ─────────────────────────────────────────────────────────── */
+
+.devices {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 8px 12px 16px;
+}
+
+.devicesHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.devicesTitle {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.device {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.deviceId {
+  font-family: var(--dsw-font-mono, monospace);
+  color: var(--dsw-alias-label-primary);
+}
+
+.deviceMeta {
+  white-space: nowrap;
+}
+
+/* ── выдача пароля ──────────────────────────────────────────────────────── */
+
+.issued {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.issuedPassword {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px dashed var(--dsw-alias-border-secondary);
+  border-radius: 8px;
+  font-family: var(--dsw-font-mono, monospace);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+  user-select: all;
+}

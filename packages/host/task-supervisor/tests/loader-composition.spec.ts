@@ -2,7 +2,11 @@
 // context dispose as `paused`, and the next boot reopens its session from
 // persistence and delivers the continuation as ordinary logged input that
 // reaches the mock model. A predecessor's `running` record boots as
-// `interrupted` and is deliberately not auto-resumed.
+// `interrupted` and is deliberately not auto-resumed. A station-bound task
+// rides the real station/status dispatch (the bridge is a mock, the cordis
+// event path is not): the offline event parks it as `waiting-station`, the
+// return auto-resumes it with the station wording.
+const STATION_ID = StationId('stn-loader-e2e')
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -19,8 +23,10 @@ import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import SessionPersistenceJsonl from '@deepseek-ai/dsh-session-persistence-jsonl'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
+import { StationId } from '@deepseek-ai/dsh-station-protocol'
+import { StationFileSystem } from '@deepseek-ai/dsh-fs-station'
 import { MockAdapter, textResponse } from '../../../core/agent-loop/tests/mock-adapter'
-import TaskSupervisor, { CONTINUATION_PROMPT } from '../src/index.ts'
+import TaskSupervisor, { CONTINUATION_PROMPT, STATION_CONTINUATION_PROMPT } from '../src/index.ts'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 
 const SESSION_ID = SessionId('dsh-task-supervisor-e2e')
@@ -58,6 +64,8 @@ async function makePaths(): Promise<Paths> {
  * Boot the test-only composition through the real Loader. Row order is
  * load-bearing: the adapter registers before the supervisor row mounts, so
  * the post-boot auto-resume always finds a route for its continuation turn.
+ * The stations bridge is a mock (its `isOnline` map and the real cordis
+ * event dispatch), so the composition itself stays offline-free.
  */
 async function boot(adapter: MockAdapter, paths: Paths): Promise<Context> {
   const adapterRow = {
@@ -67,6 +75,7 @@ async function boot(adapter: MockAdapter, paths: Paths): Promise<Context> {
       ctx.llm.registerAdapter(['mock'], adapter)
     },
   }
+  const stations = { online: new Map<string, boolean>() }
   const configPath = join(paths.home, 'cordis.yml')
   await mkdir(paths.home, { recursive: true })
   await writeFile(configPath, [
@@ -96,6 +105,9 @@ async function boot(adapter: MockAdapter, paths: Paths): Promise<Context> {
   const context = new Context()
   contexts.push(context)
   context.baseUrl = pathToFileURL(paths.home).href + '/'
+  context.provide('stations', {
+    isOnline: (stationId: StationId) => stations.online.get(String(stationId)) === true,
+  } as never)
   await context.plugin(Loader)
   context.loader.builtins.include = Include
   const modules = new Map<string, unknown>([
@@ -206,4 +218,62 @@ describe('task-supervisor Loader composition', () => {
     expect(adapter.requests).toEqual([])
     expect((await readRegistry(paths.registryPath)).tasks[0]?.status).toBe('interrupted')
   }, 30_000)
+
+  it('waits through a station offline window and continues the task on its return', async () => {
+    const paths = await makePaths()
+    const first = await boot(new MockAdapter([textResponse('Сделано до офлайна.')]), paths)
+    await first.agents.create({ sessionId: SESSION_ID, meta: { cwd: paths.projectDir } })
+    const agent = first.agents.get(SESSION_ID) as Agent
+    agent.followup(createUserMessage({
+      content: [{ type: 'text', text: 'Работай на станции' }],
+      source: { kind: 'user' },
+    }))
+    await agent.whenIdle()
+    await first.taskSupervisor.track({
+      sessionId: SESSION_ID,
+      title: 'Перенести отчёты',
+      stationId: STATION_ID,
+    })
+    await first.sessions.flush(agent.session)
+
+    // The station drops: the bound running record parks as waiting-station in
+    // one durable write.
+    first.emit('station/status', { stationId: STATION_ID, online: false })
+    await vi.waitFor(async () => {
+      expect((await readRegistry(paths.registryPath)).tasks[0]?.status).toBe('waiting-station')
+    }, { timeout: 10_000, interval: 25 })
+    // The wait survives a host restart: the offline window is not a park.
+    await first.fiber.dispose()
+    contexts.length = 0
+    expect((await readRegistry(paths.registryPath)).tasks[0]?.status).toBe('waiting-station')
+
+    // The station returns after the restart: the cold resume reopens the
+    // session from persistence, remounts the station's execution world in the
+    // agent scope, and delivers the station wording through the ordinary
+    // logged input path.
+    const second = new MockAdapter([textResponse('Продолжаю на станции.')])
+    const rebooted = await boot(second, paths)
+    rebooted.emit('station/status', { stationId: STATION_ID, online: true })
+    await vi.waitFor(() => {
+      const continued = second.requests.some(request =>
+        request.messages.some(message =>
+          message.role === 'user' && JSON.stringify(message.content).includes(STATION_CONTINUATION_PROMPT)))
+      expect(continued).toBe(true)
+    }, { timeout: 10_000, interval: 25 })
+    expect((await readRegistry(paths.registryPath)).tasks[0]).toMatchObject({
+      sessionId: SESSION_ID,
+      status: 'running',
+      stationId: String(STATION_ID),
+    })
+    // The station world rode the resume: the fs provider of THIS station is
+    // mounted on a private isolate label inside the agent scope — invisible
+    // from the root context, present in the store with the agent as its owner.
+    const store = (rebooted as unknown as { reflect: { store: Record<symbol, { name: string; value: unknown } | undefined> } }).reflect.store
+    const mounted = Object.getOwnPropertySymbols(store)
+      .map(symbol => store[symbol])
+      .filter((impl): impl is { name: string; value: unknown } => impl !== undefined && impl.name === 'fs')
+    expect(mounted).toHaveLength(1)
+    expect(mounted[0]?.value).toBeInstanceOf(StationFileSystem)
+    expect(rebooted.get('fs')).toBeUndefined()
+  }, 60_000)
 })

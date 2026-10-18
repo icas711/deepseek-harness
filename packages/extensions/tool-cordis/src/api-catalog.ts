@@ -310,6 +310,26 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     description: 'Root interface of the unified API. New client-request domain = one new file pair + one field here + one map row.',
     methods: [
       {
+        signature: 'admin: AdminApi',
+        description: 'Web-account administration (role-gated on the host; see ./admin.ts).',
+        parameters: [],
+      },
+      {
+        signature: 'stations: StationApi',
+        description: 'Станции (мост): список и выдача кода сопряжения для будущего UI.',
+        parameters: [],
+      },
+      {
+        signature: 'notifier: NotifierApi',
+        description: 'Уведомления Telegram: код привязки и статус привязки веб-логина.',
+        parameters: [],
+      },
+      {
+        signature: 'tasks: TasksApi',
+        description: 'Задачи супервизора: список своих и возобновление прерванной.',
+        parameters: [],
+      },
+      {
         signature: 'downloads: DownloadsApi',
         description: 'Host-only download surfaces (GET, no wire envelope); absent from IApiClient.',
         parameters: [],
@@ -1639,6 +1659,64 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'stations',
+    summary: 'Сервис станций.',
+    description: 'Сервис станций. Владеет реестром, одноразовыми кодами сопряжения (в памяти, с TTL) и живыми сессиями-мостами; upgrade-маршрут регистрирует на веб-сервере при активации. Токены хранятся только хэшированными: полный токен едет коннектору ровно один раз.',
+    methods: [
+      {
+        signature: 'beginPairing(login: string): { code: string; wssPath: string }',
+        description: 'Выдаёт одноразовый код сопряжения для логина. Код живёт в памяти с TTL; рестарт хоста его забывает — пользователь просто запрашивает новый.',
+        parameters: [{ name: 'login', description: 'логин веб-пользователя, к которому привяжется станция.' }],
+        returns: 'код и путь WSS-маршрута для коннектора.',
+        throws: ['StationsError `bad-input` при пустом логине.'],
+      },
+      {
+        signature: 'async completePairing( code: string, stationName: string, rootPath: string, platform: StationPlatform, ): Promise<{ stationId: StationId; token: string; rootPath: string }>',
+        description: 'Завершает сопряжение по одноразовому коду; вызывает сессия при первом соединении коннектора. Код гасится одним использованием.',
+        parameters: [{ name: 'code', description: 'код из beginPairing.' }, { name: 'stationName', description: 'имя станции от коннектора.' }, { name: 'rootPath', description: 'корневая папка на станции.' }, { name: 'platform', description: 'платформа станции.' }],
+        returns: 'идентификатор, полный токен (только этот раз) и эхо корня.',
+        throws: ['StationsError `bad-code` (неизвестен, протух или использован), `bad-input` при недопустимом имени или корне.'],
+      },
+      {
+        signature: 'async list(login?: string): Promise<StationView[]>',
+        description: 'Список станций логина, отсортированный по имени.',
+        parameters: [{ name: 'login', description: 'логин владельца; undefined означает все станции (админский обзор).' }],
+        returns: 'виды станций без секретного материала.',
+      },
+      {
+        signature: 'async get(stationId: StationId): Promise<StationView | undefined>',
+        description: 'Вид одной станции без секретного материала: существует ли станция и кому сопряжена — источник проверки принадлежности для потребителей RPC (привязка сессии к станции исполнения).',
+        parameters: [{ name: 'stationId', description: 'идентификатор станции.' }],
+        returns: 'вид станции или undefined, когда станция не сопряжена.',
+      },
+      {
+        signature: 'verifyStationToken(token: string): { stationId: StationId; rootPath: string; platform: StationPlatform } | undefined',
+        description: 'Проверяет токен станции timing-safe сравнением хэша; точка аутентификации и для auth-места вебсервера, и для приветствия сессии.',
+        parameters: [{ name: 'token', description: 'предъявленный токен.' }],
+        returns: 'запись станции или undefined, когда токен не принят.',
+      },
+      {
+        signature: 'bridge(stationId: StationId): StationBridge',
+        description: 'Живой мост к станции для провайдеров швов fs/subprocess.',
+        parameters: [{ name: 'stationId', description: 'идентификатор станции.' }],
+        returns: 'мост, когда станция на связи.',
+        throws: ['StationsError `unknown-station` / `offline`.'],
+      },
+      {
+        signature: 'isOnline(stationId: StationId): boolean',
+        description: 'Онлайн-ли станция прямо сейчас.',
+        parameters: [{ name: 'stationId', description: 'идентификатор станции.' }],
+        returns: 'true, когда живое соединение коннектора открыто.',
+      },
+      {
+        signature: 'async describe(stationId: StationId): Promise<{ rootPath: string; platform: StationPlatform } | undefined>',
+        description: 'Запись реестра о станции без секретного материала — источник корня и платформы для провайдеров швов: проверка путей на хосте обязана работать и когда станция офлайн.',
+        parameters: [{ name: 'stationId', description: 'идентификатор станции.' }],
+        returns: 'корень и платформа записи, или undefined для несопряжённой.',
+      },
+    ],
+  },
+  {
     key: 'storage',
     summary: 'The storage hub service.',
     description: 'The storage hub service. Backends register under `backend`; data forms mount under their `StorageForms` key and are reached as `ctx.storage.<form>`.',
@@ -1846,9 +1924,9 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     description: 'The task supervisor service (`ctx.taskSupervisor`).',
     methods: [
       {
-        signature: 'async track(request: { sessionId: SessionId; title: string }): Promise<TaskView>',
-        description: 'Track work on a session. Idempotent by session id: a repeated call retitles the existing active record or commits nothing when nothing changed; a session whose record is terminal (completed/failed) gets a fresh task identity.',
-        parameters: [{ name: 'request', description: 'the session whose agent performs the work, and the human-readable task label.' }],
+        signature: 'async track(request: { sessionId: SessionId; title: string; stationId?: StationId }): Promise<TaskView>',
+        description: 'Track work on a session. Idempotent by session id: a repeated call retitles the existing active record or commits nothing when nothing changed; an explicit `stationId` rebinds the record, an omitted one keeps the previous binding; a session whose record is terminal (completed/failed) gets a fresh task identity.',
+        parameters: [{ name: 'request', description: 'the session whose agent performs the work, the human-readable task label, and the optional execution station the work is bound to (ownership is validated by the caller — the RPC boundary).' }],
         returns: 'the up-to-date durable record.',
         throws: ['{@link TaskSupervisorError} with `stopping` during teardown.'],
       },
@@ -1874,7 +1952,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'async resume(taskId: TaskId): Promise<TaskView>',
-        description: 'Resume one parked or interrupted task: reopen its session (reusing a live agent, otherwise resuming from persistence) and deliver the continuation message through the ordinary logged input path.',
+        description: 'Resume one parked, interrupted, or station-waiting task: reopen its session (reusing a live agent, otherwise resuming from persistence with the task\'s station world) and deliver the continuation message through the ordinary logged input path. The automatic station-driven path uses the same mechanics, skipping the input while a turn is still in flight.',
         parameters: [{ name: 'taskId', description: 'the task to resume.' }],
         returns: 'the running record.',
         throws: ['{@link TaskSupervisorError} with `unknown-task`, `invalid-transition` (already running or terminal), `stopping`, `resume-unavailable`, or `session-not-found`; the record reverts to its previous status when the resume itself fails.'],
@@ -2201,14 +2279,64 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
   },
   {
     key: 'webAuth',
-    summary: 'Service Definition face of the web-auth plugin, consumed by the gateway\'s scoping points.',
-    description: 'Service Definition face of the web-auth plugin, consumed by the gateway\'s scoping points. Declared here (with the primary consumer) because the provider is a higher-level composition plugin of the web bundle; the provider imports this face and satisfies it structurally.',
+    summary: 'Service Definition face of the web-auth plugin, consumed by the gateway\'s scoping points and the admin.* domain.',
+    description: 'Service Definition face of the web-auth plugin, consumed by the gateway\'s scoping points and the admin.* domain. Declared here (with the primary consumer) because the provider is a higher-level composition plugin of the web bundle; the provider imports this face and satisfies it structurally. The administration methods mutate the managed user store and its live sessions; every rejection is a WebAdminError.',
     methods: [
       {
         signature: 'identityFromCookie(cookie: string | undefined): WebIdentity | undefined',
         description: 'Resolve the identity a Cookie header authenticates right now.',
         parameters: [{ name: 'cookie', description: 'the raw Cookie header value, or undefined when absent.' }],
         returns: 'the identity, or undefined when no live session matches.',
+      },
+      {
+        signature: 'listUsers(): AdminUserView[]',
+        description: 'Every managed account, ordered by login.',
+        parameters: [],
+        returns: 'the account views without secret material.',
+      },
+      {
+        signature: 'createUser(input: WebCreateUserInput): Promise<void>',
+        description: 'Create an account (host-side scrypt hash) and persist the store.',
+        parameters: [{ name: 'input', description: 'the login, initial password, and role.' }],
+        throws: ['WebAdminError `user-exists` / `invalid-input`.'],
+      },
+      {
+        signature: 'deleteUser(login: string): Promise<void>',
+        description: 'Delete an account and revoke all its sessions.',
+        parameters: [{ name: 'login', description: 'the account to delete.' }],
+        throws: ['WebAdminError `user-not-found` / `last-admin`.'],
+      },
+      {
+        signature: 'resetPassword(login: string, newPassword: string): Promise<void>',
+        description: 'Replace one account\'s password hash and revoke all its sessions.',
+        parameters: [{ name: 'login', description: 'the account to reset.' }, { name: 'newPassword', description: 'the replacement password (stored hashed).' }],
+        throws: ['WebAdminError `user-not-found` / `invalid-input`.'],
+      },
+      {
+        signature: 'setRole(login: string, role: AdminRole): Promise<void>',
+        description: 'Change one account\'s role; the flag re-reads on every request, so the change lands without touching sessions.',
+        parameters: [{ name: 'login', description: 'the account to change.' }, { name: 'role', description: 'the new role.' }],
+        throws: ['WebAdminError `user-not-found` / `last-admin`.'],
+      },
+      {
+        signature: 'listDevices(login: string): AdminDeviceView[]',
+        description: 'One account\'s live (unexpired) sessions, oldest issuance first.',
+        parameters: [{ name: 'login', description: 'the account whose devices to list.' }],
+        returns: 'the device views of that account.',
+        throws: ['WebAdminError `user-not-found`.'],
+      },
+      {
+        signature: 'revokeDevice(login: string, sessionId: string): Promise<void>',
+        description: 'Revoke one session of one account.',
+        parameters: [{ name: 'login', description: 'the account owning the session.' }, { name: 'sessionId', description: 'the session to revoke.' }],
+        throws: ['WebAdminError `user-not-found` / `device-not-found`.'],
+      },
+      {
+        signature: 'revokeAllDevices(login: string): Promise<number>',
+        description: 'Revoke every session of one account.',
+        parameters: [{ name: 'login', description: 'the account whose devices to revoke.' }],
+        returns: 'how many sessions were revoked.',
+        throws: ['WebAdminError `user-not-found`.'],
       },
     ],
   },
@@ -2693,6 +2821,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [],
   },
   {
+    name: 'station/status',
+    mode: 'emit',
+    signature: '\'station/status\'(payload: { stationId: StationId; online: boolean }): void',
+    summary: 'Онлайн-статус станции сменился: соединение коннектора открылось после приветствия или закрылось.',
+    description: 'Онлайн-статус станции сменился: соединение коннектора открылось после приветствия или закрылось. Замена одного живого соединения другим (свежее выигрывает) статус не меняет и события не поднимает. Подписчики: супервизор задач (перевод привязанных задач в офлайн-ожидание и автопродолжение при возврате) и наблюдатели уведомлений.',
+    parameters: [{ name: 'payload', description: 'станция и её новое состояние: `{ stationId, online }`.' }],
+  },
+  {
     name: 'subagent/end',
     mode: 'emit',
     signature: '\'subagent/end\'(this: Scoped<SubagentRuntime>, info: SubagentRunEndInfo): void',
@@ -2843,6 +2979,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'AdapterRegistrationHandle',
     declaration: 'export interface AdapterRegistrationHandle {\n    (): void;\n    replace(providers: string[]): void;\n}',
+  },
+  {
+    name: 'AdminApi',
+    declaration: 'export interface AdminApi {\n    status(request: RpcRequest<{}>): Promise<RpcResponse<{\n        admin: boolean;\n    }>>;\n    listUsers(request: RpcRequest<{}>): Promise<RpcResponse<{\n        users: AdminUserView[];\n    }>>;\n    createUser(request: RpcRequest<{\n        login: string;\n        password: string;\n        role: AdminRole;\n    }>): Promise<RpcResponse<{}>>;\n    deleteUser(request: RpcRequest<{\n        login: string;\n    }>): Promise<RpcResponse<{}>>;\n    resetPassword(request: RpcRequest<{\n        login: string;\n        newPassword: string;\n    }>): Promise<RpcResponse<{}>>;\n    setRole(request: RpcRequest<{\n        login: string;\n        role: AdminRole;\n    }>): Promise<RpcResponse<{}>>;\n    listDevices(request: RpcRequest<{\n        login: string;\n    }>): Promise<RpcResponse<{\n        devices: AdminDeviceView[];\n    }>>;\n    revokeDevice(request: RpcRequest<{\n        login: string;\n        sessionId: string;\n    }>): Promise<RpcResponse<{}>>;\n    revokeAllDevices(request: RpcRequest<{\n        login: string;\n    }>): Promise<RpcResponse<{\n        revoked: number;\n    }>>;\n}',
+  },
+  {
+    name: 'AdminDeviceView',
+    declaration: 'export interface AdminDeviceView {\n    sessionId: string;\n    issuedAt: number;\n    expiresAt: number;\n    lastSeenAt: number;\n}',
+  },
+  {
+    name: 'AdminUserView',
+    declaration: 'export interface AdminUserView {\n    login: string;\n    role: AdminRole;\n    createdAt: number;\n}',
   },
   {
     name: 'Agent',
@@ -3754,11 +3902,15 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'NotificationKind',
-    declaration: 'export type NotificationKind = \'paused\' | \'interrupted\' | \'completed\' | \'failed\';',
+    declaration: 'export type NotificationKind = \'paused\' | \'interrupted\' | \'waiting-station\' | \'resumed\' | \'completed\' | \'failed\';',
   },
   {
     name: 'NotificationRequest',
     declaration: 'export interface NotificationRequest {\n    readonly login: string;\n    readonly kind: NotificationKind;\n    readonly title: string;\n    readonly sessionId: SessionId;\n}',
+  },
+  {
+    name: 'NotifierApi',
+    declaration: 'export interface NotifierApi {\n    beginBinding(request: RpcRequest<{}>): Promise<RpcResponse<{\n        code: string;\n    }>>;\n    status(request: RpcRequest<{}>): Promise<RpcResponse<{\n        bound: boolean;\n    }>>;\n}',
   },
   {
     name: 'ObjectJsonSchema',
@@ -3939,6 +4091,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'RpcReceipt',
     declaration: 'export type RpcReceipt = {\n    accepted: true;\n} | {\n    accepted: false;\n    reason: \'not-pending\' | \'bad-response\' | \'already-resolved\';\n};',
+  },
+  {
+    name: 'RpcRequest',
+    declaration: 'export interface RpcRequest<P> {\n    rpcId: RpcId;\n    payload: P;\n}',
+  },
+  {
+    name: 'RpcResponse',
+    declaration: 'export interface RpcResponse<T> {\n    rpcId: RpcId;\n    result: RpcResult<T>;\n}',
   },
   {
     name: 'RpcResult',
@@ -4377,6 +4537,70 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface SpillSource {\n    toolName: string;\n    callId: CallId;\n    label: string;\n}',
   },
   {
+    name: 'StationApi',
+    declaration: 'export interface StationApi {\n    list(request: RpcRequest<{}>): Promise<RpcResponse<{\n        stations: StationViewWire[];\n    }>>;\n    beginPairing(request: RpcRequest<{}>): Promise<RpcResponse<{\n        code: string;\n        wssPath: string;\n    }>>;\n}',
+  },
+  {
+    name: 'StationBridge',
+    declaration: 'export interface StationBridge {\n    readonly stationId: StationId;\n    readonly platform: StationPlatform;\n    readonly rootPath: string;\n    request<K extends StationOpName>(op: K, payload: StationOpPayloadMap[K], opts?: {\n        signal?: AbortSignal;\n    }): Promise<StationOpValueMap[K]>;\n    onEvent(handler: (event: StationEventFrame) => void): () => void;\n}',
+  },
+  {
+    name: 'StationDirEntry',
+    declaration: 'export interface StationDirEntry {\n    name: string;\n    type: StationEntryType;\n    size?: number;\n}',
+  },
+  {
+    name: 'StationEntryType',
+    declaration: 'export type StationEntryType = \'file\' | \'directory\' | \'symlink\' | \'other\';',
+  },
+  {
+    name: 'StationEventFrame',
+    declaration: 'export type StationEventFrame = {\n    [K in StationEventName]: {\n        t: \'evt\';\n        event: K;\n        p: StationEventPayloadMap[K];\n    };\n}[StationEventName];',
+  },
+  {
+    name: 'StationEventName',
+    declaration: 'export type StationEventName = keyof StationEventPayloadMap;',
+  },
+  {
+    name: 'StationEventPayloadMap',
+    declaration: 'export interface StationEventPayloadMap {\n    \'proc/stdout\': {\n        id: string;\n        data: string;\n    };\n    \'proc/stderr\': {\n        id: string;\n        data: string;\n    };\n    \'proc/exit\': {\n        id: string;\n        exitCode: number | null;\n        signal: string | null;\n    };\n}',
+  },
+  {
+    name: 'StationId',
+    declaration: 'export type StationId = Branded<\'StationId\'>;',
+  },
+  {
+    name: 'StationOpName',
+    declaration: 'export type StationOpName = keyof StationOpPayloadMap & keyof StationOpValueMap;',
+  },
+  {
+    name: 'StationOpPayloadMap',
+    declaration: 'export interface StationOpPayloadMap {\n    \'fs/stat\': {\n        path: string;\n        lstat?: boolean;\n    };\n    \'fs/list\': {\n        path: string;\n    };\n    \'fs/read\': {\n        path: string;\n        maxBytes: number;\n    };\n    \'fs/write\': {\n        path: string;\n        data: string;\n        createOnly: boolean;\n    };\n    \'fs/mkdir\': {\n        path: string;\n        recursive: boolean;\n    };\n    \'fs/unlink\': {\n        path: string;\n    };\n    \'proc/resolve\': {\n        command: string;\n        pathEnv?: string;\n    };\n    \'proc/spawn\': {\n        id: string;\n        argv: readonly string[];\n        cwd: string;\n        stdin: StationSpawnStdin;\n        stdoutInherit: boolean;\n        stderrInherit: boolean;\n        env?: Record<string, string>;\n    };\n    \'proc/write\': {\n        id: string;\n        data: string;\n    };\n    \'proc/close-stdin\': {\n        id: string;\n    };\n    \'proc/kill\': {\n        id: string;\n        force: boolean;\n    };\n    \'proc/list\': Record<string, never>;\n}',
+  },
+  {
+    name: 'StationOpValueMap',
+    declaration: 'export interface StationOpValueMap {\n    \'fs/stat\': StationStatResult;\n    \'fs/list\': {\n        entries: StationDirEntry[];\n    };\n    \'fs/read\': {\n        data: string;\n    };\n    \'fs/write\': {\n        version: string;\n    };\n    \'fs/mkdir\': Record<string, never>;\n    \'fs/unlink\': Record<string, never>;\n    \'proc/resolve\': {\n        executable: string;\n    };\n    \'proc/spawn\': {\n        pid: number;\n    };\n    \'proc/write\': Record<string, never>;\n    \'proc/close-stdin\': Record<string, never>;\n    \'proc/kill\': Record<string, never>;\n    \'proc/list\': {\n        processes: {\n            id: string;\n            pid: number;\n            argv: string[];\n        }[];\n    };\n}',
+  },
+  {
+    name: 'StationPlatform',
+    declaration: 'export type StationPlatform = \'win32\' | \'darwin\' | \'linux\';',
+  },
+  {
+    name: 'StationSpawnStdin',
+    declaration: 'export type StationSpawnStdin = {\n    mode: \'ignore\';\n} | {\n    mode: \'pipe\';\n} | {\n    mode: \'data\';\n    data: string;\n};',
+  },
+  {
+    name: 'StationStatResult',
+    declaration: 'export type StationStatResult = {\n    exists: false;\n} | {\n    exists: true;\n    type: StationEntryType;\n    size?: number;\n    version: string;\n};',
+  },
+  {
+    name: 'StationView',
+    declaration: 'export interface StationView {\n    stationId: string;\n    login: string;\n    name: string;\n    rootPath: string;\n    platform: StationPlatform;\n    online: boolean;\n    lastSeenAt: number;\n    createdAt: number;\n}',
+  },
+  {
+    name: 'StationViewWire',
+    declaration: 'export interface StationViewWire {\n    stationId: string;\n    login: string;\n    name: string;\n    rootPath: string;\n    platform: string;\n    online: boolean;\n    lastSeenAt: number;\n    createdAt: number;\n}',
+  },
+  {
     name: 'StorageBackend',
     declaration: 'export interface StorageBackend {\n    readonly kv?: KvFacet;\n    close(): Promise<void>;\n}',
   },
@@ -4546,15 +4770,23 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'TaskRecord',
-    declaration: 'export interface TaskRecord {\n    readonly taskId: TaskId;\n    readonly sessionId: SessionId;\n    readonly title: string;\n    readonly status: TaskStatus;\n    readonly updatedAt: number;\n}',
+    declaration: 'export interface TaskRecord {\n    readonly taskId: TaskId;\n    readonly sessionId: SessionId;\n    readonly title: string;\n    readonly status: TaskStatus;\n    readonly updatedAt: number;\n    readonly stationId?: StationId;\n}',
+  },
+  {
+    name: 'TasksApi',
+    declaration: 'export interface TasksApi {\n    list(request: RpcRequest<{}>): Promise<RpcResponse<{\n        tasks: TaskViewWire[];\n    }>>;\n    resume(request: RpcRequest<{\n        taskId: string;\n    }>): Promise<RpcResponse<{}>>;\n}',
   },
   {
     name: 'TaskStatus',
-    declaration: 'export type TaskStatus = \'running\' | \'paused\' | \'interrupted\' | \'completed\' | \'failed\';',
+    declaration: 'export type TaskStatus = \'running\' | \'paused\' | \'interrupted\' | \'waiting-station\' | \'completed\' | \'failed\';',
   },
   {
     name: 'TaskView',
     declaration: 'export type TaskView = TaskRecord;',
+  },
+  {
+    name: 'TaskViewWire',
+    declaration: 'export interface TaskViewWire {\n    taskId: string;\n    sessionId: string;\n    title: string;\n    status: \'running\' | \'paused\' | \'interrupted\' | \'waiting-station\' | \'completed\' | \'failed\';\n    updatedAt: number;\n    stationId?: string;\n}',
   },
   {
     name: 'TerminalBackend',
@@ -4855,6 +5087,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'WebBootGraph',
     declaration: 'export interface WebBootGraph {\n    rev: string;\n    entries: WebBootEntry[];\n}',
+  },
+  {
+    name: 'WebCreateUserInput',
+    declaration: 'export interface WebCreateUserInput {\n    login: string;\n    password: string;\n    role: AdminRole;\n}',
   },
   {
     name: 'WebFetchBody',

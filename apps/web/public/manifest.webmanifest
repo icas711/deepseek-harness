@@ -1,10 +1,12 @@
 {
   "id": "/",
-  "name": "custom-harness",
-  "short_name": "custom-harness",
+  "name": "DSH Оркестратор",
+  "short_name": "DSH",
   "start_url": "/",
   "scope": "/",
   "display": "fullscreen",
+  "background_color": "#ffffff",
+  "theme_color": "#0a0a0a",
   "icons": [
     {
       "src": "/favicon.svg",
