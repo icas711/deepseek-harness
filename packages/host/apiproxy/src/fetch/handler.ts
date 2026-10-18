@@ -81,6 +81,10 @@ import {
 import {
   stationBeginPairingRequestSchema, stationListRequestSchema,
 } from '../api/station.schema.ts'
+import {
+  notifierBeginBindingRequestSchema, notifierStatusRequestSchema,
+} from '../api/notifier.schema.ts'
+import { tasksListRequestSchema, tasksResumeRequestSchema } from '../api/tasks.schema.ts'
 
 /**
  * Unary dispatch table, keyed by (and compiler-locked to) RpcMethodMap: a map row without a
@@ -166,6 +170,10 @@ const UNARY_ROUTES: UnaryRoutes = {
   'admin.revokeAllDevices': { schema: adminRevokeAllDevicesRequestSchema, invoke: (api, r) => api.admin.revokeAllDevices(r) },
   'station.list': { schema: stationListRequestSchema, invoke: (api, r) => api.stations.list(r) },
   'station.beginPairing': { schema: stationBeginPairingRequestSchema, invoke: (api, r) => api.stations.beginPairing(r) },
+  'notifier.beginBinding': { schema: notifierBeginBindingRequestSchema, invoke: (api, r) => api.notifier.beginBinding(r) },
+  'notifier.status': { schema: notifierStatusRequestSchema, invoke: (api, r) => api.notifier.status(r) },
+  'tasks.list': { schema: tasksListRequestSchema, invoke: (api, r) => api.tasks.list(r) },
+  'tasks.resume': { schema: tasksResumeRequestSchema, invoke: (api, r) => api.tasks.resume(r) },
 }
 
 /** Route lookup that narrows an arbitrary path segment to a map key (single cast point for the string→key refinement). */

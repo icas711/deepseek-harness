@@ -152,6 +152,17 @@ export interface RpcErrorDetailsMap {
   'station-not-found': { stationId: string }
   /** executionTarget назвал чужую станцию: владелец — другой логин. */
   'station-forbidden': { stationId: string }
+  /**
+   * Уведомления недоступны: развёртывание без провайдера нотификаций или вызов
+   * без веб-личности — код и статус адресуются логину вызывающего.
+   */
+  'notifier-unavailable': {}
+  /** Задачи недоступны: развёртывание без супервизора задач. */
+  'tasks-unavailable': {}
+  /** tasks.resume назвал идентификатор, которого нет в реестре задач. */
+  'tasks-task-not-found': { taskId: string }
+  /** tasks.resume отклонил супервизор (чужой статус жизненного цикла, остановка). */
+  'tasks-resume-rejected': { taskId: string }
   'internal': {}
 }
 

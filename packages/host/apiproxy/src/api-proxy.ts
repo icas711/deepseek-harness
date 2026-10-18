@@ -95,6 +95,27 @@ import type {} from '@deepseek-ai/dsh-session-telemetry'
 // Side-effect type import: resolves `ctx.get('quotaPause')` (optional
 // composition — the quota-pause guard's Context merge only).
 import type {} from '@deepseek-ai/dsh-quota-pause'
+// Type-only: resolve ctx.get('taskSupervisor') (опциональная композиция — проводка задач)
+// и ctx.get('notifier') (опциональная композиция — домен notifier.*).
+import type {} from '@deepseek-ai/dsh-notifier'
+// Type-only: resolve ctx.get('notifier') (опциональная композиция — домен notifier.*).
+import type {} from '@deepseek-ai/dsh-notifier'
+// Type-only: resolve ctx.get('taskSupervisor') (опциональная композиция — проводка задач).
+// Type-only: resolve ctx.get('notifier') (опциональная композиция — домен notifier.*).
+import type {} from '@deepseek-ai/dsh-notifier'
+// Type-only: resolve ctx.get('taskSupervisor') (опциональная композиция — проводка задач).
+// Type-only: resolve ctx.get('notifier') (опциональная композиция — домен notifier.*).
+import type {} from '@deepseek-ai/dsh-notifier'
+// Type-only: resolve ctx.get('taskSupervisor') (опциональная композиция — проводка задач).
+// Type-only: resolve ctx.get('notifier') (опциональная композиция — домен notifier.*).
+import type {} from '@deepseek-ai/dsh-notifier'
+// Type-only: resolve ctx.get('taskSupervisor') (опциональная композиция — проводка задач).
+// Type-only: resolve ctx.get('notifier') (опциональная композиция — домен notifier.*).
+import type {} from '@deepseek-ai/dsh-notifier'
+// Type-only: resolve ctx.get('taskSupervisor') (опциональная композиция — проводка задач).
+import type {} from '@deepseek-ai/dsh-task-supervisor'
+import { TaskSupervisorError } from '@deepseek-ai/dsh-task-supervisor'
+import type { TaskView } from '@deepseek-ai/dsh-task-supervisor'
 import { StationId } from '@deepseek-ai/dsh-station-protocol'
 import { StationFileSystem } from '@deepseek-ai/dsh-fs-station'
 import { StationSubprocessRuntime } from '@deepseek-ai/dsh-subprocess-station'
@@ -120,6 +141,7 @@ import {
 import { canOpenNativePath, openNativePath, openNativeTextFile } from './native-path-opener.ts'
 import { isWithinRoot, requestIdentity, scopingIdentity, WebAdminError } from './web-identity.ts'
 import type { WebAuthService, WebIdentity } from './web-identity.ts'
+import { createTaskTracking } from './task-tracking.ts'
 import { realpathSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -1277,6 +1299,10 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
    * nothing: admins and non-web callers see every session.
    */
   const muxQueues = new Map<FrameQueue<RpcRequest<MuxFrame>>, WebIdentity | undefined>()
+  // Проводка супервизора задач: станционные привязки создания сессий и
+  // регистрация/завершение задач по принятому промпту и исходу turn'а.
+  const sessionStations = new Map<SessionId, StationId>()
+  const taskTracking = createTaskTracking()
   /**
    * Open host-stream queues. The `events.host` stream owns the listener side;
    * this registry lets a unary handler publish the same frames (a durable
@@ -1485,6 +1511,20 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     return cwd !== undefined && isWithinRoot(cwd, scope.root)
   }
 
+  /**
+   * Владелец задачи — владелец её сессии по кабинетному правилу cwd. Задачи
+   * изолируются строже списка сессий: даже админ видит только свои, потому что
+   * resume запускает работу в чужом списке. Вне веб-запроса ничего не
+   * изолируется. Пропавшая сессия (удалённый лог) владение не доказывает —
+   * запись скрывается.
+   */
+  async function taskVisibleTo(identity: WebIdentity | undefined, record: TaskView): Promise<boolean> {
+    if (identity === undefined) return true
+    const cwd = ctx.sessions.get(record.sessionId)?.header.cwd
+      ?? (await ctx.get('sessionPersistence')?.list())?.find(header => header.id === record.sessionId)?.cwd
+    return cwd !== undefined && isWithinRoot(cwd, identity.root)
+  }
+
   /** Record a settled answerable id (bounded FIFO) for the duplicate-answer receipt. */
   function rememberResolved(rpcId: RpcId): void {
     resolvedAnswers.add(rpcId)
@@ -1570,6 +1610,15 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     const agent = ctx.agents.get(session.id)
     if (agent?.session !== session) return
     broadcast({ type: 'session/queue', sessionId: session.id, items: queueItems(agent, event.data) })
+  })
+
+  // Исход turn'а завершает задачу сессии: completed → markCompleted,
+  // error → markFailed (текст из errorChain); отмена и blocked оставляют
+  // задачу running — работа не закончена и не провалена. Подписка живёт в
+  // волокне шлюза: с его выгрузкой уходит и проводка.
+  ctx.on('session/event', (session, event) => {
+    if (event.type !== 'turn/end') return
+    void taskTracking.settleTurnEnd(ctx, session.id, event.data.reason)
   })
 
   /** Remove a wait before settling it: synchronous deletion makes the first claimant win. */
@@ -2464,6 +2513,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
             })
           }
           executionTarget = { stationId: requestedTarget.stationId }
+          sessionStations.set(sessionId, executionTarget.stationId)
         }
         try {
           await ensureSession(sessionId, cwd, request.payload.sessionId !== undefined, requestedPreset, executionTarget)
@@ -2883,6 +2933,12 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
               details: { reason: String(error) },
             })
           }
+          // Принятый промпт регистрирует задачу сессии: активная запись не
+          // переметывается (метка — первый промпт), завершённая сменяется
+          // новой. Станция берётся из факта создания (executionTarget);
+          // локальные сессии ведутся без неё — страница задач едина.
+          const promptText = content.map(part => part.type === 'text' ? part.text : '').join(' ')
+          void taskTracking.trackAcceptedPrompt(ctx, sessionId, promptText, sessionStations.get(sessionId))
           return ok(request, { accepted: true as const })
         }
         return hasImage ? serializeImageAdmission(agent, admit) : admit()
@@ -4035,6 +4091,121 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
             details: {},
           })
         }
+      },
+    },
+
+    notifier: {
+      // Код и статус адресуются логину веб-личности (по образцу station.*):
+      // не-веб-вызов и развёртывание без провайдера нотификаций отвечают
+      // одним typed-отказом.
+      async beginBinding(request) {
+        const notifier = ctx.get('notifier')
+        const identity = requestIdentity(ctx)
+        if (notifier === undefined || identity === undefined) {
+          return err(request, {
+            code: 'notifier-unavailable',
+            message: 'уведомления недоступны: нужен вход через веб и провайдер нотификаций (DSH_TELEGRAM_BOT_TOKEN)',
+            details: {},
+          })
+        }
+        try {
+          const challenge = await notifier.beginBinding(identity.login)
+          return ok(request, { code: String(challenge.code) })
+        } catch (error: unknown) {
+          return err(request, {
+            code: 'notifier-unavailable',
+            message: error instanceof Error ? error.message : String(error),
+            details: {},
+          })
+        }
+      },
+
+      async status(request) {
+        const notifier = ctx.get('notifier')
+        const identity = requestIdentity(ctx)
+        if (notifier === undefined || identity === undefined) {
+          return err(request, {
+            code: 'notifier-unavailable',
+            message: 'уведомления недоступны: нужен вход через веб и провайдер нотификаций (DSH_TELEGRAM_BOT_TOKEN)',
+            details: {},
+          })
+        }
+        const bound = (await notifier.boundLogins()).includes(identity.login)
+        return ok(request, { bound })
+      },
+    },
+
+    tasks: {
+      // Свои задачи вызывающего: веб-личность изолирует по владельцу сессии
+      // (админ включительно — resume запускает работу в чужом списке),
+      // не-веб-вызов видит весь реестр. Отметку завершённой клиент не
+      // передаёт — исход работы известен только хосту.
+      async list(request) {
+        const supervisor = ctx.get('taskSupervisor')
+        if (supervisor === undefined) {
+          return err(request, {
+            code: 'tasks-unavailable',
+            message: 'задачи недоступны: развёртывание без супервизора задач',
+            details: {},
+          })
+        }
+        const identity = requestIdentity(ctx)
+        const records = await supervisor.list()
+        const visible: TaskView[] = []
+        for (const record of records) {
+          if (await taskVisibleTo(identity, record)) visible.push(record)
+        }
+        // Свежее изменение первым — страница задач читается сверху вниз.
+        visible.sort((a, b) => b.updatedAt - a.updatedAt)
+        return ok(request, {
+          tasks: visible.map(record => ({
+            taskId: String(record.taskId),
+            sessionId: record.sessionId,
+            title: record.title,
+            status: record.status,
+            updatedAt: record.updatedAt,
+            ...record.stationId === undefined ? {} : { stationId: String(record.stationId) },
+          })),
+        })
+      },
+
+      async resume(request) {
+        const supervisor = ctx.get('taskSupervisor')
+        if (supervisor === undefined) {
+          return err(request, {
+            code: 'tasks-unavailable',
+            message: 'задачи недоступны: развёртывание без супервизора задач',
+            details: {},
+          })
+        }
+        const records = await supervisor.list()
+        const record = records.find(candidate => String(candidate.taskId) === request.payload.taskId)
+        // Неизвестный и чужой идентификатор отвечают одинаково: probing
+        // чужого списка не должен отличаться от опечатки.
+        if (record === undefined || !(await taskVisibleTo(requestIdentity(ctx), record))) {
+          return err(request, {
+            code: 'tasks-task-not-found',
+            message: `задача "${request.payload.taskId}" не найдена среди ваших`,
+            details: { taskId: request.payload.taskId },
+          })
+        }
+        try {
+          await supervisor.resume(record.taskId)
+        } catch (error: unknown) {
+          if (error instanceof TaskSupervisorError) {
+            return err(request, {
+              code: 'tasks-resume-rejected',
+              message: error.message,
+              details: { taskId: request.payload.taskId },
+            })
+          }
+          return err(request, {
+            code: 'internal',
+            message: `возобновление задачи "${request.payload.taskId}" не выполнено: ${String(error)}`,
+            details: {},
+          })
+        }
+        return ok(request, {})
       },
     },
 

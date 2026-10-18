@@ -248,6 +248,16 @@ export class FakeApiClient implements IApiClient {
     beginPairing: async () => ({ rpcId: 'fake' as never, result: { ok: true, value: { code: '00000000', wssPath: '/station-ws' } } }),
   }
 
+  readonly notifier: IApiClient['notifier'] = {
+    beginBinding: async () => ({ rpcId: 'fake' as never, result: { ok: true, value: { code: 'f4kec0de' } } }),
+    status: async () => ({ rpcId: 'fake' as never, result: { ok: true, value: { bound: false } } }),
+  }
+
+  readonly tasks: IApiClient['tasks'] = {
+    list: async () => ({ rpcId: 'fake' as never, result: { ok: true, value: { tasks: [] } } }),
+    resume: async () => ({ rpcId: 'fake' as never, result: { ok: true, value: {} } }),
+  }
+
   /** When true, streams never fire onOpen (misbehaving-carrier material for the handshake timeout guard). */
   suppressStreamOpen = false
 

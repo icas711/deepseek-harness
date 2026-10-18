@@ -78,6 +78,10 @@ import {
 import {
   stationBeginPairingValueSchema, stationListValueSchema,
 } from '../api/station.schema.ts'
+import {
+  notifierBeginBindingValueSchema, notifierStatusValueSchema,
+} from '../api/notifier.schema.ts'
+import { tasksListValueSchema, tasksResumeValueSchema } from '../api/tasks.schema.ts'
 
 /**
  * Client consumption face of the contract (shape a): same domain tree as ApiProxy, but unary
@@ -191,6 +195,14 @@ export interface IApiClient {
     list(payload: RequestPayload<'station.list'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'station.list'>>>
     beginPairing(payload: RequestPayload<'station.beginPairing'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'station.beginPairing'>>>
   }
+  notifier: {
+    beginBinding(payload: RequestPayload<'notifier.beginBinding'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'notifier.beginBinding'>>>
+    status(payload: RequestPayload<'notifier.status'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'notifier.status'>>>
+  }
+  tasks: {
+    list(payload: RequestPayload<'tasks.list'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'tasks.list'>>>
+    resume(payload: RequestPayload<'tasks.resume'>, signal?: AbortSignal): Promise<RpcResponse<ResponseValue<'tasks.resume'>>>
+  }
   /** client-response passthrough (rpcId is a backfill of the server-request's id — never minted here). */
   respond(message: ClientResponse, signal?: AbortSignal): Promise<RpcReceipt>
 }
@@ -267,6 +279,10 @@ const UNARY_VALUE_SCHEMAS: { [K in keyof RpcMethodMap]: z.ZodType<Wire<ResponseV
   'admin.revokeAllDevices': adminRevokeAllDevicesValueSchema,
   'station.list': stationListValueSchema,
   'station.beginPairing': stationBeginPairingValueSchema,
+  'notifier.beginBinding': notifierBeginBindingValueSchema,
+  'notifier.status': notifierStatusValueSchema,
+  'tasks.list': tasksListValueSchema,
+  'tasks.resume': tasksResumeValueSchema,
 }
 
 /** Default timeout for bounded unary calls (rpc-compare 2026-07-19: a hung host must not leave callers pending forever). */
@@ -564,6 +580,16 @@ export abstract class AbstractApiClient implements IApiClient {
   readonly stations: IApiClient['stations'] = {
     list: (payload, signal) => this.callUnary('station.list', payload, signal),
     beginPairing: (payload, signal) => this.callUnary('station.beginPairing', payload, signal),
+  }
+
+  readonly notifier: IApiClient['notifier'] = {
+    beginBinding: (payload, signal) => this.callUnary('notifier.beginBinding', payload, signal),
+    status: (payload, signal) => this.callUnary('notifier.status', payload, signal),
+  }
+
+  readonly tasks: IApiClient['tasks'] = {
+    list: (payload, signal) => this.callUnary('tasks.list', payload, signal),
+    resume: (payload, signal) => this.callUnary('tasks.resume', payload, signal),
   }
 
   readonly events: IApiClient['events'] = {

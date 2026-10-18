@@ -16,6 +16,8 @@ import type { LlmApi } from './llm.ts'
 import type { SubagentsApi } from './subagents.ts'
 import type { AdminApi } from './admin.ts'
 import type { StationApi } from './station.ts'
+import type { NotifierApi } from './notifier.ts'
+import type { TasksApi } from './tasks.ts'
 import type { RpcResponse } from './rpc.ts'
 
 /**
@@ -91,6 +93,10 @@ export interface RpcMethodMap {
   'admin.revokeAllDevices': AdminApi['revokeAllDevices']
   'station.list': StationApi['list']
   'station.beginPairing': StationApi['beginPairing']
+  'notifier.beginBinding': NotifierApi['beginBinding']
+  'notifier.status': NotifierApi['status']
+  'tasks.list': TasksApi['list']
+  'tasks.resume': TasksApi['resume']
 }
 
 /** Business request payload of method K (reaches through the RpcRequest narrow form to payload). */

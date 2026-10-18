@@ -3025,6 +3025,20 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
       list: request => ok(request, { stations: [] }),
       beginPairing: request => err(request, FORBIDDEN),
     },
+    // Без гейта логина нет, поэтому beginBinding отказывает как хост без
+    // личности; пустая страница задач — пассивное развёртывание.
+    notifier: {
+      beginBinding: request => err(request, FORBIDDEN),
+      status: request => ok(request, { bound: false }),
+    },
+    tasks: {
+      list: request => ok(request, { tasks: [] }),
+      resume: request => err(request, {
+        code: 'tasks-task-not-found',
+        message: `задача "${request.payload.taskId}" не найдена среди ваших`,
+        details: { taskId: request.payload.taskId },
+      }),
+    },
     respond(message: ClientResponse): Promise<RpcReceipt> {
       // Same routing discipline as the host: rpcId first, then the payload's
       // audit correlation; a settled or unknown id is not-pending.
@@ -3207,6 +3221,10 @@ export class FixtureApiClient extends AbstractApiClient {
       case 'admin.revokeAllDevices': return this.api.admin.revokeAllDevices(request)
       case 'station.list': return this.api.stations.list(request)
       case 'station.beginPairing': return this.api.stations.beginPairing(request)
+      case 'notifier.beginBinding': return this.api.notifier.beginBinding(request)
+      case 'notifier.status': return this.api.notifier.status(request)
+      case 'tasks.list': return this.api.tasks.list(request)
+      case 'tasks.resume': return this.api.tasks.resume(request)
     }
   }
 
