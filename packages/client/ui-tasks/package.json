@@ -61,6 +61,7 @@
     "react": "^18.2.0"
   },
   "devDependencies": {
+    "clsx": "^2.0.0",
     "@deepseek-ai/cordis": "workspace:^",
     "@deepseek-ai/dsh-api-remotes": "workspace:^",
     "@deepseek-ai/dsh-client-connection": "workspace:^",
