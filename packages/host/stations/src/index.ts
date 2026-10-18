@@ -55,6 +55,19 @@ declare module '@deepseek-ai/cordis' {
     /** Мост станций: сопряжение, реестр и живые соединения. */
     stations: StationsService
   }
+
+  interface Events {
+    /**
+     * Онлайн-статус станции сменился: соединение коннектора открылось после
+     * приветствия или закрылось. Замена одного живого соединения другим
+     * (свежее выигрывает) статус не меняет и события не поднимает.
+     * Подписчики: супервизор задач (перевод привязанных задач в офлайн-ожидание
+     * и автопродолжение при возврате) и наблюдатели уведомлений.
+     * @param payload - станция и её новое состояние: `{ stationId, online }`.
+     * @mode emit
+     */
+    'station/status'(payload: { stationId: StationId; online: boolean }): void
+  }
 }
 
 /**
@@ -220,6 +233,19 @@ export class StationsService extends Service {
   }
 
   /**
+   * Вид одной станции без секретного материала: существует ли станция и кому
+   * сопряжена — источник проверки принадлежности для потребителей RPC
+   * (привязка сессии к станции исполнения).
+   * @param stationId - идентификатор станции.
+   * @returns вид станции или undefined, когда станция не сопряжена.
+   */
+  async get(stationId: StationId): Promise<StationView | undefined> {
+    await this.ready
+    const record = this.store.get(String(stationId))
+    return record === undefined ? undefined : this.toView(record)
+  }
+
+  /**
    * Проверяет токен станции timing-safe сравнением хэша; точка
    * аутентификации и для auth-места вебсервера, и для приветствия сессии.
    * @param token - предъявленный токен.
@@ -267,7 +293,11 @@ export class StationsService extends Service {
     }
   }
 
-  /** Онлайн-ли станция прямо сейчас. */
+  /**
+   * Онлайн-ли станция прямо сейчас.
+   * @param stationId - идентификатор станции.
+   * @returns true, когда живое соединение коннектора открыто.
+   */
   isOnline(stationId: StationId): boolean {
     return this.sessions.has(String(stationId))
   }
@@ -309,12 +339,17 @@ export class StationsService extends Service {
       verifyStationToken: (token: string) => this.verifyStationToken(token),
       markOnline: (stationId: StationId, session: StationServerSession) => {
         const previous = this.sessions.get(String(stationId))
+        const wasOffline = previous === undefined
+        // Замещаем до handleClose прежней сессии: её markOffline тогда видит
+        // в карте живую замену и не гасит статус — событие офлайн при
+        // замене соединения не поднимается.
+        this.sessions.set(String(stationId), session)
         if (previous !== undefined && previous !== session) {
           // Свежее соединение выигрывает: прежнему сокету больше нечего
           // делать мостом — его ожидающие запросы отклонятся в handleClose.
           previous.handleClose()
         }
-        this.sessions.set(String(stationId), session)
+        if (wasOffline) this.ctx.emit('station/status', { stationId, online: true })
         void this.store.touch(String(stationId)).catch((error: unknown) => {
           this.ctx.logger.warn(`stations: не удалось обновить lastSeenAt: ${error instanceof Error ? error.message : String(error)}`)
         })
@@ -323,6 +358,7 @@ export class StationsService extends Service {
         // Закрывшаяся замещённая сессия не должна погасить живую замену.
         if (this.sessions.get(String(stationId)) === session) {
           this.sessions.delete(String(stationId))
+          this.ctx.emit('station/status', { stationId, online: false })
         }
       },
       logError: (error: unknown) => {

@@ -11,6 +11,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { Context, Service } from '@deepseek-ai/cordis'
 import { StationsError, StationsService, StationOpRemoteError } from '../src/index.ts'
+import type { StationFrame } from '@deepseek-ai/dsh-station-protocol'
 import { StationServerSession, StationBridgeClosedError } from '../src/session.ts'
 import type { StationSessionHost } from '../src/session.ts'
 import { StationId, type StationEventFrame } from '@deepseek-ai/dsh-station-protocol'
@@ -51,7 +52,7 @@ function fakeHost(overrides: Partial<StationSessionHost> = {}): StationSessionHo
   }
 }
 
-async function makeService(pairingCodeTtlMs?: number): Promise<{ service: StationsService; root: string; path: string }> {
+async function makeService(pairingCodeTtlMs?: number): Promise<{ service: StationsService; ctx: Context; root: string; path: string }> {
   const root = await mkdtemp(join(tmpdir(), 'dsh-stations-service-'))
   const path = join(root, 'station-registry.json')
   const ctx = new Context()
@@ -70,7 +71,7 @@ async function makeService(pairingCodeTtlMs?: number): Promise<{ service: Statio
   const init = (service as unknown as { [Service.init]: () => Promise<void> })[Service.init]
   await init.call(service)
   expect(upgrades).toHaveLength(1)
-  return { service, root, path }
+  return { service, ctx, root, path }
 }
 
 describe('сопряжение', () => {
@@ -179,5 +180,56 @@ describe('StationServerSession', () => {
     dispose()
     session.handleMessage(JSON.stringify({ t: 'evt', event: 'proc/stdout', p: { id: 'p1', data: 'eW8=' } }))
     expect(events).toHaveLength(1)
+  })
+})
+
+describe('событие station/status и get()', () => {
+  /** Прогоняет микрозадачи: async-приветствие успевает отправить кадр. */
+  const flush = async (): Promise<void> => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve() }
+
+  /** Приватный sessionHost сервиса: тесту нужен тот же экземпляр, что и attach(). */
+  function hostOf(service: StationsService): StationSessionHost {
+    return (service as unknown as { sessionHost(): StationSessionHost }).sessionHost()
+  }
+
+  it('поднимается на выходе онлайн и уходе в офлайн; замена соединения статус не меняет', async () => {
+    const { service, ctx, root } = await makeService()
+    const events: { stationId: string; online: boolean }[] = []
+    ctx.on('station/status', (payload) => {
+      events.push({ stationId: String(payload.stationId), online: payload.online })
+    })
+    const { code } = service.beginPairing('alice')
+    const { stationId, token } = await service.completePairing(code, 'ноутбук', '/w', 'linux')
+    const host = hostOf(service)
+    const first = new StationServerSession(new FakeSocket(), host)
+    first.handleMessage(JSON.stringify({ t: 'hello', version: 1, auth: { mode: 'token', token } }))
+    await flush()
+    expect(events).toEqual([{ stationId: String(stationId), online: true }])
+    expect(service.isOnline(stationId)).toBe(true)
+    // Замена живого соединения свежим: статус «онлайн» не меняется, офлайн-события нет.
+    const second = new StationServerSession(new FakeSocket(), host)
+    second.handleMessage(JSON.stringify({ t: 'hello', version: 1, auth: { mode: 'token', token } }))
+    await flush()
+    expect(events).toHaveLength(1)
+    expect(service.isOnline(stationId)).toBe(true)
+    // Живая сессия закрылась — единственное событие офлайн.
+    second.handleClose()
+    expect(events).toEqual([
+      { stationId: String(stationId), online: true },
+      { stationId: String(stationId), online: false },
+    ])
+    expect(service.isOnline(stationId)).toBe(false)
+    await rm(root, { recursive: true, force: true })
+  })
+
+  it('get() возвращает вид станции без секретов и undefined для несопряжённой', async () => {
+    const { service, root } = await makeService()
+    expect(await service.get(StationId('stn-none'))).toBeUndefined()
+    const { code } = service.beginPairing('alice')
+    const { stationId } = await service.completePairing(code, 'ноутбук', '/w', 'linux')
+    const view = await service.get(stationId)
+    expect(view).toMatchObject({ stationId: String(stationId), login: 'alice', name: 'ноутбук', online: false })
+    expect(view).not.toHaveProperty('tokenHash')
+    await rm(root, { recursive: true, force: true })
   })
 })
