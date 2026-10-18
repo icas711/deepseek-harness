@@ -31,7 +31,7 @@ function renderChip(api: ReturnType<typeof fakeApi>) {
     t: (key: Parameters<ExecutionTargetChipProps['t']>[0],
       params?: Record<string, unknown>) => {
       const table = ru as Record<string, string>
-      let text: string = table[key]
+      let text: string = table[key] ?? key
       for (const [name, value] of Object.entries(params ?? {})) text = text.replaceAll('{' + name + '}', String(value))
       return text
     },
