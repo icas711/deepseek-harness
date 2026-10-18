@@ -148,6 +148,10 @@ export interface RpcErrorDetailsMap {
    * или вызов без веб-личности — pair/list адресуются логину вызывающего.
    */
   'stations-unavailable': {}
+  /** executionTarget назвал станцию, которой нет в реестре. */
+  'station-not-found': { stationId: string }
+  /** executionTarget назвал чужую станцию: владелец — другой логин. */
+  'station-forbidden': { stationId: string }
   'internal': {}
 }
 

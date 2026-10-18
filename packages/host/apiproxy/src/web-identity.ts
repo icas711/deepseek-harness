@@ -95,7 +95,10 @@ export interface WebAuthService {
    */
   identityFromCookie(cookie: string | undefined): WebIdentity | undefined
 
-  /** Every managed account, ordered by login. */
+  /**
+   * Every managed account, ordered by login.
+   * @returns the account views without secret material.
+   */
   listUsers(): AdminUserView[]
 
   /**
@@ -132,6 +135,7 @@ export interface WebAuthService {
   /**
    * One account's live (unexpired) sessions, oldest issuance first.
    * @param login - the account whose devices to list.
+   * @returns the device views of that account.
    * @throws WebAdminError `user-not-found`.
    */
   listDevices(login: string): AdminDeviceView[]

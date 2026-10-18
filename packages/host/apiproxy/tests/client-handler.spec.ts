@@ -145,6 +145,10 @@ function scriptedApi(overrides: {
       revokeAllDevices: err,
       ...overrides.admin,
     },
+    stations: {
+      list: r => ok(r, { stations: [] }),
+      beginPairing: r => ok(r, { code: 'ABCD2345', wssPath: '/station-ws' }),
+    },
     events: { mux: () => empty<MuxFrame>(), host: () => empty<HostFrame>(), ...overrides.events },
     respond: overrides.respond ?? (() => Promise.resolve({ accepted: false as const, reason: 'not-pending' as const })),
     downloads: { sessionLog: async () => new Response('stub', { status: 404 }) },

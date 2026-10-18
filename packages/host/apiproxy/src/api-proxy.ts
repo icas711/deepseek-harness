@@ -95,6 +95,9 @@ import type {} from '@deepseek-ai/dsh-session-telemetry'
 // Side-effect type import: resolves `ctx.get('quotaPause')` (optional
 // composition — the quota-pause guard's Context merge only).
 import type {} from '@deepseek-ai/dsh-quota-pause'
+import { StationId } from '@deepseek-ai/dsh-station-protocol'
+import { StationFileSystem } from '@deepseek-ai/dsh-fs-station'
+import { StationSubprocessRuntime } from '@deepseek-ai/dsh-subprocess-station'
 import { approvalResponsePayloadSchema } from './api/approvals.schema.ts'
 import { imageLimitsProjectionSchema, sessionListMetadataProjectionSchema } from './api/sessions.schema.ts'
 import { questionResponsePayloadSchema } from './api/questions.schema.ts'
@@ -1364,6 +1367,28 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
   }
 
   /**
+   * The agent-scope setup that mounts one station's execution world: the
+   * fs-station and subprocess-station providers of that station replace the
+   * local world for everything composed inside the returned scope. Each mount
+   * gets a private `isolate` label — two sessions bound to different
+   * stations must not collide on the shared service store, and an unlabeled
+   * registration would throw against the host's own `fs`/`subprocess`
+   * providers (the preset/isolate mechanic).
+   *
+   * The same mount lives in `dsh-task-supervisor`'s resume path; it is kept
+   * local to each consumer because a helper in `dsh-stations` would make the
+   * provider packages depend on the bridge that depends on them.
+   * @param stationId - the station whose world the setup mounts.
+   * @returns the setup callback for the agent factory.
+   */
+  function stationWorldSetup(stationId: string): (agentCtx: Context) => Promise<void> {
+    return async (agentCtx: Context) => {
+      await agentCtx.isolate('fs').plugin(StationFileSystem, { stationId })
+      await agentCtx.isolate('subprocess').plugin(StationSubprocessRuntime, { stationId })
+    }
+  }
+
+  /**
    * Resolve the preset an agent will be composed from, and the setup that
    * installs it.
    *
@@ -1376,28 +1401,35 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
    * A deployment with no preset roster composes nothing and every session
    * shares the host composition, which is the behavior before presets existed.
    * @param presetId - the requested preset, or `undefined` for the default.
+   * @param executionTarget - the station whose execution world the setup
+   * mounts in the agent scope, when the request named one.
    * @returns the id to record on the header (absent without a roster) and the setup callback.
    * @throws when the roster supplies no such preset.
    */
-  async function composeAgent(presetId: string | undefined): Promise<{
+  async function composeAgent(presetId: string | undefined, executionTarget?: { stationId: string }): Promise<{
     agentPreset?: string
     setup: (agentCtx: Context) => Promise<void>
   }> {
-    const presets = ctx.get('agentPresets')
-    if (presets === undefined) {
-      return {
-        setup: (agentCtx: Context) => {
-          installSelection(agentCtx)
-          return Promise.resolve()
-        },
-      }
-    }
-    const resolvedId = (await presets.resolve(presetId)).id
-    return {
-      agentPreset: resolvedId,
-      setup: async (agentCtx: Context) => {
+    const steps: Array<(agentCtx: Context) => Promise<void>> = [
+      (agentCtx: Context) => {
         installSelection(agentCtx)
+        return Promise.resolve()
+      },
+    ]
+    const presets = ctx.get('agentPresets')
+    let agentPreset: string | undefined
+    if (presets !== undefined) {
+      const resolvedId = (await presets.resolve(presetId)).id
+      agentPreset = resolvedId
+      steps.push(async (agentCtx: Context) => {
         await presets.mount(agentCtx, resolvedId)
+      })
+    }
+    if (executionTarget !== undefined) steps.push(stationWorldSetup(executionTarget.stationId))
+    return {
+      ...(agentPreset === undefined ? {} : { agentPreset }),
+      setup: async (agentCtx: Context) => {
+        for (const step of steps) await step(agentCtx)
       },
     }
   }
@@ -1806,6 +1838,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     cwd: string,
     checkPersistedIdentity: boolean,
     presetId?: string,
+    executionTarget?: { stationId: string },
   ): Promise<Agent> {
     let creation = sessionCreations.get(sessionId)
     if (creation === undefined) {
@@ -1843,7 +1876,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
           const resumed = await ctx.agents.resume({
             resumeSessionId: sessionId,
             agentOptions: agentOptions(),
-            setup: (await composeAgent(storedPreset)).setup,
+            setup: (await composeAgent(storedPreset, executionTarget)).setup,
           })
           agentHandles.set(sessionId, resumed)
           return resumed.agent
@@ -1854,7 +1887,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         } catch (error: unknown) {
           throw new Error(`failed to ensure project directory "${cwd}": ${String(error)}`, { cause: error })
         }
-        const composition = await composeAgent(presetId)
+        const composition = await composeAgent(presetId, executionTarget)
         const created = await ctx.agents.create({
           sessionId,
           agentOptions: agentOptions(),
@@ -2400,8 +2433,40 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         }
         const cwd = workspace?.path ?? request.payload.cwd ?? scope?.root ?? defaults.cwd
         const requestedPreset = request.payload.agentPreset
+        // Station binding is validated at this wire boundary: the station must
+        // be registered and owned by the calling login (admins included — the
+        // list domain shows all stations, but a session binds the caller's own).
+        const requestedTarget = request.payload.executionTarget
+        let executionTarget: { stationId: string } | undefined
+        if (requestedTarget !== undefined) {
+          const stations = ctx.get('stations')
+          const identity = requestIdentity(ctx)
+          if (stations === undefined || identity === undefined) {
+            return err(request, {
+              code: 'stations-unavailable',
+              message: 'станция исполнения недоступна: нужен вход через веб и смонтированный мост станций',
+              details: {},
+            })
+          }
+          const record = await stations.get(StationId(requestedTarget.stationId))
+          if (record === undefined) {
+            return err(request, {
+              code: 'station-not-found',
+              message: `станция "${requestedTarget.stationId}" не сопряжена`,
+              details: { stationId: requestedTarget.stationId },
+            })
+          }
+          if (record.login !== identity.login) {
+            return err(request, {
+              code: 'station-forbidden',
+              message: `станция «${record.name}» сопряжена с другим логином`,
+              details: { stationId: requestedTarget.stationId },
+            })
+          }
+          executionTarget = { stationId: requestedTarget.stationId }
+        }
         try {
-          await ensureSession(sessionId, cwd, request.payload.sessionId !== undefined, requestedPreset)
+          await ensureSession(sessionId, cwd, request.payload.sessionId !== undefined, requestedPreset, executionTarget)
         } catch (error: unknown) {
           if (error instanceof AgentPresetConflict) {
             return err(request, {

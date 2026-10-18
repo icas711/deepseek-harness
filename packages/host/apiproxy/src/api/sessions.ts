@@ -257,8 +257,25 @@ export interface SessionsApi {
    * the session header, so a later resume rebuilds the same agent. An unknown
    * id fails with `agent-preset-not-found`, and a preset whose composition
    * cannot be mounted fails with `agent-preset-invalid`.
+   *
+   * `executionTarget` binds the session's execution world to one paired
+   * station: the fs-station and subprocess-station providers of THAT station
+   * are mounted in the agent's scope (private isolate labels), so tools
+   * composed in the same scope run on the user's machine. The station must
+   * belong to the calling web user's login and be registered — an unknown id
+   * fails with `station-not-found`, a foreign one with `station-forbidden`;
+   * without the stations bridge or a web identity the answer is
+   * `stations-unavailable`. The binding is in-process composition: nothing
+   * about it is stored on the session, and a later resume rebuilds the world
+   * only from the task registry's station binding.
    */
-  create(request: RpcRequest<{ workspaceId?: WorkspaceId; cwd?: string; sessionId?: SessionId; agentPreset?: string }>):
+  create(request: RpcRequest<{
+    workspaceId?: WorkspaceId
+    cwd?: string
+    sessionId?: SessionId
+    agentPreset?: string
+    executionTarget?: { stationId: string }
+  }>):
   Promise<RpcResponse<{ sessionId: SessionId; agentPreset?: string }>>
 
   /**

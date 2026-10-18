@@ -102,7 +102,13 @@
       "path": "../stations"
     },
     {
+      "path": "../../station/fs-station"
+    },
+    {
       "path": "../../station/protocol"
+    },
+    {
+      "path": "../../station/subprocess-station"
     },
     {
       "path": "../../extensions/cordis-host-runner"

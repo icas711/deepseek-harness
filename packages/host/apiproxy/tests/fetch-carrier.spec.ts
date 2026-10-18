@@ -323,6 +323,14 @@ function fakeApi(overrides: Partial<{ muxFrames: MuxFrame[]; hostFrames: HostFra
         return { rpcId: request.rpcId, result: { ok: false, error: { code: 'internal' as const, message: 'stub', details: {} } } }
       },
     },
+    stations: {
+      async list(request) {
+        return { rpcId: request.rpcId, result: { ok: true, value: { stations: [] } } }
+      },
+      async beginPairing(request) {
+        return { rpcId: request.rpcId, result: { ok: true, value: { code: 'ABCD2345', wssPath: '/station-ws' } } }
+      },
+    },
     events: {
       mux: (_request, signal) => stream(muxFrames, signal),
       host: (_request, signal) => stream(hostFrames, signal),

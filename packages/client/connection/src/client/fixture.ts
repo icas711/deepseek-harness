@@ -3021,6 +3021,10 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
       revokeDevice: request => err(request, FORBIDDEN),
       revokeAllDevices: request => err(request, FORBIDDEN),
     },
+    stations: {
+      list: request => ok(request, { stations: [] }),
+      beginPairing: request => err(request, FORBIDDEN),
+    },
     respond(message: ClientResponse): Promise<RpcReceipt> {
       // Same routing discipline as the host: rpcId first, then the payload's
       // audit correlation; a settled or unknown id is not-pending.
@@ -3201,6 +3205,8 @@ export class FixtureApiClient extends AbstractApiClient {
       case 'admin.listDevices': return this.api.admin.listDevices(request)
       case 'admin.revokeDevice': return this.api.admin.revokeDevice(request)
       case 'admin.revokeAllDevices': return this.api.admin.revokeAllDevices(request)
+      case 'station.list': return this.api.stations.list(request)
+      case 'station.beginPairing': return this.api.stations.beginPairing(request)
     }
   }
 
