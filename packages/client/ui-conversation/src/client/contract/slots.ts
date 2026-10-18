@@ -144,6 +144,13 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      */
     'conversation.hero.agentPreset': { kind: 'single'; scope: 'root'; owner: HeroAgentPresetOwnerProps }
     /**
+     * The execution-target chip beside the workspace picker on the new-session
+     * screen: «Сервер» or «Станция ⟨имя⟩». Root scope: the choice is staged
+     * for the session this screen creates next (the binding is validated at
+     * session.create and rides that call).
+     */
+    'conversation.hero.executionTarget': { kind: 'single'; scope: 'root'; owner: HeroExecutionTargetOwnerProps }
+    /**
      * A full-width strip between the session header and the conversation
      * body — the seat for process-reachability chrome (the shipped banner
      * shows while the backend connection is down). Root scope:
@@ -250,6 +257,12 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 /** Owner share of the hero agent-preset chip: the shell supplies nothing. */
 export interface HeroAgentPresetOwnerProps {
   /** Marker field: the chip owns its own roster, staging, and menu state. */
+  children?: never
+}
+
+/** Owner share of the hero execution-target chip: the shell supplies nothing. */
+export interface HeroExecutionTargetOwnerProps {
+  /** Marker field: the chip owns its own station roster, staging, and menu state. */
   children?: never
 }
 
@@ -590,6 +603,7 @@ export type ConversationSlotProps =
     | 'conversation.input.left' | 'conversation.input.right'
     | 'conversation.hero.workspace'
     | 'conversation.hero.agentPreset'
+    | 'conversation.hero.executionTarget'
     | 'conversation.connection'
   >
   & InjectFace<ConversationInjected>

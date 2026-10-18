@@ -2,6 +2,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import { resolveSlotLabel, type BoundActions } from '@deepseek-ai/dsh-client-ui-slots'
+import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-web-react'
 import {
   resolveWorkspacePath, type ConnectionHealth, type ISessions, type ObservableSnapshot, type SessionId,
 } from '@deepseek-ai/dsh-client-runtime/client'
@@ -35,6 +36,8 @@ import { ApprovalPanel } from './skeleton/ApprovalPanel.tsx'
 import { todoDockEntry } from './skeleton/TodoPanel.tsx'
 import { queueDockEntry } from './queue/QueueDock.tsx'
 import { ConversationRoot } from './skeleton/ConversationRoot.tsx'
+import { ExecutionTargetChip } from './skeleton/ExecutionTargetChip.tsx'
+import { ExecutionTargetController } from './execution-target-store.ts'
 import { ConnectionBanner } from './skeleton/ConnectionBanner.tsx'
 import { ConversationSession, ConversationSessionHeader } from './skeleton/ConversationSession.tsx'
 import { DetailsPanel } from './skeleton/DetailsPanel.tsx'
@@ -149,6 +152,19 @@ export function apply(ctx: Context): void {
   // re-registration; components read the standard `t` seat instead.
   const t = ctx.locale.bind(NS)
 
+  // Пикер станции исполнения: список station.list и отложенный выбор для
+  // следующей сессии, созданной с этого экрана (привязка едет в session.create).
+  const execTarget = new ExecutionTargetController((ctx.get('connection') as ConnectionHandle).api)
+
+  ctx.slots.inject('conversation.hero.executionTarget', () => ctx.slots.register({
+    name: 'conversation.hero.executionTarget',
+    locale: NS,
+    inject: () => ({
+      controller: execTarget,
+      useExecutionTarget: bindSnapshotSelector(execTarget.store),
+    }),
+  }, ExecutionTargetChip))
+
   // Apply-time construction keeps store identity bound to this fiber.
   const chatStore = createChatStore()
   const submissionPolicy = new ComposerSubmissionPolicy(
@@ -229,12 +245,14 @@ export function apply(ctx: Context): void {
       'conversation.input.right': { kind: 'list', scope: 'session' },
       'conversation.hero.workspace': { kind: 'single', scope: 'root' },
       'conversation.hero.agentPreset': { kind: 'single', scope: 'root' },
+      'conversation.hero.executionTarget': { kind: 'single', scope: 'root' },
       'conversation.connection': { kind: 'single', scope: 'root' },
     },
     inject: (sessionId: SessionId | undefined): ConversationInjected => ({
       hooks: { composerBlock: sessionId === undefined ? ABSENT_BLOCK : composerBlocks.storeFor(sessionId) },
       selectWorkspace: async (workspaceId) => {
-        const nextId = await workspaces.connectWorkspace(workspaceId)
+        // Станция из пикера едет в session.create; «Сервер» — без привязки.
+        const nextId = await workspaces.connectWorkspace(workspaceId, execTarget.stagedTarget())
         if (sessionId !== undefined && nextId !== sessionId) {
           const from = inputHub.shell(sessionId)
           const draft = from.snapshot.draft

@@ -1,0 +1,99 @@
+/* Чип «Сервер / Станция ⟨имя⟩» в ряду hero-пикеров: тот же ритм, что у
+   workspace-чипа, меню — компактный список под кнопкой. */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--dsw-alias-border-subtle, transparent);
+  border-radius: 999px;
+  background: var(--dsw-alias-bg-secondary);
+  color: var(--dsw-alias-label-primary);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  cursor: pointer;
+  white-space: nowrap;
+  /* Крупная тач-цель на узких экранах сохраняется высотой 34px+ и padding. */
+}
+
+.chip:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  min-width: 260px;
+  max-width: 320px;
+  padding: 6px;
+  border-radius: 12px;
+  background: var(--dsw-alias-bg-primary);
+  box-shadow: 0 8px 32px rgb(0 0 0 / 18%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  text-align: left;
+  cursor: pointer;
+  min-height: 38px;
+}
+
+.item:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.item.selected {
+  background: var(--dsw-alias-bg-secondary);
+}
+
+.item:disabled {
+  cursor: default;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.item:disabled:hover {
+  background: transparent;
+}
+
+.dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dsw-alias-label-secondary);
+}
+
+.dot.online {
+  background: var(--dsw-alias-label-success, #2e8b57);
+}
+
+.hint {
+  padding: 8px 10px 6px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+}
